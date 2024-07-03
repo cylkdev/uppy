@@ -1,49 +1,94 @@
 defmodule Uppy.Adapter.Uploader do
   @type t_res :: {:ok, term()} | {:error, term()}
 
-  @type provider :: Uppy.Core.t()
-  @type queryable :: Ecto.Query.t()
-  @type key :: String.t()
+  @type core :: Uppy.Core.t()
+  @type queryable :: module()
+  @type object :: String.t()
   @type params :: map()
   @type options :: Keyword.t()
 
-  @type phases :: list()
+  @type upload_id :: Uppy.upload_id()
+  @type maybe_marker :: Uppy.maybe_marker()
+  @type part_number :: Uppy.part_number()
+  @type part :: Uppy.part()
+  @type parts :: Uppy.parts()
 
-  @callback provider :: provider()
+  @type pipeline :: list()
 
-  @callback queryable :: queryable()
+  @doc """
+  ...
+  """
+  @callback core :: core()
 
-  @callback pipeline :: phases()
+  @doc """
+  ...
+  """
+  @callback core(term()) :: term()
 
-  @callback move_upload_to_permanent_storage(
+  @doc """
+  ...
+  """
+  @callback pipeline :: pipeline()
+
+  @doc """
+  ...
+  """
+  @callback presigned_part(
               params :: params(),
-              options :: options()
+              part_number :: part_number()
             ) :: t_res()
 
-  @callback complete_upload(
+  @doc """
+  ...
+  """
+  @callback find_parts(
               params :: params(),
-              options :: options()
+              maybe_next_part_number_marker :: maybe_marker()
             ) :: t_res()
 
-  @callback delete_aborted_upload_object(
-              key :: key(),
-              options :: options()
-            ) :: t_res()
-
-  @callback abort_upload(
+  @doc """
+  ...
+  """
+  @callback complete_multipart_upload(
               params :: params(),
-              options :: options()
+              parts :: parts()
             ) :: t_res()
 
+  @doc """
+  ...
+  """
+  @callback abort_multipart_upload(params :: params()) :: t_res()
+
+  @doc """
+  ...
+  """
   @callback start_multipart_upload(
               upload_params :: params(),
-              create_params :: params(),
-              options :: options()
+              create_params :: params()
             ) :: t_res()
 
-  @callback start_upload(
-              upload_params :: params(),
-              create_params :: params(),
-              options :: options()
-            ) :: t_res()
+  @doc """
+  ...
+  """
+  @callback move_temporary_to_permanent_upload(params :: params()) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback complete_upload(params :: params()) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback garbage_collect_object(object :: object()) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback abort_upload(params :: params()) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback start_upload(upload_params :: params(), create_params :: params()) :: t_res()
 end

@@ -18,9 +18,6 @@ defmodule Uppy.Support.StorageSandbox do
           | :put_object_copy
           | :put_object
           | :delete_object
-          | :presigned_upload
-          | :presigned_download
-          | :presigned_part_upload
   @type bucket :: String.t()
   @type prefix :: String.t()
   @type object :: String.t()
@@ -112,92 +109,6 @@ defmodule Uppy.Support.StorageSandbox do
         This function's signature is not supported.
         #{inspect(func)}
         Please provide a function that takes either zero, one, or two args.
-        fn -> ... end
-        fn (object) -> ... end
-        fn (object, options) -> ... end
-        """
-    end
-  end
-
-  @spec presigned_part_upload_response(bucket, object, upload_id, part_number, options) :: any
-  def presigned_part_upload_response(bucket, object, upload_id, part_number, options) do
-    func = find!(:presigned_part_upload, bucket)
-
-    case :erlang.fun_info(func)[:arity] do
-      0 ->
-        func.()
-
-      1 ->
-        func.(object)
-
-      2 ->
-        func.(object, upload_id)
-
-      3 ->
-        func.(object, upload_id, part_number)
-
-      4 ->
-        func.(object, upload_id, part_number, options)
-
-      _ ->
-        raise """
-        This function's signature is not supported.
-        #{inspect(func)}
-        Please provide a function that takes either zero, one, two or three args.
-        fn -> ... end
-        fn (object) -> ... end
-        fn (object, upload_id) -> ... end
-        fn (object, upload_id, part_number) -> ... end
-        fn (object, upload_id, part_number, options) -> ... end
-        """
-    end
-  end
-
-  @spec presigned_download_response(bucket, object, options) :: any
-  def presigned_download_response(bucket, object, options) do
-    func = find!(:presigned_download, bucket)
-
-    case :erlang.fun_info(func)[:arity] do
-      0 ->
-        func.()
-
-      1 ->
-        func.(object)
-
-      2 ->
-        func.(object, options)
-
-      _ ->
-        raise """
-        This function's signature is not supported.
-        #{inspect(func)}
-        Please provide a function that takes either zero, one, two or three args.
-        fn -> ... end
-        fn (object) -> ... end
-        fn (object, options) -> ... end
-        """
-    end
-  end
-
-  @spec presigned_upload_response(bucket, object, options) :: any
-  def presigned_upload_response(bucket, object, options) do
-    func = find!(:presigned_upload, bucket)
-
-    case :erlang.fun_info(func)[:arity] do
-      0 ->
-        func.()
-
-      1 ->
-        func.(object)
-
-      2 ->
-        func.(object, options)
-
-      _ ->
-        raise """
-        This function's signature is not supported.
-        #{inspect(func)}
-        Please provide a function that takes either zero, one, two or three args.
         fn -> ... end
         fn (object) -> ... end
         fn (object, options) -> ... end
@@ -531,45 +442,6 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_presigned_part_upload_responses([{String.t(), fun}]) :: :ok
-  def set_presigned_part_upload_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:presigned_part_upload, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
-  end
-
-  @spec set_presigned_download_responses([{String.t(), fun}]) :: :ok
-  def set_presigned_download_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:presigned_download, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
-  end
-
-  @spec set_presigned_upload_responses([{String.t(), fun}]) :: :ok
-  def set_presigned_upload_responses(tuples) do
-    tuples
-    |> Map.new(fn {bucket, func} -> {{:presigned_upload, bucket}, func} end)
-    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
-    |> then(fn
-      :ok -> :ok
-      {:error, :registry_not_started} -> raise_not_started!()
-    end)
-
-    Process.sleep(@sleep)
-  end
-
   @spec set_presigned_url_responses([{String.t(), fun}]) :: :ok
   def set_presigned_url_responses(tuples) do
     tuples
@@ -690,7 +562,7 @@ defmodule Uppy.Support.StorageSandbox do
   @doc """
   Sets current pid to use actual caches rather than sandboxed
 
-  import SharedAwsUtils.Support.StorageSandbox, only: [disable_s3_sandbox: 1]
+  import Uppy.Support.StorageSandbox, only: [disable_s3_sandbox: 1]
 
   setup :disable_s3_sandbox
   """
@@ -793,7 +665,7 @@ defmodule Uppy.Support.StorageSandbox do
 
   defp format_example(action, bucket) do
     """
-    alias SharedAwsUtils.Support.StorageSandbox
+    alias Uppy.Support.StorageSandbox
 
     setup do
       StorageSandbox.set_#{action}_responses([

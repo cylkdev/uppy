@@ -30,17 +30,16 @@ defmodule Uppy.Pipeline do
         {:error, message, [phase | done]}
 
       term ->
-        raise ArgumentError,
-              """
-              Expected one of:
+        raise """
+        Expected one of:
 
-              - `{:ok, result}`
-              - `{:error, message}`
+        {:ok, term()}
+        {:error, String.t()}
 
-              got:
+        got:
 
-              #{inspect(term, pretty: true)}
-              """
+        #{inspect(term, pretty: true)}
+        """
     end
   end
 

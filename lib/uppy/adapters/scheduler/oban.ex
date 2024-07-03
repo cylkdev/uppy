@@ -3,7 +3,7 @@ defmodule Uppy.Adapters.Scheduler.Oban do
 
   alias Uppy.Adapters.Scheduler.Oban.{
     GarbageCollectorWorker,
-    ExpiredUploadAborterWorker,
+    UploadAborterWorker,
     PostProcessorWorker
   }
 
@@ -19,8 +19,36 @@ defmodule Uppy.Adapters.Scheduler.Oban do
           date_time :: DateTime.t(),
           options :: Keyword.t()
         ) :: term
+  def enqueue(:abort_multipart_upload, params, %DateTime{} = date_time, options) do
+    UploadAborterWorker.schedule_abort_multipart_upload(
+      params,
+      date_time,
+      options
+    )
+  end
+
+  @spec enqueue(
+          :abort_multipart_upload,
+          params :: map(),
+          seconds :: non_neg_integer(),
+          options :: Keyword.t()
+        ) :: term
+  def enqueue(:abort_multipart_upload, params, seconds, options) do
+    UploadAborterWorker.schedule_abort_multipart_upload(
+      params,
+      seconds,
+      options
+    )
+  end
+
+  @spec enqueue(
+          :abort_upload,
+          params :: map(),
+          date_time :: DateTime.t(),
+          options :: Keyword.t()
+        ) :: term
   def enqueue(:abort_upload, params, %DateTime{} = date_time, options) do
-    ExpiredUploadAborterWorker.schedule_abort_upload(
+    UploadAborterWorker.schedule_abort_upload(
       params,
       date_time,
       options
@@ -35,7 +63,7 @@ defmodule Uppy.Adapters.Scheduler.Oban do
         ) :: term
   def enqueue(:abort_upload, params, seconds, options)
       when is_integer(seconds) do
-    ExpiredUploadAborterWorker.schedule_abort_upload(
+    UploadAborterWorker.schedule_abort_upload(
       params,
       seconds,
       options
@@ -43,13 +71,13 @@ defmodule Uppy.Adapters.Scheduler.Oban do
   end
 
   @spec enqueue(
-          :delete_aborted_upload_object,
+          :garbage_collect_object,
           params :: map(),
           date_time :: DateTime.t(),
           options :: Keyword.t()
         ) :: term
-  def enqueue(:delete_aborted_upload_object, params, %DateTime{} = date_time, options) do
-    GarbageCollectorWorker.schedule_delete_aborted_upload_object(
+  def enqueue(:garbage_collect_object, params, %DateTime{} = date_time, options) do
+    GarbageCollectorWorker.schedule_garbage_collect_object(
       params,
       date_time,
       options
@@ -57,14 +85,14 @@ defmodule Uppy.Adapters.Scheduler.Oban do
   end
 
   @spec enqueue(
-          :delete_aborted_upload_object,
+          :garbage_collect_object,
           params :: map(),
           seconds :: non_neg_integer(),
           options :: Keyword.t()
         ) :: term
-  def enqueue(:delete_aborted_upload_object, params, seconds, options)
+  def enqueue(:garbage_collect_object, params, seconds, options)
       when is_integer(seconds) do
-    GarbageCollectorWorker.schedule_delete_aborted_upload_object(
+    GarbageCollectorWorker.schedule_garbage_collect_object(
       params,
       seconds,
       options
@@ -72,13 +100,13 @@ defmodule Uppy.Adapters.Scheduler.Oban do
   end
 
   @spec enqueue(
-          :move_upload_to_permanent_storage,
+          :move_temporary_to_permanent_upload,
           params :: map(),
           nil,
           options :: Keyword.t()
         ) :: term
-  def enqueue(:move_upload_to_permanent_storage, params, nil, options) do
-    PostProcessorWorker.queue_move_upload_to_permanent_storage(
+  def enqueue(:move_temporary_to_permanent_upload, params, nil, options) do
+    PostProcessorWorker.queue_move_temporary_to_permanent_upload(
       params,
       options
     )

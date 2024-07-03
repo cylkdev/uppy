@@ -9,11 +9,11 @@ defmodule Uppy.Adapters.ObjectKey.PermanentObject do
 
   @config Application.compile_env(Uppy.Config.app(), __MODULE__, [])
 
-  @prefix (@config[:prefix] || "")
+  @prefix @config[:prefix] || ""
 
   unless is_binary(@prefix) do
     raise ArgumentError,
-      "option `:prefix` in module #{__MODULE__} must be a string, got: #{inspect(@prefix)}"
+          "option `:prefix` in module #{__MODULE__} must be a string, got: #{inspect(@prefix)}"
   end
 
   @path_definition [
@@ -27,7 +27,7 @@ defmodule Uppy.Adapters.ObjectKey.PermanentObject do
       required: true,
       doc: "Resource name"
     ],
-    resource_name: [
+    resource: [
       type: :string,
       required: true,
       doc: "Resource name"
@@ -40,7 +40,7 @@ defmodule Uppy.Adapters.ObjectKey.PermanentObject do
       required: true,
       doc: "ID"
     ],
-    resource_name: [
+    resource: [
       type: :string,
       doc: "Resource name"
     ],
@@ -58,8 +58,8 @@ defmodule Uppy.Adapters.ObjectKey.PermanentObject do
     |> path_starts_with_prefix?()
   end
 
-  defp path_starts_with_prefix?(%{key: key, id: id, resource_name: resource_name}) do
-    String.starts_with?(key, object_key(id, resource_name))
+  defp path_starts_with_prefix?(%{key: key, id: id, resource: resource}) do
+    String.starts_with?(key, object_key(id, resource))
   end
 
   @impl Adapter.ObjectKey
@@ -70,24 +70,24 @@ defmodule Uppy.Adapters.ObjectKey.PermanentObject do
     |> transform()
   end
 
-  defp transform(%{id: id, resource_name: resource_name, basename: basename}) do
-    object_key(id, resource_name, basename)
+  defp transform(%{id: id, resource: resource, basename: basename}) do
+    object_key(id, resource, basename)
   end
 
-  defp transform(%{id: id, resource_name: resource_name}) do
-    object_key(id, resource_name)
+  defp transform(%{id: id, resource: resource}) do
+    object_key(id, resource)
   end
 
   defp transform(%{id: id}) do
     object_key(id)
   end
 
-  def object_key(id, resource_name, basename) do
-    "#{object_key(id, resource_name)}/#{URI.encode_www_form(basename)}"
+  def object_key(id, resource, basename) do
+    "#{object_key(id, resource)}/#{URI.encode_www_form(basename)}"
   end
 
-  def object_key(id, resource_name) do
-    "#{object_key(id)}-#{URI.encode_www_form(resource_name)}"
+  def object_key(id, resource) do
+    "#{object_key(id)}-#{URI.encode_www_form(resource)}"
   end
 
   def object_key(id) do

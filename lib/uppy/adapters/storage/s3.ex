@@ -7,7 +7,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @behaviour Uppy.Adapter.Storage
 
-    @is_prod Mix.env() === :prod
+    @config Application.compile_env(Uppy.Config.app(), __MODULE__, [])
 
     @impl true
     @doc """
@@ -46,46 +46,27 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.presigned_part_upload/5`.
-    """
-    def presigned_part_upload(bucket, object, upload_id, part_number, options \\ []) do
-      query_params = %{
-        "uploadId" => upload_id,
-        "partNumber" => part_number
-      }
-
-      options = Keyword.update(options, :query_params, query_params, &Map.merge(&1, query_params))
-
-      presigned_upload(bucket, object, options)
-    end
-
-    @impl true
-    @doc """
-    Implementation for `c:Uppy.Adapter.Storage.presigned_download/3`.
-    """
-    def presigned_download(bucket, object, options \\ []) do
-      presigned_url(bucket, :get, object, options)
-    end
-
-    @impl true
-    @doc """
-    Implementation for `c:Uppy.Adapter.Storage.presigned_upload/3`.
-    """
-    def presigned_upload(bucket, object, options \\ []) do
-      options = Keyword.put_new(options, :s3_accelerate, @is_prod)
-
-      presigned_url(bucket, :put, object, options)
-    end
-
-    @impl true
-    @doc """
     Implementation for `c:Uppy.Adapter.Storage.presigned_url/4`.
     """
-    def presigned_url(bucket, method, object, options \\ []) do
+    def presigned_url(bucket, http_method, object, options \\ []) do
+      options = s3_accelerate(http_method, options)
+
       :s3
       |> ExAws.Config.new(options)
-      |> ExAws.S3.presigned_url(method, bucket, object, options)
+      |> ExAws.S3.presigned_url(http_method, bucket, object, options)
       |> handle_response()
+    end
+
+    defp s3_accelerate(http_method, options) do
+      if http_method in [:post, :put] do
+        s3_accelerate =
+          options[:s3_accelerate] === true or
+            @config[:s3_accelerate] === true
+
+        Keyword.put_new(options, :s3_accelerate, s3_accelerate)
+      else
+        options
+      end
     end
 
     @impl true

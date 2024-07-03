@@ -5,27 +5,27 @@ defmodule Uppy.Core.Definition do
       required: true,
       doc: "Bucket name"
     ],
-    storage_adapter: [
+    storage: [
       type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
       required: true,
       doc: "Storage module"
     ],
-    scheduler_adapter: [
+    scheduler: [
       type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
       required: true,
       doc: "Uppy worker module"
     ],
-    resource_name: [
+    resource: [
       type: :string,
       required: true,
       doc: "Resource name"
     ],
-    permanent_object_key_adapter: [
+    permanent_object_key: [
       type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
       required: true,
       doc: "Object key module for permanent uploads"
     ],
-    temporary_object_key_adapter: [
+    temporary_object_key: [
       type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
       required: true,
       doc: "Object key module for temporary uploads"
@@ -40,6 +40,11 @@ defmodule Uppy.Core.Definition do
       required: true,
       doc: "Association ID source name"
     ],
+    queryable: [
+      type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
+      required: true,
+      doc: "Upload schema module."
+    ],
     queryable_primary_key_source: [
       required: true,
       type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
@@ -50,7 +55,7 @@ defmodule Uppy.Core.Definition do
       required: true,
       doc: "Owner Ecto.Schema Module"
     ],
-    queryable_owner_association_source: [
+    owner_association_source: [
       type: {:custom, __MODULE__, :validate_type, [:non_nil_atom]},
       required: true,
       doc: "Owner Schema ID source name"

@@ -2,10 +2,10 @@ defmodule Uppy.Core do
   @moduledoc false
 
   alias Uppy.{
+    Actions,
     Config,
     Core,
     Core.Definition,
-    Actions,
     Error,
     ObjectKey,
     Pipeline,
@@ -28,81 +28,71 @@ defmodule Uppy.Core do
   @type key :: String.t()
   @type url :: String.t()
 
-  @type presigned_upload :: %{
-          optional(atom()) => key(),
-          url: url(),
-          expires_at: date_time()
-        }
-
-  @type start_upload_payload :: %{
-          unique_identifier: unique_identifier(),
-          filename: filename(),
-          basename: basename(),
-          key: key(),
-          presigned_upload: presigned_upload(),
-          schema_data: schema_data()
-        }
-
-  @enforce_keys [
+  defstruct [
     :bucket,
-    :resource_name,
-    :scheduler_adapter,
-    :storage_adapter,
-    :permanent_object_key_adapter,
-    :temporary_object_key_adapter,
-    :queryable_owner_association_source,
+    :resource,
+    :scheduler,
+    :storage,
+    :queryable,
     :queryable_primary_key_source,
     :parent_association_source,
     :parent_schema,
-    :owner_primary_key_source,
     :owner_schema,
-    :owner_partition_source
+    :owner_association_source,
+    :owner_primary_key_source,
+    :owner_partition_source,
+    :permanent_object_key,
+    :temporary_object_key
   ]
-
-  defstruct @enforce_keys
 
   @type t :: %__MODULE__{
           bucket: String.t() | nil,
-          resource_name: String.t() | nil,
-          scheduler_adapter: module() | nil,
-          storage_adapter: module() | nil,
-          permanent_object_key_adapter: module() | nil,
-          temporary_object_key_adapter: module() | nil,
-          parent_association_source: atom() | nil,
-          queryable_owner_association_source: atom() | nil,
+          resource: String.t() | nil,
+          scheduler: module() | nil,
+          storage: module() | nil,
+          queryable: module() | nil,
           queryable_primary_key_source: atom() | nil,
-          owner_primary_key_source: atom() | nil,
+          parent_schema: module() | nil,
+          parent_association_source: atom() | nil,
           owner_schema: module() | nil,
-          owner_partition_source: atom() | nil
+          owner_association_source: atom() | nil,
+          owner_primary_key_source: atom() | nil,
+          owner_partition_source: atom() | nil,
+          permanent_object_key: module() | nil,
+          temporary_object_key: module() | nil
         }
 
   @default_attrs [
-    scheduler_adapter: Uppy.Adapters.Scheduler.Oban,
-    storage_adapter: Uppy.Adapters.Storage.S3,
-    permanent_object_key_adapter: Uppy.Adapters.ObjectKey.PermanentObject,
-    temporary_object_key_adapter: Uppy.Adapters.ObjectKey.TemporaryObject,
+    scheduler: Uppy.Adapters.Scheduler.Oban,
+    storage: Uppy.Adapters.Storage.S3,
+    permanent_object_key: Uppy.Adapters.ObjectKey.PermanentObject,
+    temporary_object_key: Uppy.Adapters.ObjectKey.TemporaryObject,
     queryable_primary_key_source: :id,
-    queryable_owner_association_source: :user_id,
+    owner_association_source: :user_id,
     parent_association_source: :assoc_id,
     owner_primary_key_source: :id,
     owner_partition_source: :id
   ]
 
-  @default_owner_partition "shared"
   @default_hash_length 20
 
+  @default_owner_partition "shared"
+
+  def create(attrs \\ []), do: struct!(Core, attrs)
+
   @doc false
-  @spec validate(attrs :: map() | Keyword.t()) :: {:ok, t()} | {:error, NimbleOptions.ValidationError.t()}
+  @spec validate(attrs :: map() | Keyword.t()) ::
+          {:ok, t()} | {:error, NimbleOptions.ValidationError.t()}
   def validate(attrs) when is_map(attrs) do
     attrs |> Map.to_list() |> validate()
   end
 
   def validate(attrs) do
     with {:ok, attrs} <-
-      @default_attrs
-      |> Keyword.merge(attrs)
-      |> Definition.validate() do
-      {:ok, struct!(Core, attrs)}
+           @default_attrs
+           |> Keyword.merge(attrs)
+           |> Definition.validate() do
+      {:ok, create(attrs)}
     end
   end
 
@@ -123,15 +113,15 @@ defmodule Uppy.Core do
 
   def presigned_part(
         %Core{
-          storage_adapter: storage_adapter,
-          bucket: bucket
+          storage: storage,
+          bucket: bucket,
+          queryable: schema
         } = core,
-        schema,
         params,
         part_number,
         options \\ []
       ) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options),
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -144,7 +134,7 @@ defmodule Uppy.Core do
            ),
          {:ok, presigned_part} <-
            Storage.presigned_part_upload(
-             storage_adapter,
+             storage,
              bucket,
              fetch_non_nil!(schema_data, :key),
              fetch_non_nil!(schema_data, :upload_id),
@@ -161,15 +151,15 @@ defmodule Uppy.Core do
 
   def find_parts(
         %Core{
-          storage_adapter: storage_adapter,
-          bucket: bucket
+          storage: storage,
+          bucket: bucket,
+          queryable: schema
         } = core,
-        schema,
         params,
         next_part_number_marker \\ nil,
         options \\ []
       ) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options),
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -182,7 +172,7 @@ defmodule Uppy.Core do
            ),
          {:ok, parts} <-
            Storage.list_parts(
-             storage_adapter,
+             storage,
              bucket,
              fetch_non_nil!(schema_data, :key),
              fetch_non_nil!(schema_data, :upload_id),
@@ -199,15 +189,15 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
         %Core{
-          storage_adapter: storage_adapter,
-          bucket: bucket
+          storage: storage,
+          bucket: bucket,
+          queryable: schema
         } = core,
-        schema,
         params,
         parts,
         options
       ) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options),
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -220,7 +210,7 @@ defmodule Uppy.Core do
            ),
          {:ok, metadata} <-
            Storage.complete_multipart_upload(
-             storage_adapter,
+             storage,
              bucket,
              fetch_non_nil!(schema_data, :key),
              fetch_non_nil!(schema_data, :upload_id),
@@ -241,14 +231,14 @@ defmodule Uppy.Core do
 
   def abort_multipart_upload(
         %Core{
-          storage_adapter: storage_adapter,
-          bucket: bucket
+          storage: storage,
+          bucket: bucket,
+          queryable: schema
         } = core,
-        schema,
         params,
         options
       ) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options),
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -259,9 +249,9 @@ defmodule Uppy.Core do
              },
              options
            ),
-         {:ok, maybe_abort_multipart_upload_payload} <-
+         {:ok, maybe_abort_multipart_upload} <-
            maybe_abort_multipart_upload(
-             storage_adapter,
+             storage,
              bucket,
              fetch_non_nil!(schema_data, :key),
              fetch_non_nil!(schema_data, :upload_id),
@@ -269,20 +259,20 @@ defmodule Uppy.Core do
            ),
          {:ok, schema_data} <- actions_delete(schema_data, options) do
       {:ok,
-       Map.merge(maybe_abort_multipart_upload_payload, %{
+       Map.merge(maybe_abort_multipart_upload, %{
          schema_data: schema_data
        })}
     end
   end
 
   defp maybe_abort_multipart_upload(
-         storage_adapter,
+         storage,
          bucket,
          key,
          upload_id,
          options
        ) do
-    case Storage.abort_multipart_upload(storage_adapter, bucket, key, upload_id, options) do
+    case Storage.abort_multipart_upload(storage, bucket, key, upload_id, options) do
       {:ok, metadata} -> {:ok, %{metadata: metadata}}
       {:error, %{code: :not_found}} -> {:ok, %{}}
       error -> error
@@ -292,45 +282,48 @@ defmodule Uppy.Core do
   def start_multipart_upload(
         %Core{
           bucket: bucket,
-          storage_adapter: storage_adapter,
-          temporary_object_key_adapter: temporary_object_key_adapter,
+          storage: storage,
+          temporary_object_key: temporary_object_key,
           parent_association_source: parent_association_source,
-          queryable_owner_association_source: queryable_owner_association_source
+          owner_association_source: owner_association_source,
+          queryable: schema
         },
-        schema,
         upload_params,
-        create_params \\ %{},
+        params,
         options \\ []
       ) do
     assoc_id = upload_params[:assoc_id]
     owner_id = upload_params.owner_id
 
+    filename = Map.fetch!(params, :filename)
+
     object_config =
       temporary_object_config(
-        temporary_object_key_adapter,
+        temporary_object_key,
         owner_id,
-        Map.fetch!(create_params, :filename),
+        filename,
         options
       )
 
     params =
-      create_params
+      params
       |> Map.merge(%{
         key: object_config.key,
         unique_identifier: object_config.unique_identifier,
-        filename: object_config.filename
+        filename: filename
       })
-      |> Map.put(queryable_owner_association_source, owner_id)
+      |> Map.put(owner_association_source, owner_id)
       |> Map.put(parent_association_source, assoc_id)
 
-    with {:ok, multipart_upload} <-
+    with :ok <- maybe_validate_filename(filename, options),
+         {:ok, multipart_upload} <-
            Storage.initiate_multipart_upload(
-             storage_adapter,
+             storage,
              bucket,
              object_config.key,
              options
            ),
-         params <- Map.put(params, :upload_id, multipart_upload),
+         params <- Map.put(params, :upload_id, multipart_upload.upload_id),
          {:ok, schema_data} <- actions_create(schema, params, options) do
       {:ok,
        Map.merge(object_config, %{
@@ -340,20 +333,19 @@ defmodule Uppy.Core do
     end
   end
 
-  def move_upload_to_permanent_storage(
+  def move_temporary_to_permanent_upload(
         %Core{} = core,
-        schema,
         params,
         pipeline,
         options \\ []
       ) do
     with {:ok, schema_data} <-
-           find_completed_pending_upload(core, schema, params, options),
+           find_completed_upload(core, params, options),
          {:ok, owner} <-
            find_schema_data_owner(core, schema_data, options),
          object_config <-
            permanent_object_config(core, schema_data, owner),
-         {:ok, pipeline_payload} <-
+         {:ok, pipeline} <-
            run_pipeline(
              pipeline,
              object_config.destination_object,
@@ -364,7 +356,7 @@ defmodule Uppy.Core do
            ) do
       {:ok,
        Map.merge(object_config, %{
-         pipeline: pipeline_payload,
+         pipeline: pipeline,
          schema_data: schema_data,
          owner: owner
        })}
@@ -373,8 +365,8 @@ defmodule Uppy.Core do
 
   defp permanent_object_config(
          %Core{
-           resource_name: resource_name,
-           permanent_object_key_adapter: permanent_object_key_adapter,
+           resource: resource,
+           permanent_object_key: permanent_object_key,
            owner_partition_source: owner_partition_source
          },
          schema_data,
@@ -388,13 +380,14 @@ defmodule Uppy.Core do
 
     destination_object =
       ObjectKey.build(
-        permanent_object_key_adapter,
-        resource_name: resource_name,
+        permanent_object_key,
+        resource: resource,
         basename: basename,
         id: owner_partition(owner, owner_partition_source)
       )
 
     %{
+      basename: basename,
       source_object: source_object,
       destination_object: destination_object
     }
@@ -417,21 +410,21 @@ defmodule Uppy.Core do
       options: options
     }
 
-    with {:ok, output, done} <- Pipeline.run(input, pipeline) do
-      {:ok, %{output: output, phases: done}}
+    with {:ok, result, done} <- Pipeline.run(input, pipeline) do
+      {:ok, %{result: result, phases: done}}
     end
   end
 
   def complete_upload(
         %Core{
           bucket: bucket,
-          storage_adapter: storage_adapter
+          storage: storage,
+          queryable: schema
         } = core,
-        schema,
         params,
         options
       ) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options),
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options),
          {:ok, schema_data} <-
            check_if_non_multipart_upload(
              schema_data,
@@ -444,7 +437,7 @@ defmodule Uppy.Core do
            ),
          key <- fetch_non_nil!(schema_data, :key),
          {:ok, metadata} <-
-           Storage.head_object(storage_adapter, bucket, key, options),
+           Storage.head_object(storage, bucket, key, options),
          e_tag <- fetch_non_nil!(metadata, :e_tag),
          {:ok, schema_data} <-
            actions_update(schema, schema_data, %{e_tag: e_tag}, options) do
@@ -456,27 +449,49 @@ defmodule Uppy.Core do
     end
   end
 
-  def delete_aborted_upload_object(
+  def garbage_collect_object(
         %Core{
           bucket: bucket,
-          storage_adapter: storage_adapter
+          storage: storage,
+          queryable: schema
         },
-        schema,
         key,
         options \\ []
       ) do
     with :ok <- ensure_not_found(schema, %{key: key}, options),
-         {:ok, metadata} <- Storage.head_object(storage_adapter, bucket, key, options),
-         {:ok, _} <- Storage.delete_object(storage_adapter, bucket, key, options) do
-      {:ok, metadata}
+         {:ok, _} <- Storage.head_object(storage, bucket, key, options),
+         {:ok, _} <- Storage.delete_object(storage, bucket, key, options) do
+      :ok
+    else
+      {:error, %{code: :not_found}} -> :ok
+      error -> error
+    end
+  end
+
+  defp ensure_not_found(schema, params, options) do
+    case actions_find(schema, params, options) do
+      {:ok, schema_data} ->
+        details = %{
+          schema: schema,
+          params: params,
+          schema_data: schema_data
+        }
+
+        {:error, Error.call(:forbidden, "record found", details, options)}
+
+      {:error, %{code: :not_found}} ->
+        :ok
+
+      error ->
+        error
     end
   end
 
   @doc """
   ...
   """
-  def abort_upload(%Core{} = core, schema, params, options \\ []) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options),
+  def abort_upload(%Core{queryable: schema} = core, params, options \\ []) do
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options),
          {:ok, schema_data} <-
            check_if_non_multipart_upload(
              schema_data,
@@ -492,25 +507,46 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_completed_pending_upload(
-        %Core{} = core,
-        schema,
+  def find_permanent_upload(
+        %Core{
+          resource: resource,
+          queryable: schema,
+          permanent_object_key: permanent_object_key,
+          owner_partition_source: owner_partition_source
+        } = core,
         params,
         options
       ) do
-    with {:ok, schema_data} <- find_pending_upload(core, schema, params, options) do
+    with {:ok, schema_data} <- actions_find(schema, params, options),
+         key <- fetch_non_nil!(schema_data, :key),
+         {:ok, owner} <- find_schema_data_owner(core, schema_data, options) do
+      if ObjectKey.path?(
+           permanent_object_key,
+           id: owner_partition(owner, owner_partition_source),
+           resource: resource,
+           key: key
+         ) do
+        {:ok, %{schema_data: schema_data, owner: owner}}
+      else
+        details = %{query: schema, params: params}
+
+        {:error, Error.call(:forbidden, "permanent upload not found", details, options)}
+      end
+    end
+  end
+
+  def find_completed_upload(
+        %Core{queryable: schema} = core,
+        params,
+        options
+      ) do
+    with {:ok, schema_data} <- find_temporary_upload(core, params, options) do
       if is_binary(schema_data.e_tag) do
         {:ok, schema_data}
       else
-        {:error,
-         Error.call(
-           :forbidden,
-           "upload incomplete",
-           %{
-             schema: schema,
-             params: params
-           }
-         )}
+        details = %{query: schema, params: params}
+
+        {:error, Error.call(:forbidden, "upload incomplete", details, options)}
       end
     end
   end
@@ -518,86 +554,71 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def find_pending_upload(
+  def find_temporary_upload(
         %Core{
-          temporary_object_key_adapter: temporary_object_key_adapter
+          queryable: schema,
+          temporary_object_key: temporary_object_key
         },
-        schema,
         params,
         options
       ) do
     with {:ok, schema_data} <- actions_find(schema, params, options) do
-      check_upload_in_progress(
-        temporary_object_key_adapter,
-        schema_data,
-        %{
-          schema: schema,
-          schema_data: schema_data,
-          params: params
-        },
-        options
-      )
+      key = fetch_non_nil!(schema_data, :key)
+
+      if ObjectKey.path?(temporary_object_key, key: key) do
+        {:ok, schema_data}
+      else
+        details = %{query: schema, params: params}
+
+        {:error, Error.call(:not_found, "temporary upload not found", details, options)}
+      end
     end
   end
 
-  @doc """
-  Creates a presigned upload and database record.
-
-  Note: All none web safe characters will be removed from the `filename`.
-
-  This operation is executed as follows:
-
-      - A presigned upload payload is created. This payload contains the fields `url` and `expires_at`.
-        The `url` can be used by a client to make a HTTP request and upload their data to storage.
-        The `expires_at` is the timestamp for when the presigned url is expired and can no longer
-        be used.
-
-      - Creates a database record with the `create_params` and adds `key`, `unique_identifier`, and
-        `filename` to the parameters. The presigned url in the upload uses the returned values for `key`,
-        `unique_identifier`, and `filename` which restricts the `destination` to the specified `key`.
-
-  ### Examples
-
-      > Uppy.Core.start_upload(Uppy.Core.create_struct(), %{assoc_id: 1, owner_id: 1}, %{filename: "image.jpeg"})
-
-      > Uppy.Core.start_upload(Uppy.Core.create_struct(), %{owner_id: 1}, %{filename: "image.jpeg"})
-  """
   def start_upload(
         %Core{
           bucket: bucket,
-          storage_adapter: storage_adapter,
-          temporary_object_key_adapter: temporary_object_key_adapter,
-          parent_association_source: parent_association_source,
-          queryable_owner_association_source: queryable_owner_association_source
+          storage: storage,
+          queryable: schema,
+          owner_association_source: owner_association_source,
+          temporary_object_key: temporary_object_key,
+          parent_association_source: parent_association_source
         },
-        schema,
         upload_params,
-        create_params \\ %{},
+        params,
         options \\ []
       ) do
     assoc_id = upload_params[:assoc_id]
     owner_id = upload_params.owner_id
 
+    filename = Map.fetch!(params, :filename)
+
     object_config =
       temporary_object_config(
-        temporary_object_key_adapter,
+        temporary_object_key,
         owner_id,
-        Map.fetch!(create_params, :filename),
+        filename,
         options
       )
 
     params =
-      create_params
+      params
       |> Map.merge(%{
         key: object_config.key,
         unique_identifier: object_config.unique_identifier,
-        filename: object_config.filename
+        filename: filename
       })
-      |> Map.put(queryable_owner_association_source, owner_id)
+      |> Map.put(owner_association_source, owner_id)
       |> Map.put(parent_association_source, assoc_id)
 
-    with {:ok, presigned_upload} <-
-           Storage.presigned_upload(storage_adapter, bucket, object_config.key, options),
+    with :ok <- maybe_validate_filename(filename, options),
+         {:ok, presigned_upload} <-
+           Storage.presigned_upload(
+             storage,
+             bucket,
+             object_config.key,
+             options
+           ),
          {:ok, schema_data} <- actions_create(schema, params, options) do
       {:ok,
        Map.merge(object_config, %{
@@ -607,21 +628,20 @@ defmodule Uppy.Core do
     end
   end
 
-  defp temporary_object_config(temporary_object_key_adapter, owner_id, filename, options) do
+  defp temporary_object_config(temporary_object_key, owner_id, filename, options) do
     unique_identifier = generate_unique_identifier(options)
-    filename = Utils.filter_web_safe_code_points(filename)
     basename = basename(unique_identifier, filename)
 
     key =
       ObjectKey.build(
-        temporary_object_key_adapter,
+        temporary_object_key,
         id: "#{owner_id}",
         basename: basename
       )
 
     %{
+      basename: basename,
       unique_identifier: unique_identifier,
-      filename: filename,
       key: key
     }
   end
@@ -629,21 +649,23 @@ defmodule Uppy.Core do
   defp find_schema_data_owner(
          %Core{
            owner_schema: owner_schema,
-           queryable_owner_association_source: queryable_owner_association_source
+           owner_association_source: owner_association_source
          },
          schema_data,
          options
        ) do
-    owner_id = Map.fetch!(schema_data, queryable_owner_association_source)
+    owner_id = Map.fetch!(schema_data, owner_association_source)
 
-    actions_find(owner_schema, %{queryable_owner_association_source => owner_id}, options)
+    actions_find(owner_schema, %{owner_association_source => owner_id}, options)
   end
 
   defp owner_partition(owner, partition_source) do
-    case partition_source do
-      nil -> @default_owner_partition
-      false -> @default_owner_partition
-      key -> "#{fetch_non_nil!(owner, key)}"
+    if is_nil(partition_source) or partition_source === false do
+      @default_owner_partition
+    else
+      owner
+      |> fetch_non_nil!(partition_source)
+      |> to_string()
     end
   end
 
@@ -655,16 +677,6 @@ defmodule Uppy.Core do
 
   defp basename(unique_identifier, path) do
     "#{unique_identifier}-#{path}"
-  end
-
-  defp check_upload_in_progress(temporary_object_key_adapter, schema_data, details, options) do
-    key = fetch_non_nil!(schema_data, :key)
-
-    if ObjectKey.path?(temporary_object_key_adapter, key: key) do
-      {:ok, schema_data}
-    else
-      {:error, Error.call(:forbidden, "upload not in progress", details, options)}
-    end
   end
 
   defp check_if_multipart_upload(schema_data, details, options) do
@@ -686,24 +698,6 @@ defmodule Uppy.Core do
   defp has_upload_id?(%{upload_id: nil}), do: false
   defp has_upload_id?(%{upload_id: _upload_id}), do: true
 
-  defp ensure_not_found(schema, params, options) do
-    case actions_find(schema, params, options) do
-      {:ok, schema_data} ->
-        {:error,
-         Error.call(:forbidden, "record found", %{
-           schema: schema,
-           params: params,
-           schema_data: schema_data
-         })}
-
-      {:error, %{code: :not_found}} ->
-        :ok
-
-      error ->
-        error
-    end
-  end
-
   defp actions_create(schema, params, options) do
     Actions.create(Config.actions_adapter(), schema, params, options)
   end
@@ -720,10 +714,29 @@ defmodule Uppy.Core do
     Actions.delete(Config.actions_adapter(), schema_data, options)
   end
 
-  # This is used to fetch data from maps that may contain the keys that
-  # have nil values (ie. structs) as it provides an early check where
-  # the next function could fail due to a nil argument or create an
-  # invalid state.
+  defp maybe_validate_filename(filename, options) do
+    web_safe_filename_enabled? =
+      Keyword.get(
+        options,
+        :web_safe_filename_enabled,
+        Config.web_safe_filename_enabled()
+      )
+
+    regex = Utils.web_safe_filename_regex()
+
+    if web_safe_filename_enabled? and Regex.match?(regex, filename) do
+      :ok
+    else
+      details = %{filename: filename, regex: regex}
+
+      {:error,
+       Error.call(:forbidden, "filename can only contain web safe characters", details, options)}
+    end
+  end
+
+  # This is a convenience when fetching data from maps that may contain keys
+  # that have nil values (ie. structs). This exists to provide early warning
+  # when the next function could fail due to a nil argument.
   defp fetch_non_nil!(map, key) do
     case Map.get(map, key) do
       nil -> raise "value for `#{key}` cannot be nil, got:\n\n#{inspect(map, pretty: true)}"

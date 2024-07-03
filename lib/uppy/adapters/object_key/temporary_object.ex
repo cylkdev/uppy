@@ -8,11 +8,11 @@ defmodule Uppy.Adapters.ObjectKey.TemporaryObject do
 
   @config Application.compile_env(Uppy.Config.app(), __MODULE__, [])
 
-  @name (@config[:name] || "temp")
+  @name @config[:name] || "temp"
 
   unless is_binary(@name) do
     raise ArgumentError,
-      "option `:name` in module #{__MODULE__} must be a string, got: #{inspect(@name)}"
+          "option `:name` in module #{__MODULE__} must be a string, got: #{inspect(@name)}"
   end
 
   @path_definition [

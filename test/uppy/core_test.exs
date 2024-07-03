@@ -9,32 +9,34 @@ defmodule Uppy.CoreTest do
     Core
   }
 
-  @bucket "test_bucket"
-  @resource_name "test-resource-name"
-  @storage_adapter Uppy.Adapters.Storage.S3
-  @scheduler_adapter Uppy.Adapters.Scheduler.Oban
-  @temporary_object_key_adapter Uppy.Adapters.ObjectKey.TemporaryObject
-  @permanent_object_key_adapter Uppy.Adapters.ObjectKey.PermanentObject
+  @bucket "bucket"
+  @resource "resource"
+  @storage Uppy.Adapters.Storage.S3
+  @scheduler Uppy.Adapters.Scheduler.Oban
+  @queryable Uppy.Support.PG.Objects.UserAvatarObject
   @queryable_primary_key_source :id
-  @owner_schema PG.Accounts.User
-  @queryable_owner_association_source :user_id
-  @owner_primary_key_source :id
   @parent_schema Uppy.Support.PG.Accounts.UserAvatar
   @parent_association_source :user_avatar_id
+  @owner_schema PG.Accounts.User
+  @owner_association_source :user_id
+  @owner_primary_key_source :id
+  @temporary_object_key Uppy.Adapters.ObjectKey.TemporaryObject
+  @permanent_object_key Uppy.Adapters.ObjectKey.PermanentObject
 
-  @provider_options [
+  @core_params [
     bucket: @bucket,
-    resource_name: @resource_name,
-    storage_adapter: @storage_adapter,
-    scheduler_adapter: @scheduler_adapter,
-    temporary_object_key_adapter: @temporary_object_key_adapter,
-    permanent_object_key_adapter: @permanent_object_key_adapter,
+    resource: @resource,
+    storage: @storage,
+    scheduler: @scheduler,
+    queryable: @queryable,
     queryable_primary_key_source: @queryable_primary_key_source,
     owner_schema: @owner_schema,
-    queryable_owner_association_source: @queryable_owner_association_source,
+    owner_association_source: @owner_association_source,
     owner_primary_key_source: @owner_primary_key_source,
     parent_schema: @parent_schema,
-    parent_association_source: @parent_association_source
+    parent_association_source: @parent_association_source,
+    temporary_object_key: @temporary_object_key,
+    permanent_object_key: @permanent_object_key
   ]
 
   setup do
@@ -52,16 +54,15 @@ defmodule Uppy.CoreTest do
   end
 
   setup do
-    %{provider: Core.validate!(@provider_options)}
+    %{core: Core.validate!(@core_params)}
   end
 
   setup do
-    StorageSandbox.set_presigned_upload_responses([
+    StorageSandbox.set_presigned_url_responses([
       {@bucket,
-       fn object ->
+       fn _http_method, object ->
          {:ok,
           %{
-            key: object,
             url: "http://presigned.url/#{object}",
             expires_at: DateTime.add(DateTime.utc_now(), 60_000)
           }}
@@ -73,16 +74,16 @@ defmodule Uppy.CoreTest do
     test "returns struct with only required parameters" do
       assert %Uppy.Core{
                bucket: @bucket,
-               resource_name: @resource_name,
-               storage_adapter: Uppy.Adapters.Storage.S3,
-               scheduler_adapter: @scheduler_adapter,
-               temporary_object_key_adapter: Uppy.Adapters.ObjectKey.TemporaryObject,
-               permanent_object_key_adapter: Uppy.Adapters.ObjectKey.PermanentObject,
+               resource: @resource,
+               storage: Uppy.Adapters.Storage.S3,
+               scheduler: @scheduler,
+               temporary_object_key: Uppy.Adapters.ObjectKey.TemporaryObject,
+               permanent_object_key: Uppy.Adapters.ObjectKey.PermanentObject,
                queryable_primary_key_source: :id,
                parent_association_source: @parent_association_source,
-               queryable_owner_association_source: @queryable_owner_association_source,
+               owner_association_source: @owner_association_source,
                owner_schema: @owner_schema
-             } = Core.validate!(@provider_options)
+             } = Core.validate!(@core_params)
     end
   end
 
@@ -93,14 +94,12 @@ defmodule Uppy.CoreTest do
       assert {:ok,
               %{
                 unique_identifier: unique_identifier,
-                filename: filename,
                 key: key,
                 presigned_upload: presigned_upload,
                 schema_data: schema_data
               }} =
                Core.start_upload(
-                 context.provider,
-                 PG.Objects.UserAvatarObject,
+                 context.core,
                  %{
                    assoc_id: context.user_avatar.id,
                    owner_id: context.user.id
@@ -110,29 +109,23 @@ defmodule Uppy.CoreTest do
 
       # required parameters are not null
       assert unique_identifier
-      assert filename
       assert key
 
       # the key has the temporary path prefix and the temporary object key adapter
       # recognizes it as being in a temporary path.
-
       assert "temp/" <> _ = key
-      assert context.provider.temporary_object_key_adapter.path?(key: key)
+      assert context.core.temporary_object_key.path?(key: key)
 
-      # the presigned upload payload contains a valid key, url and expiration
-
+      # the presigned upload payload contains a valid url and expiration
       assert %{
-               key: presigned_upload_key,
                url: presigned_upload_url,
                expires_at: presigned_upload_expires_at
              } = presigned_upload
 
-      assert presigned_upload_key === key
       assert String.contains?(presigned_upload_url, key)
       assert DateTime.compare(presigned_upload_expires_at, DateTime.utc_now()) === :gt
 
       # the expected fields are set on the schema data
-
       assert %PG.Objects.UserAvatarObject{} = schema_data
       assert schema_data.unique_identifier === unique_identifier
       assert schema_data.key === key

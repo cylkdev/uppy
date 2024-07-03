@@ -9,7 +9,23 @@ defmodule Uppy.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() === :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        doctor: :test,
+        coverage: :test,
+        dialyzer: :test,
+        "coveralls.lcov": :test,
+        "coveralls.json": :test,
+        "coveralls.html": :test
+      ],
+      dialyzer: [
+        plt_add_apps: [:ex_unit, :mix],
+        list_unused_filters: true,
+        plt_local_path: ".check/local_plt",
+        plt_core_path: ".check/core_plt"
+      ]
     ]
   end
 
@@ -32,6 +48,12 @@ defmodule Uppy.MixProject do
       {:ecto_shorts, "~> 2.3", optional: true},
       {:error_message, "~> 0.3.0", optional: true},
       {:sandbox_registry, "~> 0.1", optional: true},
+      {:factory_ex, "~> 0.3.4", only: [:dev, :test], optional: true},
+      {:faker, "~> 0.18", only: [:dev, :test], optional: true},
+      {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
+      {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
       {:quantum, "~> 3.5", optional: true},
       {:oban, "~> 2.17", optional: true},
       {:ecto, "~> 3.11", optional: true},
@@ -40,9 +62,7 @@ defmodule Uppy.MixProject do
       {:ex_aws, "~> 2.1", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
       {:hackney, "~> 1.9", optional: true},
-      {:sweet_xml, "~> 0.6", optional: true},
-      {:factory_ex, "~> 0.3.4", only: [:dev, :test], optional: true},
-      {:faker, "~> 0.18", only: [:dev, :test], optional: true}
+      {:sweet_xml, "~> 0.6", optional: true}
     ]
   end
 

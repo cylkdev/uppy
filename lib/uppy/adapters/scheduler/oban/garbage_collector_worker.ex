@@ -1,56 +1,44 @@
 defmodule Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker do
   @moduledoc false
-
-  default_worker_opts = [
+  use Oban.Worker,
     queue: :garbage_collection,
     unique: [
       period: 300,
       states: [:available, :scheduled, :executing]
     ]
-  ]
 
-  compiled_worker_opts = Application.compile_env(Uppy.Config.app(), __MODULE__, [])
-
-  @worker_opts Keyword.merge(default_worker_opts, compiled_worker_opts)
-
-  use Oban.Worker, @worker_opts
-
-  alias Uppy.{
-    Config,
-    Uploader,
-    Utils
-  }
+  alias Uppy.{Uploader, Utils}
 
   @type params :: Uppy.params()
   @type max_age_in_seconds :: Uppy.max_age_in_seconds()
   @type options :: Uppy.options()
 
-  @type t_oban_insert_response :: {:ok, Oban.Job.t()} | {:error, Ecto.Changeset.t() | term()}
+  @type oban_insert_response :: {:ok, Oban.Job.t()} | {:error, Ecto.Changeset.t() | term()}
 
   @event_prefix "uppy.garbage_collector"
-  @event_delete_aborted_upload_object "#{@event_prefix}.delete_aborted_upload_object"
+  @event_garbage_collect_object "#{@event_prefix}.garbage_collect_object"
 
   def perform(%Oban.Job{
         args: %{
-          "event" => @event_delete_aborted_upload_object,
+          "event" => @event_garbage_collect_object,
           "uploader" => uploader,
           "key" => key
         }
       }) do
     uploader
     |> Utils.to_existing_module!()
-    |> Uploader.delete_aborted_upload_object(key)
+    |> Uploader.garbage_collect_object(key)
   end
 
-  def schedule_delete_aborted_upload_object(
+  def schedule_garbage_collect_object(
         %{uploader: uploader, key: key},
         date_time_or_seconds,
         options
       ) do
     Oban.insert(
-      oban_name(),
+      Uppy.Adapters.Scheduler.Oban.Config.name(),
       new(%{
-        event: @event_delete_aborted_upload_object,
+        event: @event_garbage_collect_object,
         uploader: Utils.module_to_string(uploader),
         key: key
       }),
@@ -65,6 +53,4 @@ defmodule Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker do
   defp schedule_opt(options, seconds) when is_integer(seconds) do
     Keyword.put(options, :schedule_in, seconds)
   end
-
-  defp oban_name, do: Keyword.get(Config.oban(), :name, Oban)
 end

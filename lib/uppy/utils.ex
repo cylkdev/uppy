@@ -1,11 +1,6 @@
 defmodule Uppy.Utils do
   @moduledoc false
 
-  @spec ensure_all_loaded?(list()) :: boolean()
-  def ensure_all_loaded?(modules) do
-    Enum.all?(modules, &Code.ensure_loaded?/1)
-  end
-
   @web_safe_filename_regex ~r|^[[:alnum:]\!\-\_\.\*\'\(\)]+$|u
 
   @doc """
@@ -17,23 +12,9 @@ defmodule Uppy.Utils do
   @spec web_safe_filename_regex :: Regex.t()
   def web_safe_filename_regex, do: @web_safe_filename_regex
 
-  @doc """
-  Removes non web-safe characters.
-
-  ### Examples
-
-      iex> Uppy.Core.URIHelper.filter_web_safe_code_points("test-~!@#$%^&*()_+=`.jpg")
-      "test-!*()_.jpg"
-  """
-  @spec filter_web_safe_code_points(String.t()) :: String.t()
-  def filter_web_safe_code_points(string) do
-    string
-    |> String.graphemes()
-    |> Enum.map_join("", fn code_point ->
-      if Regex.match?(@web_safe_filename_regex, code_point) do
-        code_point
-      end
-    end)
+  @spec ensure_all_loaded?(list()) :: boolean()
+  def ensure_all_loaded?(modules) do
+    Enum.all?(modules, &Code.ensure_loaded?/1)
   end
 
   @spec to_existing_module!(String.t()) :: atom()
@@ -48,17 +29,14 @@ defmodule Uppy.Utils do
   def generate_unique_identifier(size) do
     size
     |> :crypto.strong_rand_bytes()
-    |> Base.encode64(padding: false)
     |> url_safe_encode64()
-    |> filter_web_safe_code_points()
   end
 
   @spec url_safe_encode64(binary()) :: binary()
   def url_safe_encode64(plaintext) do
     plaintext
-    |> Base.encode64()
-    |> String.replace("+", "-")
-    |> String.replace("/", "_")
+    |> Base.encode64(padding: false)
+    |> String.replace(["+", "/"], "")
   end
 
   @doc """

@@ -6,12 +6,6 @@ defmodule Uppy.Config do
   def app, do: @app
 
   @doc false
-  @spec get_env(atom(), term()) :: term()
-  def get_env(key, default \\ nil) do
-    Application.get_env(@app, key) || default
-  end
-
-  @doc false
   @spec error_message_adapter :: module()
   def error_message_adapter do
     Application.get_env(@app, :error_message_adapter) || ErrorMessage
@@ -30,8 +24,8 @@ defmodule Uppy.Config do
   end
 
   @doc false
-  @spec oban :: list()
-  def oban do
-    Application.get_env(@app, Oban) || []
+  @spec web_safe_filename_enabled :: boolean()
+  def web_safe_filename_enabled do
+    Application.get_env(@app, :web_safe_filename_enabled) || true
   end
 end

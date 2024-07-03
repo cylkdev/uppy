@@ -5,22 +5,21 @@ defmodule Uppy.Adapter.Storage do
 
   @type t_res :: {:ok, term()} | {:error, term()}
 
-  @type adapter :: module()
-  @type bucket :: String.t()
-  @type prefix :: String.t()
-  @type object :: String.t()
-  @type body :: term()
-  @type e_tag :: String.t()
-  @type options :: options()
-  @type http_method ::
-          :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
+  @type adapter :: Uppy.adapter()
+  @type bucket :: Uppy.bucket()
+  @type prefix :: Uppy.prefix()
+  @type object :: Uppy.object()
+  @type body :: Uppy.body()
+  @type options :: Uppy.options()
 
-  @type part_number :: non_neg_integer()
-  @type upload_id :: String.t()
-  @type marker :: String.t()
-  @type maybe_marker :: marker() | nil
-  @type part :: {part_number(), e_tag()}
-  @type parts :: list(part())
+  @type http_method :: Uppy.http_method()
+
+  @type e_tag :: Uppy.e_tag()
+  @type upload_id :: Uppy.upload_id()
+  @type maybe_marker :: Uppy.maybe_marker()
+  @type part_number :: Uppy.part_number()
+  @type part :: Uppy.part()
+  @type parts :: Uppy.parts()
 
   @doc """
   ...
@@ -44,35 +43,6 @@ defmodule Uppy.Adapter.Storage do
   ...
   """
   @callback head_object(
-              bucket :: bucket(),
-              object :: object(),
-              options :: options()
-            ) :: t_res()
-
-  @doc """
-  ...
-  """
-  @callback presigned_part_upload(
-              bucket :: bucket(),
-              object :: object(),
-              upload_id :: upload_id(),
-              part_number :: part_number(),
-              options :: options()
-            ) :: t_res()
-
-  @doc """
-  ...
-  """
-  @callback presigned_download(
-              bucket :: bucket(),
-              object :: object(),
-              options :: options()
-            ) :: t_res()
-
-  @doc """
-  ...
-  """
-  @callback presigned_upload(
               bucket :: bucket(),
               object :: object(),
               options :: options()
