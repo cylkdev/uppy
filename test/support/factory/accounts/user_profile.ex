@@ -1,0 +1,20 @@
+defmodule Uppy.Support.Factory.Accounts.UserProfile do
+  @moduledoc false
+  @behaviour FactoryEx
+
+  @impl FactoryEx
+  def schema, do: Uppy.Support.PG.Accounts.UserProfile
+
+  @impl FactoryEx
+  def repo, do: Uppy.Support.Repo
+
+  @impl FactoryEx
+  def build(attrs \\ %{}) do
+    Map.merge(
+      %{
+        display_name: Faker.Internet.user_name()
+      },
+      attrs
+    )
+  end
+end
