@@ -1,11 +1,10 @@
 defmodule Uppy.Adapter.Uploader do
   @type t_res :: {:ok, term()} | {:error, term()}
 
-  @type core :: Uppy.Core.t()
   @type queryable :: module()
   @type object :: String.t()
   @type params :: map()
-  @type options :: Keyword.t()
+  @type options :: options()
 
   @type upload_id :: Uppy.upload_id()
   @type maybe_marker :: Uppy.maybe_marker()
@@ -15,27 +14,29 @@ defmodule Uppy.Adapter.Uploader do
 
   @type pipeline :: list()
 
-  @doc """
-  ...
-  """
-  @callback core :: core()
+  @callback queryable :: term()
 
-  @doc """
-  ...
-  """
-  @callback core(term()) :: term()
+  @callback resource_name :: term()
 
-  @doc """
-  ...
-  """
   @callback pipeline :: pipeline()
+
+  @callback storage_adapter :: term()
+
+  @callback permanent_scope_adapter :: term()
+
+  @callback temporary_scope_adapter :: term()
+
+  @callback scheduler_adapter :: term()
+
+  @callback bucket :: term()
 
   @doc """
   ...
   """
   @callback presigned_part(
               params :: params(),
-              part_number :: part_number()
+              part_number :: part_number(),
+              options :: options()
             ) :: t_res()
 
   @doc """
@@ -43,52 +44,106 @@ defmodule Uppy.Adapter.Uploader do
   """
   @callback find_parts(
               params :: params(),
-              maybe_next_part_number_marker :: maybe_marker()
+              maybe_next_part_number_marker :: maybe_marker(),
+              options :: options()
             ) :: t_res()
 
   @doc """
   ...
   """
-  @callback complete_multipart_upload(
+  @callback confirm_multipart_upload(
               params :: params(),
-              parts :: parts()
+              parts :: parts(),
+              options :: options()
             ) :: t_res()
 
   @doc """
   ...
   """
-  @callback abort_multipart_upload(params :: params()) :: t_res()
+  @callback abort_multipart_upload(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
 
   @doc """
   ...
   """
   @callback start_multipart_upload(
               upload_params :: params(),
-              create_params :: params()
+              create_params :: params(),
+              options :: options()
             ) :: t_res()
 
   @doc """
   ...
   """
-  @callback move_temporary_to_permanent_upload(params :: params()) :: t_res()
+  @callback run_pipeline(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
 
   @doc """
   ...
   """
-  @callback complete_upload(params :: params()) :: t_res()
+  @callback confirm_upload(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
 
   @doc """
   ...
   """
-  @callback garbage_collect_object(object :: object()) :: t_res()
+  @callback garbage_collect_object(
+              object :: object(),
+              options :: options()
+            ) :: t_res()
 
   @doc """
   ...
   """
-  @callback abort_upload(params :: params()) :: t_res()
+  @callback abort_upload(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
 
   @doc """
   ...
   """
-  @callback start_upload(upload_params :: params(), create_params :: params()) :: t_res()
+  @callback start_upload(
+              upload_params :: params(),
+              create_params :: params(),
+              options :: options()
+            ) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback find_upload_object_and_update_e_tag(
+              params_or_schema_data :: map() | struct(),
+              options :: options()
+            ) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback find_permanent_upload(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback find_confirmed_upload(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
+
+  @doc """
+  ...
+  """
+  @callback find_temporary_upload(
+              params :: params(),
+              options :: options()
+            ) :: t_res()
 end

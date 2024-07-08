@@ -309,7 +309,7 @@ defmodule Uppy.Storage do
   @doc """
   ...
   """
-  @spec complete_multipart_upload(
+  @spec confirm_multipart_upload(
           adapter :: adapter(),
           bucket :: bucket(),
           object :: object(),
@@ -317,16 +317,16 @@ defmodule Uppy.Storage do
           parts :: parts(),
           options :: options()
         ) :: t_res()
-  def complete_multipart_upload(adapter, bucket, object, upload_id, parts, options) do
+  def confirm_multipart_upload(adapter, bucket, object, upload_id, parts, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
 
     if sandbox? && !sandbox_disabled?() do
-      sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, options)
+      sandbox_confirm_multipart_upload_response(bucket, object, upload_id, parts, options)
     else
       bucket
-      |> adapter.complete_multipart_upload(object, upload_id, parts, options)
+      |> adapter.confirm_multipart_upload(object, upload_id, parts, options)
       |> ensure_status_tuple!()
     end
   end
@@ -458,7 +458,7 @@ defmodule Uppy.Storage do
       to: Uppy.Support.StorageSandbox,
       as: :abort_multipart_upload_response
 
-    defdelegate sandbox_complete_multipart_upload_response(
+    defdelegate sandbox_confirm_multipart_upload_response(
                   bucket,
                   object,
                   upload_id,
@@ -466,7 +466,7 @@ defmodule Uppy.Storage do
                   options
                 ),
                 to: Uppy.Support.StorageSandbox,
-                as: :complete_multipart_upload_response
+                as: :confirm_multipart_upload_response
 
     defdelegate sandbox_put_object_copy_response(
                   dest_bucket,
@@ -571,7 +571,7 @@ defmodule Uppy.Storage do
       """
     end
 
-    defp sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, options) do
+    defp sandbox_confirm_multipart_upload_response(bucket, object, upload_id, parts, options) do
       raise """
       Cannot use StorageSandbox outside of test
 

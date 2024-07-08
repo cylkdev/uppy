@@ -4,7 +4,6 @@ defmodule Uppy.UploaderTest do
   doctest Uppy.Uploader
 
   alias Uppy.{
-    Core,
     Support.Factory,
     Support.PG,
     Support.StorageSandbox,
@@ -12,49 +11,32 @@ defmodule Uppy.UploaderTest do
   }
 
   @bucket "bucket"
-  @resource "resource"
-  @storage Uppy.Adapters.Storage.S3
-  @scheduler Uppy.Adapters.Scheduler.Oban
-  @queryable Uppy.Support.PG.Objects.UserAvatarObject
-  @queryable_primary_key_source :id
-  @parent_schema Uppy.Support.PG.Accounts.UserAvatar
-  @parent_association_source :user_avatar_id
-  @owner_schema PG.Accounts.User
-  @owner_association_source :user_id
-  @owner_primary_key_source :id
-  @temporary_object_key Uppy.Adapters.ObjectKey.TemporaryObject
-  @permanent_object_key Uppy.Adapters.ObjectKey.PermanentObject
+  @resource_name "user-avatars"
+  @filename "image.jpeg"
 
-  @core_params [
-    bucket: @bucket,
-    resource: @resource,
-    storage: @storage,
-    scheduler: @scheduler,
-    queryable: @queryable,
-    queryable_primary_key_source: @queryable_primary_key_source,
-    parent_schema: @parent_schema,
-    parent_association_source: @parent_association_source,
-    owner_schema: @owner_schema,
-    owner_association_source: @owner_association_source,
-    owner_primary_key_source: @owner_primary_key_source,
-    temporary_object_key: @temporary_object_key,
-    permanent_object_key: @permanent_object_key
-  ]
+  @actions_adapter Uppy.Adapters.Actions
+  @storage_adapter Uppy.Adapters.Storage.S3
+  @permanent_scope_adapter Uppy.Adapters.PermanentScope
+  @temporary_scope_adapter Uppy.Adapters.TemporaryScope
+
+  # @queryable Uppy.Support.PG.Objects.UserAvatarObject
+
+  # @resource "resource"
+  # @scheduler Uppy.Adapters.Scheduler.Oban
+  # @queryable_primary_key_source :id
+  # @parent_schema Uppy.Support.PG.Accounts.UserAvatar
+  # @parent_association_source :user_avatar_id
+  # @owner_schema PG.Accounts.User
+  # @owner_association_source :user_id
+  # @owner_primary_key_source :id
+  # @temporary_object_key Uppy.Adapters.PermanentScopes
+  # @permanent_object_key Uppy.Adapters.PermanentScopes
 
   defmodule MockUploader do
-    use Uppy,
-      # must be the same as the bucket in the test suite
+    use Uppy.Uploader,
       bucket: "bucket",
-      resource: "user-avatars",
-      storage: Uppy.Adapters.Storage.S3,
-      scheduler: Uppy.Adapters.Scheduler.Oban,
-      queryable: Uppy.Support.PG.Objects.UserAvatarObject,
-      parent_schema: Uppy.Support.PG.Accounts.UserAvatar,
-      parent_association_source: :user_avatar_id,
-      owner_schema: Uppy.Support.PG.Accounts.User,
-      owner_association_source: :user_id,
-      owner_primary_key_source: :id,
-      owner_partition_source: :company_id
+      resource_name: "user-avatars",
+      queryable: Uppy.Support.PG.Objects.UserAvatarObject
   end
 
   @head_object_params %{
@@ -79,10 +61,6 @@ defmodule Uppy.UploaderTest do
   end
 
   setup do
-    %{core: Core.validate!(@core_params)}
-  end
-
-  setup do
     StorageSandbox.set_presigned_url_responses([
       {@bucket,
        fn _http_method, object ->
@@ -99,22 +77,23 @@ defmodule Uppy.UploaderTest do
     @tag oban_testing: "manual"
     test "creates presigned upload, database record and lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
-        filename = Faker.File.file_name()
-
         assert {:ok,
                 %{
                   unique_identifier: unique_identifier,
                   key: key,
                   presigned_upload: presigned_upload,
-                  schema_data: schema_data
+                  schema_data: schema_data,
+                  job: _
                 }} =
                  Uploader.start_upload(
                    MockUploader,
+                   context.user.id,
                    %{
-                     assoc_id: context.user_avatar.id,
-                     owner_id: context.user.id
+                     filename: @filename,
+                     user_avatar_id: context.user_avatar.id,
+                     user_id: context.user.id
                    },
-                   %{filename: filename}
+                   []
                  )
 
         # required parameters are not null
@@ -124,7 +103,7 @@ defmodule Uppy.UploaderTest do
         # the key has the temporary path prefix and the temporary object key adapter
         # recognizes it as being in a temporary path.
         assert "temp/" <> _ = key
-        assert context.core.temporary_object_key.path?(key: key)
+        assert @temporary_scope_adapter.path?(key)
 
         # the presigned upload payload contains a valid key, url and expiration
         assert %{
@@ -139,7 +118,7 @@ defmodule Uppy.UploaderTest do
         assert %PG.Objects.UserAvatarObject{} = schema_data
         assert schema_data.unique_identifier === unique_identifier
         assert schema_data.key === key
-        assert schema_data.filename === filename
+        assert schema_data.filename === @filename
 
         # sanity check the record exists
         assert {:ok, _} = PG.Objects.find_user_avatar_object(%{id: schema_data.id})
@@ -220,23 +199,23 @@ defmodule Uppy.UploaderTest do
     @tag oban_testing: "manual"
     test "deletes record if key in temp path and creates lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
-        filename = Faker.File.file_name()
-
         assert {:ok, %{schema_data: schema_data}} =
                  Uploader.start_upload(
                    MockUploader,
+                   context.user.id,
                    %{
-                     assoc_id: context.user_avatar.id,
-                     owner_id: context.user.id
+                     filename: @filename,
+                     user_avatar_id: context.user_avatar.id,
+                     user_id: context.user.id
                    },
-                   %{filename: filename}
+                   []
                  )
 
         assert {:ok,
                 %{
                   job: garbage_collect_object_job,
                   schema_data: abort_upload_schema_data
-                }} = Uploader.abort_upload(MockUploader, %{id: schema_data.id})
+                }} = Uploader.abort_upload(MockUploader, %{id: schema_data.id}, [])
 
         expected_job_key = schema_data.key
 
@@ -285,20 +264,20 @@ defmodule Uppy.UploaderTest do
     end
   end
 
-  describe "&complete_upload/3" do
+  describe "&confirm_upload/3" do
     @tag oban_testing: "manual"
     test "deletes record if key in temp path and creates lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
-        filename = Faker.File.file_name()
-
         assert {:ok, %{schema_data: schema_data}} =
                  Uploader.start_upload(
                    MockUploader,
+                   context.user.id,
                    %{
-                     assoc_id: context.user_avatar.id,
-                     owner_id: context.user.id
+                     filename: @filename,
+                     user_avatar_id: context.user_avatar.id,
+                     user_id: context.user.id
                    },
-                   %{filename: filename}
+                   []
                  )
 
         StorageSandbox.set_head_object_responses([
@@ -309,7 +288,7 @@ defmodule Uppy.UploaderTest do
                  id: schema_data_id,
                  unique_identifier: schema_data_unique_identifier,
                  key: schema_data_key,
-                 filename: ^filename,
+                 filename: @filename,
                  archived: false,
                  archived_at: nil,
                  user_avatar_id: schema_data_user_avatar_id,
@@ -329,60 +308,60 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok,
                 %{
-                  schema_data: complete_upload_schema_data,
-                  metadata: complete_upload_metadata,
-                  job: move_temporary_to_permanent_upload_job
-                }} = Uploader.complete_upload(MockUploader, %{id: schema_data_id})
+                  schema_data: confirm_upload_schema_data,
+                  metadata: confirm_upload_metadata,
+                  job: run_pipeline_job
+                }} = Uploader.confirm_upload(MockUploader, %{id: schema_data_id}, [])
 
-        assert complete_upload_metadata === @head_object_params
+        assert confirm_upload_metadata === @head_object_params
 
         assert %Oban.Job{
                  args: %{
-                   event: "uppy.post_processor.move_temporary_to_permanent_upload",
+                   event: "uppy.post_processor.run_pipeline",
                    uploader: "Uppy.UploaderTest.MockUploader",
                    id: ^schema_data_id
                  }
-               } = move_temporary_to_permanent_upload_job
+               } = run_pipeline_job
 
         # e_tag should be the only new value set on the completed upload record
         assert %Uppy.Support.PG.Objects.UserAvatarObject{
-                 id: complete_upload_schema_data_id,
-                 unique_identifier: complete_upload_schema_data_unique_identifier,
-                 key: complete_upload_schema_data_key,
-                 filename: ^filename,
+                 id: confirm_upload_schema_data_id,
+                 unique_identifier: confirm_upload_schema_data_unique_identifier,
+                 key: confirm_upload_schema_data_key,
+                 filename: @filename,
                  archived: false,
                  archived_at: nil,
-                 user_avatar_id: complete_upload_schema_data_user_avatar_id,
-                 user_id: complete_upload_schema_data_user_id,
+                 user_avatar_id: confirm_upload_schema_data_user_avatar_id,
+                 user_id: confirm_upload_schema_data_user_id,
                  # object metadata fields except e_tag should be nil
-                 e_tag: complete_upload_schema_data_e_tag,
+                 e_tag: confirm_upload_schema_data_e_tag,
                  upload_id: nil,
                  content_length: nil,
                  content_type: nil,
                  last_modified: nil
-               } = complete_upload_schema_data
+               } = confirm_upload_schema_data
 
-        assert is_binary(complete_upload_schema_data_e_tag)
+        assert is_binary(confirm_upload_schema_data_e_tag)
 
         # these should be the starting values
-        assert complete_upload_schema_data_id === schema_data_id
+        assert confirm_upload_schema_data_id === schema_data_id
 
-        assert complete_upload_schema_data_unique_identifier ===
+        assert confirm_upload_schema_data_unique_identifier ===
                  schema_data_unique_identifier
 
-        assert complete_upload_schema_data_key === schema_data_key
+        assert confirm_upload_schema_data_key === schema_data_key
 
-        assert complete_upload_schema_data_user_avatar_id ===
+        assert confirm_upload_schema_data_user_avatar_id ===
                  schema_data_user_avatar_id
 
-        assert complete_upload_schema_data_user_id === context.user.id
+        assert confirm_upload_schema_data_user_id === context.user.id
 
-        assert complete_upload_schema_data.id === schema_data_id
+        assert confirm_upload_schema_data.id === schema_data_id
 
         assert_enqueued(
           worker: Uppy.Adapters.Scheduler.Oban.PostProcessorWorker,
           args: %{
-            event: "uppy.post_processor.move_temporary_to_permanent_upload",
+            event: "uppy.post_processor.run_pipeline",
             uploader: "Uppy.UploaderTest.MockUploader",
             id: schema_data_id
           },
@@ -391,63 +370,28 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok,
                 %{
-                  destination_object: job_destination_object,
-                  source_object: job_source_object,
-                  schema_data: job_schema_data,
-                  owner: job_owner,
-                  pipeline: %{
-                    result: %{
-                      schema_data: job_pipeline_schema_data,
-                      owner: job_pipeline_owner,
-                      destination_object: job_pipeline_destination_object,
-                      source_object: job_pipeline_source_object,
-                      private: job_pipeline_private,
-                      options: []
-                    },
-                    phases: []
-                  }
+                  result: %{
+                    actions_adapter: @actions_adapter,
+                    storage_adapter: @storage_adapter,
+                    bucket: @bucket,
+                    resource_name: @resource_name,
+                    temporary_scope_adapter: @temporary_scope_adapter,
+                    permanent_scope_adapter: @permanent_scope_adapter,
+                    schema_data: job_pipeline_schema_data,
+                    private: job_pipeline_private,
+                    options: []
+                  },
+                  phases: []
                 }} =
                  perform_job(Uppy.Adapters.Scheduler.Oban.PostProcessorWorker, %{
-                   event: "uppy.post_processor.move_temporary_to_permanent_upload",
+                   event: "uppy.post_processor.run_pipeline",
                    uploader: "Uppy.UploaderTest.MockUploader",
                    id: schema_data_id
                  })
 
-        # job should return the upload record and owner
-        assert job_schema_data.id === schema_data_id
-        assert job_owner.id === context.user.id
-
         # pipeline result should match the input
-        assert job_pipeline_destination_object === job_destination_object
-        assert job_pipeline_source_object === job_source_object
         assert job_pipeline_schema_data.id === schema_data_id
-        assert job_pipeline_owner.id === context.user.id
         assert job_pipeline_private === %{}
-        assert job_pipeline_source_object === schema_data.key
-
-        # validate the destination object key
-        expected_id = String.reverse("#{context.user.id}")
-        expected_resource = "user-avatars"
-        expected_destination_basename = "#{schema_data.unique_identifier}-#{schema_data.filename}"
-
-        expected_destination_object =
-          "#{expected_id}-#{expected_resource}/#{expected_destination_basename}"
-
-        assert job_pipeline_destination_object === expected_destination_object
-
-        # the permanent object adapter should also pass
-        assert Uppy.Adapters.ObjectKey.PermanentObject.path?(
-                 key: job_pipeline_destination_object,
-                 id: "#{context.user.id}",
-                 resource: expected_resource
-               )
-
-        assert job_pipeline_destination_object ===
-                 Uppy.Adapters.ObjectKey.PermanentObject.build(
-                   id: "#{context.user.id}",
-                   resource: expected_resource,
-                   basename: expected_destination_basename
-                 )
       end)
     end
   end
@@ -456,8 +400,6 @@ defmodule Uppy.UploaderTest do
     @tag oban_testing: "manual"
     test "creates multipart upload, database record and lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
-        filename = Faker.File.file_name()
-
         StorageSandbox.set_initiate_multipart_upload_responses([
           {@bucket,
            fn object ->
@@ -483,11 +425,13 @@ defmodule Uppy.UploaderTest do
                 }} =
                  Uploader.start_multipart_upload(
                    MockUploader,
+                   context.user.id,
                    %{
-                     owner_id: context.user.id,
-                     assoc_id: context.user_avatar.id
+                     filename: @filename,
+                     user_avatar_id: context.user_avatar.id,
+                     user_id: context.user.id
                    },
-                   %{filename: filename}
+                   []
                  )
 
         # required parameters are not null
@@ -497,13 +441,13 @@ defmodule Uppy.UploaderTest do
         # the key has the temporary path prefix and the temporary object key adapter
         # recognizes it as being in a temporary path.
         assert "temp/" <> _ = key
-        assert context.core.temporary_object_key.path?(key: key)
+        assert @temporary_scope_adapter.path?(key)
 
         # the expected fields are set on the schema data
         assert %PG.Objects.UserAvatarObject{} = schema_data
         assert schema_data.unique_identifier === unique_identifier
         assert schema_data.key === key
-        assert schema_data.filename === filename
+        assert schema_data.filename === @filename
 
         # sanity check the record exists
         assert {:ok, _} = PG.Objects.find_user_avatar_object(%{id: schema_data.id})
@@ -602,8 +546,6 @@ defmodule Uppy.UploaderTest do
     @tag oban_testing: "manual"
     test "deletes record if key in temp path and creates lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
-        filename = Faker.File.file_name()
-
         StorageSandbox.set_initiate_multipart_upload_responses([
           {@bucket,
            fn object ->
@@ -618,12 +560,14 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok, %{schema_data: schema_data}} =
                  Uploader.start_multipart_upload(
-                   MockUploader,
-                   %{
-                    owner_id: context.user.id,
-                    assoc_id: context.user_avatar.id
-                   },
-                   %{filename: filename}
+                  MockUploader,
+                  context.user.id,
+                  %{
+                    filename: @filename,
+                    user_avatar_id: context.user_avatar.id,
+                    user_id: context.user.id
+                  },
+                  []
                  )
 
         StorageSandbox.set_abort_multipart_upload_responses([
@@ -697,12 +641,10 @@ defmodule Uppy.UploaderTest do
     end
   end
 
-  describe "&complete_multipart_upload/3" do
+  describe "&confirm_multipart_upload/3" do
     @tag oban_testing: "manual"
     test "deletes record if key in temp path and creates lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
-        filename = Faker.File.file_name()
-
         StorageSandbox.set_initiate_multipart_upload_responses([
           {@bucket,
            fn object ->
@@ -717,12 +659,14 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok, %{schema_data: schema_data}} =
                  Uploader.start_multipart_upload(
-                   MockUploader,
-                   %{
-                    owner_id: context.user.id,
-                    assoc_id: context.user_avatar.id
-                   },
-                   %{filename: filename}
+                  MockUploader,
+                  context.user.id,
+                  %{
+                    filename: @filename,
+                    user_avatar_id: context.user_avatar.id,
+                    user_id: context.user.id
+                  },
+                  []
                  )
 
         StorageSandbox.set_head_object_responses([
@@ -733,7 +677,7 @@ defmodule Uppy.UploaderTest do
                  id: schema_data_id,
                  unique_identifier: schema_data_unique_identifier,
                  key: schema_data_key,
-                 filename: ^filename,
+                 filename: @filename,
                  archived: false,
                  archived_at: nil,
                  user_avatar_id: schema_data_user_avatar_id,
@@ -751,7 +695,7 @@ defmodule Uppy.UploaderTest do
         assert schema_data_unique_identifier
         assert schema_data_key
 
-        StorageSandbox.set_complete_multipart_upload_responses([
+        StorageSandbox.set_confirm_multipart_upload_responses([
           {@bucket,
            fn ->
              {:ok,
@@ -766,8 +710,8 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok,
                 %{
-                  schema_data: complete_upload_schema_data,
-                  job: move_temporary_to_permanent_upload_job,
+                  schema_data: confirm_upload_schema_data,
+                  job: run_pipeline_job,
                   metadata: %{
                     location: "https://s3.com/image.jpeg",
                     bucket: @bucket,
@@ -775,7 +719,7 @@ defmodule Uppy.UploaderTest do
                     e_tag: "e_tag"
                   }
                 }} =
-                 Uploader.complete_multipart_upload(
+                 Uploader.confirm_multipart_upload(
                    MockUploader,
                    %{id: schema_data_id},
                    [{1, "e_tag"}]
@@ -783,116 +727,80 @@ defmodule Uppy.UploaderTest do
 
         assert %Oban.Job{
                  args: %{
-                   event: "uppy.post_processor.move_temporary_to_permanent_upload",
+                   event: "uppy.post_processor.run_pipeline",
                    uploader: "Uppy.UploaderTest.MockUploader",
                    id: ^schema_data_id
                  }
-               } = move_temporary_to_permanent_upload_job
+               } = run_pipeline_job
 
         # e_tag should be the only new value set on the completed upload record
         assert %Uppy.Support.PG.Objects.UserAvatarObject{
-                 id: complete_upload_schema_data_id,
-                 unique_identifier: complete_upload_schema_data_unique_identifier,
-                 key: complete_upload_schema_data_key,
-                 filename: ^filename,
+                 id: confirm_upload_schema_data_id,
+                 unique_identifier: confirm_upload_schema_data_unique_identifier,
+                 key: confirm_upload_schema_data_key,
+                 filename: @filename,
                  archived: false,
                  archived_at: nil,
-                 user_avatar_id: complete_upload_schema_data_user_avatar_id,
-                 user_id: complete_upload_schema_data_user_id,
+                 user_avatar_id: confirm_upload_schema_data_user_avatar_id,
+                 user_id: confirm_upload_schema_data_user_id,
                  # object metadata fields except e_tag should be nil
-                 e_tag: complete_upload_schema_data_e_tag,
+                 e_tag: confirm_upload_schema_data_e_tag,
                  upload_id: "upload_id",
                  content_length: nil,
                  content_type: nil,
                  last_modified: nil
-               } = complete_upload_schema_data
+               } = confirm_upload_schema_data
 
-        assert is_binary(complete_upload_schema_data_e_tag)
+        assert is_binary(confirm_upload_schema_data_e_tag)
 
         # these should be the starting values
-        assert complete_upload_schema_data_id === schema_data_id
+        assert confirm_upload_schema_data_id === schema_data_id
 
-        assert complete_upload_schema_data_unique_identifier ===
+        assert confirm_upload_schema_data_unique_identifier ===
                  schema_data_unique_identifier
 
-        assert complete_upload_schema_data_key === schema_data_key
+        assert confirm_upload_schema_data_key === schema_data_key
 
-        assert complete_upload_schema_data_user_avatar_id ===
+        assert confirm_upload_schema_data_user_avatar_id ===
                  schema_data_user_avatar_id
 
-        assert complete_upload_schema_data_user_id === context.user.id
+        assert confirm_upload_schema_data_user_id === context.user.id
 
-        assert complete_upload_schema_data.id === schema_data_id
+        assert confirm_upload_schema_data.id === schema_data_id
 
         assert_enqueued(
           worker: Uppy.Adapters.Scheduler.Oban.PostProcessorWorker,
           args: %{
-            event: "uppy.post_processor.move_temporary_to_permanent_upload",
+            event: "uppy.post_processor.run_pipeline",
             uploader: "Uppy.UploaderTest.MockUploader",
             id: schema_data_id
           },
           queue: :post_processing
         )
 
-        assert {:ok,
-                %{
-                  destination_object: job_destination_object,
-                  source_object: job_source_object,
-                  schema_data: job_schema_data,
-                  owner: job_owner,
-                  pipeline: %{
-                    result: %{
-                      schema_data: job_pipeline_schema_data,
-                      owner: job_pipeline_owner,
-                      destination_object: job_pipeline_destination_object,
-                      source_object: job_pipeline_source_object,
-                      private: job_pipeline_private,
-                      options: []
-                    },
-                    phases: []
-                  }
-                }} =
+        assert {:ok,%{
+          result: %{
+            actions_adapter: @actions_adapter,
+            storage_adapter: @storage_adapter,
+            bucket: @bucket,
+            resource_name: @resource_name,
+            temporary_scope_adapter: @temporary_scope_adapter,
+            permanent_scope_adapter: @permanent_scope_adapter,
+            schema_data: job_pipeline_schema_data,
+            private: job_pipeline_private,
+            options: []
+          },
+          phases: []
+        }} =
                  perform_job(Uppy.Adapters.Scheduler.Oban.PostProcessorWorker, %{
-                   event: "uppy.post_processor.move_temporary_to_permanent_upload",
+                   event: "uppy.post_processor.run_pipeline",
                    uploader: "Uppy.UploaderTest.MockUploader",
                    id: schema_data_id
                  })
 
-        # job should return the upload record and owner
-        assert job_schema_data.id === schema_data_id
-        assert job_owner.id === context.user.id
-
-        # pipeline result should match the input
-        assert job_pipeline_destination_object === job_destination_object
-        assert job_pipeline_source_object === job_source_object
+          # pipeline result should match the input
         assert job_pipeline_schema_data.id === schema_data_id
-        assert job_pipeline_owner.id === context.user.id
         assert job_pipeline_private === %{}
-        assert job_pipeline_source_object === schema_data.key
-
-        # validate the destination object key
-        expected_id = String.reverse("#{context.user.id}")
-        expected_resource = "user-avatars"
-        expected_destination_basename = "#{schema_data.unique_identifier}-#{schema_data.filename}"
-
-        expected_destination_object =
-          "#{expected_id}-#{expected_resource}/#{expected_destination_basename}"
-
-        assert job_pipeline_destination_object === expected_destination_object
-
-        # the permanent object adapter should also pass
-        assert Uppy.Adapters.ObjectKey.PermanentObject.path?(
-                 key: job_pipeline_destination_object,
-                 id: "#{context.user.id}",
-                 resource: expected_resource
-               )
-
-        assert job_pipeline_destination_object ===
-                 Uppy.Adapters.ObjectKey.PermanentObject.build(
-                   id: "#{context.user.id}",
-                   resource: expected_resource,
-                   basename: expected_destination_basename
-                 )
       end)
     end
   end

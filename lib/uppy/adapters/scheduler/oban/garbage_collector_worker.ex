@@ -30,13 +30,9 @@ defmodule Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker do
     |> Uploader.garbage_collect_object(key)
   end
 
-  def schedule_garbage_collect_object(
-        %{uploader: uploader, key: key},
-        date_time_or_seconds,
-        options
-      ) do
+  def schedule_garbage_collect_object(uploader, key, date_time_or_seconds, options) do
     Oban.insert(
-      Uppy.Adapters.Scheduler.Oban.Config.name(),
+      oban_name(),
       new(%{
         event: @event_garbage_collect_object,
         uploader: Utils.module_to_string(uploader),
@@ -53,4 +49,6 @@ defmodule Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker do
   defp schedule_opt(options, seconds) when is_integer(seconds) do
     Keyword.put(options, :schedule_in, seconds)
   end
+
+  defp oban_name, do: Keyword.get(Uppy.Config.oban(), :name, Uppy.Oban)
 end

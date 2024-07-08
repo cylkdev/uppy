@@ -14,7 +14,7 @@ defmodule Uppy.Support.StorageSandbox do
           | :initiate_multipart_upload
           | :list_parts
           | :abort_multipart_upload
-          | :complete_multipart_upload
+          | :confirm_multipart_upload
           | :put_object_copy
           | :put_object
           | :delete_object
@@ -258,9 +258,9 @@ defmodule Uppy.Support.StorageSandbox do
     end
   end
 
-  @spec complete_multipart_upload_response(bucket, object, upload_id, parts, options) :: any
-  def complete_multipart_upload_response(bucket, object, upload_id, parts, options) do
-    func = find!(:complete_multipart_upload, bucket)
+  @spec confirm_multipart_upload_response(bucket, object, upload_id, parts, options) :: any
+  def confirm_multipart_upload_response(bucket, object, upload_id, parts, options) do
+    func = find!(:confirm_multipart_upload, bucket)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -507,10 +507,10 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_complete_multipart_upload_responses([{String.t(), fun}]) :: :ok
-  def set_complete_multipart_upload_responses(tuples) do
+  @spec set_confirm_multipart_upload_responses([{String.t(), fun}]) :: :ok
+  def set_confirm_multipart_upload_responses(tuples) do
     tuples
-    |> Map.new(fn {bucket, func} -> {{:complete_multipart_upload, bucket}, func} end)
+    |> Map.new(fn {bucket, func} -> {{:confirm_multipart_upload, bucket}, func} end)
     |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
     |> then(fn
       :ok -> :ok

@@ -45,13 +45,9 @@ defmodule Uppy.Adapters.Scheduler.Oban.UploadAborterWorker do
     |> Uploader.abort_upload(%{id: id})
   end
 
-  def schedule_abort_multipart_upload(
-        %{uploader: uploader, id: id},
-        date_time_or_seconds,
-        options
-      ) do
+  def schedule_abort_multipart_upload(uploader, id, date_time_or_seconds, options) do
     Oban.insert(
-      Uppy.Adapters.Scheduler.Oban.Config.name(),
+      oban_name(),
       new(%{
         event: @event_abort_multipart_upload,
         uploader: Utils.module_to_string(uploader),
@@ -61,13 +57,9 @@ defmodule Uppy.Adapters.Scheduler.Oban.UploadAborterWorker do
     )
   end
 
-  def schedule_abort_upload(
-        %{uploader: uploader, id: id},
-        date_time_or_seconds,
-        options
-      ) do
+  def schedule_abort_upload(uploader, id, date_time_or_seconds, options) do
     Oban.insert(
-      Uppy.Adapters.Scheduler.Oban.Config.name(),
+      oban_name(),
       new(%{
         event: @event_abort_upload,
         uploader: Utils.module_to_string(uploader),
@@ -84,4 +76,6 @@ defmodule Uppy.Adapters.Scheduler.Oban.UploadAborterWorker do
   defp schedule_opt(options, seconds) when is_integer(seconds) do
     Keyword.put(options, :schedule_in, seconds)
   end
+
+  defp oban_name, do: Keyword.get(Uppy.Config.oban(), :name, Uppy.Oban)
 end

@@ -23,9 +23,8 @@ defmodule Uppy.Config do
     Application.get_env(@app, :pipeline) || []
   end
 
-  @doc false
-  @spec web_safe_filename_enabled :: boolean()
-  def web_safe_filename_enabled do
-    Application.get_env(@app, :web_safe_filename_enabled) || true
+  if Code.ensure_loaded?(Oban) do
+    @spec oban :: Keyword.t()
+    def oban, do: Application.get_env(@app, Oban, [])
   end
 end

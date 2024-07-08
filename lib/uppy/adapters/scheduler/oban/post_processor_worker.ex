@@ -16,29 +16,31 @@ defmodule Uppy.Adapters.Scheduler.Oban.PostProcessorWorker do
   @type oban_insert_response :: {:ok, Oban.Job.t()} | {:error, Ecto.Changeset.t() | term()}
 
   @event_prefix "uppy.post_processor"
-  @event_move_temporary_to_permanent_upload "#{@event_prefix}.move_temporary_to_permanent_upload"
+  @event_run_pipeline "#{@event_prefix}.run_pipeline"
 
   def perform(%Oban.Job{
         args: %{
-          "event" => @event_move_temporary_to_permanent_upload,
+          "event" => @event_run_pipeline,
           "uploader" => uploader,
           "id" => id
         }
       }) do
     uploader
     |> Utils.to_existing_module!()
-    |> Uploader.move_temporary_to_permanent_upload(%{id: id})
+    |> Uploader.run_pipeline(%{id: id})
   end
 
-  def queue_move_temporary_to_permanent_upload(%{uploader: uploader, id: id}, options) do
+  def queue_run_pipeline(uploader, id, options) do
     Oban.insert(
-      Uppy.Adapters.Scheduler.Oban.Config.name(),
+      oban_name(),
       new(%{
-        event: @event_move_temporary_to_permanent_upload,
+        event: @event_run_pipeline,
         uploader: Utils.module_to_string(uploader),
         id: id
       }),
       options
     )
   end
+
+  defp oban_name, do: Keyword.get(Uppy.Config.oban(), :name, Uppy.Oban)
 end
