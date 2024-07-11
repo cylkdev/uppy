@@ -557,10 +557,6 @@ defmodule Uppy.Uploader do
 
         Uploader.start_upload(__MODULE__, partition_id, params, options)
       end
-
-      defp raise_bucket_not_configured! do
-        raise "bucket not configured for #{inspect(__MODULE__)}"
-      end
     end
   end
 end

@@ -26,7 +26,7 @@ defmodule Uppy.UploaderTest do
       resource_name: "user-avatars",
       queryable: Uppy.Support.PG.Objects.UserAvatarObject,
       pipeline: [
-        Uppy.Pipeline.Phases.LoadHolder,
+        Uppy.Pipeline.Phases.EctoHolderLoader,
         Uppy.Pipeline.Phases.PutObjectCopy
       ]
   end
@@ -403,7 +403,7 @@ defmodule Uppy.UploaderTest do
                     } = _input,
                   phases: [
                     Uppy.Pipeline.Phases.PutObjectCopy,
-                    Uppy.Pipeline.Phases.LoadHolder
+                    Uppy.Pipeline.Phases.EctoHolderLoader
                   ]
                 }} =
                  perform_job(Uppy.Adapters.Scheduler.Oban.PostProcessorWorker, %{
@@ -889,7 +889,7 @@ defmodule Uppy.UploaderTest do
                     } = _input,
                   phases: [
                     Uppy.Pipeline.Phases.PutObjectCopy,
-                    Uppy.Pipeline.Phases.LoadHolder
+                    Uppy.Pipeline.Phases.EctoHolderLoader
                   ]
                 }} =
                  perform_job(Uppy.Adapters.Scheduler.Oban.PostProcessorWorker, %{
