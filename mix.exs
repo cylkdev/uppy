@@ -64,7 +64,7 @@ defmodule Uppy.MixProject do
       {:hackney, "~> 1.9", optional: true},
       {:sweet_xml, "~> 0.6", optional: true},
       {:finch, "~> 0.18.0", optional: true},
-      {:thumbor, path: "../thumbor", optional: true}
+      {:thumbor, git: "https://github.com/RequisDev/thumbor.git", branch: "main", optional: true}
     ]
   end
 
