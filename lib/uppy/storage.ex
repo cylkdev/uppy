@@ -309,7 +309,7 @@ defmodule Uppy.Storage do
   @doc """
   ...
   """
-  @spec confirm_multipart_upload(
+  @spec complete_multipart_upload(
           adapter :: adapter(),
           bucket :: bucket(),
           object :: object(),
@@ -317,16 +317,16 @@ defmodule Uppy.Storage do
           parts :: parts(),
           options :: options()
         ) :: t_res()
-  def confirm_multipart_upload(adapter, bucket, object, upload_id, parts, options) do
+  def complete_multipart_upload(adapter, bucket, object, upload_id, parts, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
 
     if sandbox? && !sandbox_disabled?() do
-      sandbox_confirm_multipart_upload_response(bucket, object, upload_id, parts, options)
+      sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, options)
     else
       bucket
-      |> adapter.confirm_multipart_upload(object, upload_id, parts, options)
+      |> adapter.complete_multipart_upload(object, upload_id, parts, options)
       |> ensure_status_tuple!()
     end
   end
@@ -337,21 +337,21 @@ defmodule Uppy.Storage do
   @spec put_object_copy(
           adapter :: adapter(),
           dest_bucket :: bucket(),
-          dest_object :: object(),
+          destination_object :: object(),
           src_bucket :: bucket(),
-          src_object :: object(),
+          source_object :: object(),
           options :: options()
         ) :: t_res()
-  def put_object_copy(adapter, dest_bucket, dest_object, src_bucket, src_object, options) do
+  def put_object_copy(adapter, dest_bucket, destination_object, src_bucket, source_object, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
 
     if sandbox? && !sandbox_disabled?() do
-      sandbox_put_object_copy_response(dest_bucket, dest_object, src_bucket, src_object, options)
+      sandbox_put_object_copy_response(dest_bucket, destination_object, src_bucket, source_object, options)
     else
       dest_bucket
-      |> adapter.put_object_copy(dest_object, src_bucket, src_object, options)
+      |> adapter.put_object_copy(destination_object, src_bucket, source_object, options)
       |> ensure_status_tuple!()
     end
   end
@@ -458,7 +458,7 @@ defmodule Uppy.Storage do
       to: Uppy.Support.StorageSandbox,
       as: :abort_multipart_upload_response
 
-    defdelegate sandbox_confirm_multipart_upload_response(
+    defdelegate sandbox_complete_multipart_upload_response(
                   bucket,
                   object,
                   upload_id,
@@ -466,13 +466,13 @@ defmodule Uppy.Storage do
                   options
                 ),
                 to: Uppy.Support.StorageSandbox,
-                as: :confirm_multipart_upload_response
+                as: :complete_multipart_upload_response
 
     defdelegate sandbox_put_object_copy_response(
                   dest_bucket,
-                  dest_object,
+                  destination_object,
                   src_bucket,
-                  src_object,
+                  source_object,
                   options
                 ),
                 to: Uppy.Support.StorageSandbox,
@@ -571,7 +571,7 @@ defmodule Uppy.Storage do
       """
     end
 
-    defp sandbox_confirm_multipart_upload_response(bucket, object, upload_id, parts, options) do
+    defp sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, options) do
       raise """
       Cannot use StorageSandbox outside of test
 
@@ -585,18 +585,18 @@ defmodule Uppy.Storage do
 
     defp sandbox_put_object_copy_response(
            dest_bucket,
-           dest_object,
+           destination_object,
            src_bucket,
-           src_object,
+           source_object,
            options
          ) do
       raise """
       Cannot use StorageSandbox outside of test
 
       dest_bucket: #{inspect(dest_bucket)}
-      dest_object: #{inspect(dest_object)}
+      destination_object: #{inspect(destination_object)}
       src_bucket: #{inspect(src_bucket)}
-      src_object: #{inspect(src_object)}
+      source_object: #{inspect(source_object)}
       options: #{inspect(options, pretty: true)}
       """
     end

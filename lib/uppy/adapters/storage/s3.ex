@@ -136,9 +136,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.put_object_copy/5`.
     """
-    def put_object_copy(dest_bucket, dest_object, src_bucket, src_object, options \\ []) do
+    def put_object_copy(dest_bucket, destination_object, src_bucket, source_object, options \\ []) do
       dest_bucket
-      |> ExAws.S3.put_object_copy(dest_object, src_bucket, src_object, options)
+      |> ExAws.S3.put_object_copy(destination_object, src_bucket, source_object, options)
       |> ExAws.request(options)
       |> handle_response()
     end

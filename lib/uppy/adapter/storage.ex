@@ -111,9 +111,9 @@ defmodule Uppy.Adapter.Storage do
   """
   @callback put_object_copy(
               dest_bucket :: bucket(),
-              dest_object :: object(),
+              destination_object :: object(),
               src_bucket :: bucket(),
-              src_object :: object(),
+              source_object :: object(),
               options :: options()
             ) :: t_res()
 

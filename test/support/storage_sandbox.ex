@@ -14,7 +14,7 @@ defmodule Uppy.Support.StorageSandbox do
           | :initiate_multipart_upload
           | :list_parts
           | :abort_multipart_upload
-          | :confirm_multipart_upload
+          | :complete_multipart_upload
           | :put_object_copy
           | :put_object
           | :delete_object
@@ -258,9 +258,9 @@ defmodule Uppy.Support.StorageSandbox do
     end
   end
 
-  @spec confirm_multipart_upload_response(bucket, object, upload_id, parts, options) :: any
-  def confirm_multipart_upload_response(bucket, object, upload_id, parts, options) do
-    func = find!(:confirm_multipart_upload, bucket)
+  @spec complete_multipart_upload_response(bucket, object, upload_id, parts, options) :: any
+  def complete_multipart_upload_response(bucket, object, upload_id, parts, options) do
+    func = find!(:complete_multipart_upload, bucket)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -293,7 +293,7 @@ defmodule Uppy.Support.StorageSandbox do
   end
 
   @spec put_object_copy_response(bucket, object, bucket, object, options) :: any
-  def put_object_copy_response(dest_bucket, dest_object, src_bucket, src_object, options) do
+  def put_object_copy_response(dest_bucket, destination_object, src_bucket, source_object, options) do
     func = find!(:put_object_copy, dest_bucket)
 
     case :erlang.fun_info(func)[:arity] do
@@ -301,16 +301,16 @@ defmodule Uppy.Support.StorageSandbox do
         func.()
 
       1 ->
-        func.(dest_object)
+        func.(destination_object)
 
       2 ->
-        func.(dest_object, src_bucket)
+        func.(destination_object, src_bucket)
 
       3 ->
-        func.(dest_object, src_bucket, src_object)
+        func.(destination_object, src_bucket, source_object)
 
       4 ->
-        func.(dest_object, src_bucket, src_object, options)
+        func.(destination_object, src_bucket, source_object, options)
 
       _ ->
         raise """
@@ -318,10 +318,10 @@ defmodule Uppy.Support.StorageSandbox do
         #{inspect(func)}
         Please provide a function that takes either zero, one, two, three or four args.
         fn -> ... end
-        fn (dest_object) -> ... end
-        fn (dest_object, src_bucket) -> ... end
-        fn (dest_object, src_bucket, src_object) -> ... end
-        fn (dest_object, src_bucket, src_object, options) -> ... end
+        fn (destination_object) -> ... end
+        fn (destination_object, src_bucket) -> ... end
+        fn (destination_object, src_bucket, source_object) -> ... end
+        fn (destination_object, src_bucket, source_object, options) -> ... end
         """
     end
   end
@@ -507,10 +507,10 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_confirm_multipart_upload_responses([{String.t(), fun}]) :: :ok
-  def set_confirm_multipart_upload_responses(tuples) do
+  @spec set_complete_multipart_upload_responses([{String.t(), fun}]) :: :ok
+  def set_complete_multipart_upload_responses(tuples) do
     tuples
-    |> Map.new(fn {bucket, func} -> {{:confirm_multipart_upload, bucket}, func} end)
+    |> Map.new(fn {bucket, func} -> {{:complete_multipart_upload, bucket}, func} end)
     |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
     |> then(fn
       :ok -> :ok

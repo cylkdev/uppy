@@ -62,7 +62,9 @@ defmodule Uppy.MixProject do
       {:ex_aws, "~> 2.1", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
       {:hackney, "~> 1.9", optional: true},
-      {:sweet_xml, "~> 0.6", optional: true}
+      {:sweet_xml, "~> 0.6", optional: true},
+      {:finch, "~> 0.18.0", optional: true},
+      {:thumbor, path: "../thumbor", optional: true}
     ]
   end
 

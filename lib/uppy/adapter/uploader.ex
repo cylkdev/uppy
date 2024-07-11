@@ -12,6 +12,8 @@ defmodule Uppy.Adapter.Uploader do
   @type part :: Uppy.part()
   @type parts :: Uppy.parts()
 
+  @callback action_adapter :: term()
+
   @type pipeline :: list()
 
   @callback queryable :: term()
@@ -51,7 +53,7 @@ defmodule Uppy.Adapter.Uploader do
   @doc """
   ...
   """
-  @callback confirm_multipart_upload(
+  @callback complete_multipart_upload(
               params :: params(),
               parts :: parts(),
               options :: options()
@@ -85,7 +87,7 @@ defmodule Uppy.Adapter.Uploader do
   @doc """
   ...
   """
-  @callback confirm_upload(
+  @callback complete_upload(
               params :: params(),
               options :: options()
             ) :: t_res()
@@ -118,7 +120,7 @@ defmodule Uppy.Adapter.Uploader do
   @doc """
   ...
   """
-  @callback find_upload_object_and_update_e_tag(
+  @callback find_object_and_update_upload_e_tag(
               params_or_schema_data :: map() | struct(),
               options :: options()
             ) :: t_res()
@@ -134,7 +136,7 @@ defmodule Uppy.Adapter.Uploader do
   @doc """
   ...
   """
-  @callback find_confirmed_upload(
+  @callback find_completed_upload(
               params :: params(),
               options :: options()
             ) :: t_res()

@@ -14,14 +14,14 @@ defmodule Uppy.Adapters.PermanentScope do
   @doc """
   ...
   """
-  @impl Adapter.PermanentScope
+  @impl true
   @spec path?(binary()) :: boolean()
   def path?(path), do: String.starts_with?(path, @prefix)
 
   @doc """
   Uppy.Adapters.PermanentScope.prefix("1", "company", "image.jpeg")
   """
-  @impl Adapter.PermanentScope
+  @impl true
   @spec prefix(binary(), binary(), binary()) :: binary()
   def prefix(id, resource_name, basename) do
     prefix(id, resource_name) <> "/" <> URI.encode_www_form(basename)
@@ -34,7 +34,7 @@ defmodule Uppy.Adapters.PermanentScope do
 
   @spec prefix(binary()) :: binary()
   def prefix(id) do
-    id = id |> reverse() |> URI.encode_www_form()
+    id = id |> to_string() |> reverse() |> URI.encode_www_form()
 
     Path.join([prefix(), id])
   end

@@ -1,13 +1,15 @@
-defmodule Uppy.Pipeline.Phase do
-  def run(phase, input, options) do
-    phase.run(input, options)
-  end
-end
-
 defmodule Uppy.Pipeline do
-  alias Uppy.Pipeline.Phase
+  alias Uppy.Pipeline.Phases
+
+  @default_input %{
+    value: nil,
+    context: %{},
+    private: []
+  }
 
   def run(input, pipeline) do
+    input = Map.merge(@default_input, input)
+
     pipeline
     |> List.flatten()
     |> run_phase(input)
@@ -22,12 +24,12 @@ defmodule Uppy.Pipeline do
   def run_phase([phase | todo] = _phases, input, done) do
     {phase, opts} = phase_config(phase)
 
-    case Phase.run(phase, input, opts) do
-      {:ok, result} ->
-        run_phase(todo, result, [phase | done])
+    case Phases.run(phase, input, opts) do
+      {:ok, output} ->
+        run_phase(todo, output, [phase | done])
 
       {:error, message} ->
-        {:error, message, [phase | done]}
+        {:error, {message, [phase | done]}}
 
       term ->
         raise """

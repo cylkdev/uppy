@@ -9,7 +9,7 @@ defmodule Uppy.Adapters.Scheduler.Oban do
 
   @behaviour Adapter.Scheduler
 
-  @impl Adapter.Scheduler
+  @impl true
   @doc """
   ...
   """

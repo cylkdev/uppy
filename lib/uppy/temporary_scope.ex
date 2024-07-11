@@ -1,4 +1,4 @@
-defmodule Uppy.TemporaryScopes do
+defmodule Uppy.TemporaryScope do
   def path?(adapter, path) do
     adapter.path?(path)
   end

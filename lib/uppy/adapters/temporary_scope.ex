@@ -16,14 +16,14 @@ defmodule Uppy.Adapters.TemporaryScope do
   @doc """
   ...
   """
-  @impl Adapter.TemporaryScope
+  @impl true
   @spec path?(binary()) :: boolean()
   def path?(path), do: String.starts_with?(path, @prefix)
 
   @doc """
   ...
   """
-  @impl Adapter.TemporaryScope
+  @impl true
   @spec prefix(binary(), binary()) :: binary()
   def prefix(id, basename) do
     prefix(id) <> "/" <> URI.encode_www_form(basename)
@@ -40,6 +40,8 @@ defmodule Uppy.Adapters.TemporaryScope do
   def prefix, do: @prefix
 
   defp reverse(id) do
+    id = to_string(id)
+
     case Keyword.get(@config, :reverse, true) do
       true -> String.reverse(id)
       false -> id

@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(EctoShorts) do
-  defmodule Uppy.Adapters.Actions do
+  defmodule Uppy.Adapters.Action do
     @moduledoc """
     Implements the `Uppy.Adapter.Action` behaviour.
 
@@ -25,13 +25,11 @@ if Code.ensure_loaded?(EctoShorts) do
     """
     alias EctoShorts.Actions
 
-    alias Uppy.Adapter
-
-    @behaviour Adapter.Actions
+    @behaviour Uppy.Adapter.Action
 
     @type t_res(t) :: {:ok, t} | {:error, term()}
 
-    @impl Adapter.Actions
+    @impl true
     @doc """
     See `EctoShorts.Actions.create/3` for documentation.
     """
@@ -44,7 +42,7 @@ if Code.ensure_loaded?(EctoShorts) do
       Actions.create(schema, params, options)
     end
 
-    @impl Adapter.Actions
+    @impl true
     @doc """
     See `EctoShorts.Actions.find/3` for documentation.
     """
@@ -57,7 +55,7 @@ if Code.ensure_loaded?(EctoShorts) do
       Actions.find(schema, params, options)
     end
 
-    @impl Adapter.Actions
+    @impl true
     @doc """
     See `EctoShorts.Actions.update/4` for documentation.
     """
@@ -71,7 +69,7 @@ if Code.ensure_loaded?(EctoShorts) do
       Actions.update(schema, id_or_schema_data, params, options)
     end
 
-    @impl Adapter.Actions
+    @impl true
     @doc """
     See `EctoShorts.Actions.delete/2` for documentation.
     """
@@ -83,7 +81,7 @@ if Code.ensure_loaded?(EctoShorts) do
       Actions.delete(schema_data, options)
     end
 
-    @impl Adapter.Actions
+    @impl true
     @doc """
     See `EctoShorts.Actions.delete/3` for documentation.
     """
@@ -96,7 +94,7 @@ if Code.ensure_loaded?(EctoShorts) do
       Actions.delete(schema, id, options)
     end
 
-    @impl Adapter.Actions
+    @impl true
     @doc """
     Executes a repo transaction.
     """
@@ -127,9 +125,9 @@ if Code.ensure_loaded?(EctoShorts) do
     defp repo!(options), do: Keyword.get(options, :repo, EctoShorts.Config.repo())
   end
 else
-  if Uppy.Config.actions_adapter() === Uppy.Adapters.Actions do
+  if Uppy.Config.action_adapter() === Uppy.Adapter.Action do
     raise """
-    The config `:actions_adapter` is set to `Uppy.Adapters.Actions` and
+    The config `:action_adapter` is set to `Uppy.Adapter.Action` and
     a required dependency is missing.
 
     To fix this error you can do one of the following:
@@ -145,11 +143,11 @@ else
       end
       ```
 
-    - Set the config `:actions_adapter` to a different module:
+    - Set the config `:action_adapter` to a different module:
 
       ```
       # config.exs
-      config :uppy, :actions_adapter, YourApp.ActionsModule
+      config :uppy, :action_adapter, YourApp.ActionsModule
       ```
     """
   end

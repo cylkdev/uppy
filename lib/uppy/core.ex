@@ -3,17 +3,21 @@ defmodule Uppy.Core do
 
   alias Uppy.{
     Actions,
-    Config,
     Error,
     Pipeline,
     Storage,
-    TemporaryScopes,
+    TemporaryScope,
     Utils
   }
 
   @unique_identifier_bytes_size 32
 
+  def basename(unique_identifier, path) do
+    "#{unique_identifier}-#{path}"
+  end
+
   def presigned_part(
+    action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -23,7 +27,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options),
+           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -52,6 +56,7 @@ defmodule Uppy.Core do
   end
 
   def find_parts(
+    action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -61,7 +66,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options),
+           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -89,7 +94,8 @@ defmodule Uppy.Core do
     end
   end
 
-  def confirm_multipart_upload(
+  def complete_multipart_upload(
+    action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -99,7 +105,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options),
+           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -111,7 +117,7 @@ defmodule Uppy.Core do
              options
            ),
          {:ok, metadata} <-
-           Storage.confirm_multipart_upload(
+           Storage.complete_multipart_upload(
              storage_adapter,
              bucket,
              schema_data.key,
@@ -120,7 +126,7 @@ defmodule Uppy.Core do
              options
            ),
          {:ok, schema_data} <-
-           actions_update(schema, schema_data, %{e_tag: metadata.e_tag}, options) do
+           Actions.update(action_adapter, schema, schema_data, %{e_tag: metadata.e_tag}, options) do
       {:ok,
        %{
          multipart: true,
@@ -131,6 +137,7 @@ defmodule Uppy.Core do
   end
 
   def abort_multipart_upload(
+    action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -139,7 +146,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options),
+           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
          {:ok, schema_data} <-
            check_if_multipart_upload(
              schema_data,
@@ -158,7 +165,7 @@ defmodule Uppy.Core do
              schema_data.upload_id,
              options
            ),
-         {:ok, schema_data} <- actions_delete(schema_data, options) do
+         {:ok, schema_data} <- Actions.delete(action_adapter, schema_data, options) do
       {:ok, Map.put(abort_multipart_upload_payload, :schema_data, schema_data)}
     end
   end
@@ -172,6 +179,7 @@ defmodule Uppy.Core do
   end
 
   def start_multipart_upload(
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -192,7 +200,7 @@ defmodule Uppy.Core do
     basename = basename(unique_identifier, filename)
 
     key =
-      TemporaryScopes.prefix(
+      TemporaryScope.prefix(
         temporary_scope_adapter,
         to_string(partition_id),
         basename
@@ -201,7 +209,8 @@ defmodule Uppy.Core do
     with {:ok, multipart_upload} <-
            Storage.initiate_multipart_upload(storage_adapter, bucket, key, options),
          {:ok, schema_data} <-
-           actions_create(
+          Actions.create(
+            action_adapter,
              schema,
              Map.merge(params, %{
                upload_id: multipart_upload.upload_id,
@@ -222,33 +231,36 @@ defmodule Uppy.Core do
   end
 
   def run_pipeline(
-        pipeline,
-        storage_adapter,
-        bucket,
-        temporary_scope_adapter,
-        permanent_scope_adapter,
-        resource_name,
+    pipeline,
+    context,
+    schema,
+    params,
+    options
+  ) do
+    with {:ok, schema_data} <-
+      find_completed_upload(
+        context.action_adapter,
+        context.temporary_scope_adapter,
         schema,
         params,
         options
       ) do
-    with {:ok, schema_data} <-
-           find_confirmed_upload(temporary_scope_adapter, schema, params, options) do
       input = %{
-        actions_adapter: Config.actions_adapter(),
-        storage_adapter: storage_adapter,
-        bucket: bucket,
-        resource_name: resource_name,
-        temporary_scope_adapter: temporary_scope_adapter,
-        permanent_scope_adapter: permanent_scope_adapter,
-        schema_data: schema_data,
-        private: %{},
-        options: options
+        value: schema_data,
+        context: Map.merge(context, %{
+          schema: schema,
+          storage_adapter: context.storage_adapter,
+          bucket: context.bucket,
+          resource_name: context.resource_name,
+          permanent_scope_adapter: context.permanent_scope_adapter
+        }),
+        private: []
       }
 
       with {:ok, result, done} <- Pipeline.run(input, pipeline) do
         {:ok,
          %{
+           input: input,
            result: result,
            phases: done
          }}
@@ -256,7 +268,8 @@ defmodule Uppy.Core do
     end
   end
 
-  def confirm_upload(
+  def complete_upload(
+    action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -265,7 +278,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options),
+           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
          {:ok, schema_data} <-
            check_if_non_multipart_upload(
              schema_data,
@@ -276,11 +289,12 @@ defmodule Uppy.Core do
              },
              options
            ) do
-      find_upload_object_and_update_e_tag(storage_adapter, bucket, schema, schema_data, options)
+      find_object_and_update_upload_e_tag(action_adapter, storage_adapter, bucket, schema, schema_data, options)
     end
   end
 
-  def find_upload_object_and_update_e_tag(
+  def find_object_and_update_upload_e_tag(
+    action_adapter,
         storage_adapter,
         bucket,
         schema,
@@ -290,7 +304,8 @@ defmodule Uppy.Core do
     with {:ok, metadata} <-
            Storage.head_object(storage_adapter, bucket, schema_data.key, options),
          {:ok, schema_data} <-
-           actions_update(
+           Actions.update(
+            action_adapter,
              schema,
              schema_data,
              %{e_tag: metadata.e_tag},
@@ -304,14 +319,14 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_upload_object_and_update_e_tag(storage_adapter, bucket, schema, params, options) do
-    with {:ok, schema_data} <- actions_find(schema, params, options) do
-      find_upload_object_and_update_e_tag(storage_adapter, bucket, schema, schema_data, options)
+  def find_object_and_update_upload_e_tag(action_adapter, storage_adapter, bucket, schema, params, options) do
+    with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
+      find_object_and_update_upload_e_tag(action_adapter, storage_adapter, bucket, schema, schema_data, options)
     end
   end
 
-  def garbage_collect_object(storage_adapter, bucket, schema, key, options) do
-    with :ok <- ensure_not_found(schema, %{key: key}, options),
+  def garbage_collect_object(action_adapter, storage_adapter, bucket, schema, key, options) do
+    with :ok <- ensure_not_found(action_adapter, schema, %{key: key}, options),
          {:ok, _} <- Storage.head_object(storage_adapter, bucket, key, options),
          {:ok, _} <- Storage.delete_object(storage_adapter, bucket, key, options) do
       :ok
@@ -321,8 +336,8 @@ defmodule Uppy.Core do
     end
   end
 
-  defp ensure_not_found(schema, params, options) do
-    case actions_find(schema, params, options) do
+  defp ensure_not_found(action_adapter, schema, params, options) do
+    case Actions.find(action_adapter,  schema, params, options) do
       {:ok, schema_data} ->
         details = %{
           schema: schema,
@@ -340,9 +355,9 @@ defmodule Uppy.Core do
     end
   end
 
-  def abort_upload(temporary_scope_adapter, schema, params, options) do
+  def abort_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options),
+           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
          {:ok, schema_data} <-
            check_if_non_multipart_upload(
              schema_data,
@@ -353,14 +368,14 @@ defmodule Uppy.Core do
              },
              options
            ),
-         {:ok, schema_data} <- actions_delete(schema_data, options) do
+         {:ok, schema_data} <- Actions.delete(action_adapter, schema_data, options) do
       {:ok, %{schema_data: schema_data}}
     end
   end
 
-  def find_permanent_upload(temporary_scope_adapter, schema, params, options) do
-    with {:ok, schema_data} <- actions_find(schema, params, options) do
-      if TemporaryScopes.path?(temporary_scope_adapter, schema_data.key) === false do
+  def find_permanent_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
+    with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
+      if TemporaryScope.path?(temporary_scope_adapter, schema_data.key) === false do
         {:ok, schema_data}
       else
         details = %{
@@ -374,9 +389,15 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_confirmed_upload(temporary_scope_adapter, schema, params, options) do
+  def find_completed_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
     with {:ok, schema_data} <-
-           find_temporary_upload(temporary_scope_adapter, schema, params, options) do
+          find_temporary_upload(
+            action_adapter,
+            temporary_scope_adapter,
+            schema,
+            params,
+            options
+          ) do
       if is_nil(schema_data.e_tag) === false do
         {:ok, schema_data}
       else
@@ -391,9 +412,9 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_temporary_upload(temporary_scope_adapter, schema, params, options) do
-    with {:ok, schema_data} <- actions_find(schema, params, options) do
-      if TemporaryScopes.path?(temporary_scope_adapter, schema_data.key) do
+  def find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
+    with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
+      if TemporaryScope.path?(temporary_scope_adapter, schema_data.key) do
         {:ok, schema_data}
       else
         details = %{
@@ -408,6 +429,7 @@ defmodule Uppy.Core do
   end
 
   def start_upload(
+    action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -428,7 +450,7 @@ defmodule Uppy.Core do
     basename = basename(unique_identifier, filename)
 
     key =
-      TemporaryScopes.prefix(
+      TemporaryScope.prefix(
         temporary_scope_adapter,
         to_string(partition_id),
         basename
@@ -437,7 +459,8 @@ defmodule Uppy.Core do
     with {:ok, presigned_upload} <-
            Storage.presigned_upload(storage_adapter, bucket, key, options),
          {:ok, schema_data} <-
-           actions_create(
+           Actions.create(
+            action_adapter,
              schema,
              Map.merge(params, %{
                unique_identifier: unique_identifier,
@@ -455,8 +478,6 @@ defmodule Uppy.Core do
        }}
     end
   end
-
-  defp basename(unique_identifier, path), do: "#{unique_identifier}-#{path}"
 
   defp check_if_multipart_upload(schema_data, details, options) do
     if has_upload_id?(schema_data) do
@@ -476,20 +497,4 @@ defmodule Uppy.Core do
 
   defp has_upload_id?(%{upload_id: nil}), do: false
   defp has_upload_id?(%{upload_id: _upload_id}), do: true
-
-  defp actions_create(schema, params, options) do
-    Actions.create(Config.actions_adapter(), schema, params, options)
-  end
-
-  defp actions_find(schema, params, options) do
-    Actions.find(Config.actions_adapter(), schema, params, options)
-  end
-
-  defp actions_update(schema, schema_data, params, options) do
-    Actions.update(Config.actions_adapter(), schema, schema_data, params, options)
-  end
-
-  defp actions_delete(schema_data, options) do
-    Actions.delete(Config.actions_adapter(), schema_data, options)
-  end
 end

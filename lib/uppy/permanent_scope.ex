@@ -1,4 +1,4 @@
-defmodule Uppy.PermanentScopes do
+defmodule Uppy.PermanentScope do
   def path?(adapter, path, partition_id, resource_name) do
     adapter.path?(path, partition_id, resource_name)
   end

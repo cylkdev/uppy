@@ -14,46 +14,41 @@ defmodule Uppy.UploaderTest do
   @resource_name "user-avatars"
   @filename "image.jpeg"
 
-  @actions_adapter Uppy.Adapters.Actions
+  @schema Uppy.Support.PG.Objects.UserAvatarObject
+  @action_adapter Uppy.Adapters.Action
   @storage_adapter Uppy.Adapters.Storage.S3
   @permanent_scope_adapter Uppy.Adapters.PermanentScope
   @temporary_scope_adapter Uppy.Adapters.TemporaryScope
-
-  # @queryable Uppy.Support.PG.Objects.UserAvatarObject
-
-  # @resource "resource"
-  # @scheduler Uppy.Adapters.Scheduler.Oban
-  # @queryable_primary_key_source :id
-  # @parent_schema Uppy.Support.PG.Accounts.UserAvatar
-  # @parent_association_source :user_avatar_id
-  # @owner_schema PG.Accounts.User
-  # @owner_association_source :user_id
-  # @owner_primary_key_source :id
-  # @temporary_object_key Uppy.Adapters.PermanentScopes
-  # @permanent_object_key Uppy.Adapters.PermanentScopes
 
   defmodule MockUploader do
     use Uppy.Uploader,
       bucket: "bucket",
       resource_name: "user-avatars",
-      queryable: Uppy.Support.PG.Objects.UserAvatarObject
+      queryable: Uppy.Support.PG.Objects.UserAvatarObject,
+      pipeline: [
+        Uppy.Pipeline.Phases.LoadHolder,
+        Uppy.Pipeline.Phases.PutObjectCopy
+      ]
   end
 
+  @e_tag "e_tag"
   @head_object_params %{
     content_length: 11,
     content_type: "text/plain",
-    e_tag: "etag",
+    e_tag: @e_tag,
     last_modified: ~U[2023-08-18 10:53:21Z]
   }
 
   setup do
-    user = FactoryEx.insert!(Factory.Accounts.User)
+    company = FactoryEx.insert!(Factory.Accounts.Company)
+    user = FactoryEx.insert!(Factory.Accounts.User, %{company_id: company.id})
     user_profile = FactoryEx.insert!(Factory.Accounts.UserProfile, %{user_id: user.id})
 
     user_avatar =
       FactoryEx.insert!(Factory.Accounts.UserAvatar, %{user_profile_id: user_profile.id})
 
     %{
+      company: company,
       user: user,
       user_profile: user_profile,
       user_avatar: user_avatar
@@ -264,7 +259,7 @@ defmodule Uppy.UploaderTest do
     end
   end
 
-  describe "&confirm_upload/3" do
+  describe "&complete_upload/3" do
     @tag oban_testing: "manual"
     test "deletes record if key in temp path and creates lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
@@ -308,12 +303,12 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok,
                 %{
-                  schema_data: confirm_upload_schema_data,
-                  metadata: confirm_upload_metadata,
+                  schema_data: complete_upload_schema_data,
+                  metadata: complete_upload_metadata,
                   job: run_pipeline_job
-                }} = Uploader.confirm_upload(MockUploader, %{id: schema_data_id}, [])
+                }} = Uploader.complete_upload(MockUploader, %{id: schema_data_id}, [])
 
-        assert confirm_upload_metadata === @head_object_params
+        assert complete_upload_metadata === @head_object_params
 
         assert %Oban.Job{
                  args: %{
@@ -325,38 +320,38 @@ defmodule Uppy.UploaderTest do
 
         # e_tag should be the only new value set on the completed upload record
         assert %Uppy.Support.PG.Objects.UserAvatarObject{
-                 id: confirm_upload_schema_data_id,
-                 unique_identifier: confirm_upload_schema_data_unique_identifier,
-                 key: confirm_upload_schema_data_key,
+                 id: complete_upload_schema_data_id,
+                 unique_identifier: complete_upload_schema_data_unique_identifier,
+                 key: complete_upload_schema_data_key,
                  filename: @filename,
                  archived: false,
                  archived_at: nil,
-                 user_avatar_id: confirm_upload_schema_data_user_avatar_id,
-                 user_id: confirm_upload_schema_data_user_id,
+                 user_avatar_id: complete_upload_schema_data_user_avatar_id,
+                 user_id: complete_upload_schema_data_user_id,
                  # object metadata fields except e_tag should be nil
-                 e_tag: confirm_upload_schema_data_e_tag,
+                 e_tag: complete_upload_schema_data_e_tag,
                  upload_id: nil,
                  content_length: nil,
                  content_type: nil,
                  last_modified: nil
-               } = confirm_upload_schema_data
+               } = complete_upload_schema_data
 
-        assert is_binary(confirm_upload_schema_data_e_tag)
+        assert is_binary(complete_upload_schema_data_e_tag)
 
         # these should be the starting values
-        assert confirm_upload_schema_data_id === schema_data_id
+        assert complete_upload_schema_data_id === schema_data_id
 
-        assert confirm_upload_schema_data_unique_identifier ===
+        assert complete_upload_schema_data_unique_identifier ===
                  schema_data_unique_identifier
 
-        assert confirm_upload_schema_data_key === schema_data_key
+        assert complete_upload_schema_data_key === schema_data_key
 
-        assert confirm_upload_schema_data_user_avatar_id ===
+        assert complete_upload_schema_data_user_avatar_id ===
                  schema_data_user_avatar_id
 
-        assert confirm_upload_schema_data_user_id === context.user.id
+        assert complete_upload_schema_data_user_id === context.user.id
 
-        assert confirm_upload_schema_data.id === schema_data_id
+        assert complete_upload_schema_data.id === schema_data_id
 
         assert_enqueued(
           worker: Uppy.Adapters.Scheduler.Oban.PostProcessorWorker,
@@ -368,20 +363,46 @@ defmodule Uppy.UploaderTest do
           queue: :post_processing
         )
 
+        StorageSandbox.set_put_object_copy_responses([
+          {
+            @bucket,
+            fn ->
+              {:ok, %{
+                body: "body",
+                headers: [
+                  {"x-amz-id-2", "amz_id"},
+                  {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
+                  {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
+                  {"x-amz-server-side-encryption", "AES256"},
+                  {"content-type", "application/xml"},
+                  {"server", "AmazonS3"},
+                  {"content-length", "224"}
+                ],
+                status_code: 200
+              }}
+            end
+          }
+        ])
+
         assert {:ok,
                 %{
                   result: %{
-                    actions_adapter: @actions_adapter,
-                    storage_adapter: @storage_adapter,
-                    bucket: @bucket,
-                    resource_name: @resource_name,
-                    temporary_scope_adapter: @temporary_scope_adapter,
-                    permanent_scope_adapter: @permanent_scope_adapter,
-                    schema_data: job_pipeline_schema_data,
-                    private: job_pipeline_private,
-                    options: []
-                  },
-                  phases: []
+                    value: job_pipeline_schema_data,
+                    context: %{
+                      bucket: @bucket,
+                      schema: @schema,
+                      resource_name: @resource_name,
+                      action_adapter: @action_adapter,
+                      storage_adapter: @storage_adapter,
+                      permanent_scope_adapter: @permanent_scope_adapter,
+                      temporary_scope_adapter: @temporary_scope_adapter
+                    },
+                    private: job_pipeline_private
+                  } = _input,
+                  phases: [
+                    Uppy.Pipeline.Phases.PutObjectCopy,
+                    Uppy.Pipeline.Phases.LoadHolder
+                  ]
                 }} =
                  perform_job(Uppy.Adapters.Scheduler.Oban.PostProcessorWorker, %{
                    event: "uppy.post_processor.run_pipeline",
@@ -391,7 +412,47 @@ defmodule Uppy.UploaderTest do
 
         # pipeline result should match the input
         assert job_pipeline_schema_data.id === schema_data_id
-        assert job_pipeline_private === %{}
+        assert [
+          {
+            Elixir.Uppy.Pipeline.Phases.PutObjectCopy,
+            %{
+              basename: job_pipeline_private_basename,
+              metadata: @head_object_params,
+              schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                e_tag: @e_tag,
+                upload_id: nil,
+                archived: false,
+                archived_at: nil,
+                inserted_at: _,
+                updated_at: _
+              } = job_pipeline_private_schema_data,
+              partition_id: job_pipeline_partition_id,
+              destination_object: job_pipeline_destination_object,
+              source_object: job_pipeline_source_object
+            }
+          }
+        ] = job_pipeline_private
+
+        assert job_pipeline_partition_id === context.user.company_id
+
+        assert job_pipeline_private_schema_data.id === schema_data.id
+        assert job_pipeline_private_schema_data.user_id === context.user.id
+        assert job_pipeline_private_schema_data.user_avatar_id === context.user_avatar.id
+
+        expected_permanent_object = Enum.join([
+          "#{String.reverse("#{context.user.company_id}")}-user-avatars/",
+          "#{schema_data.unique_identifier}-#{schema_data.filename}"
+        ])
+
+        assert job_pipeline_private_schema_data.key === expected_permanent_object
+        assert job_pipeline_destination_object === expected_permanent_object
+        assert job_pipeline_source_object === schema_data.key
+
+        assert job_pipeline_private_basename === "#{schema_data.unique_identifier}-#{schema_data.filename}"
+
+        assert job_pipeline_private_schema_data.content_length === @head_object_params.content_length
+        assert job_pipeline_private_schema_data.content_type === @head_object_params.content_type
+        assert job_pipeline_private_schema_data.last_modified === @head_object_params.last_modified
       end)
     end
   end
@@ -560,14 +621,14 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok, %{schema_data: schema_data}} =
                  Uploader.start_multipart_upload(
-                  MockUploader,
-                  context.user.id,
-                  %{
-                    filename: @filename,
-                    user_avatar_id: context.user_avatar.id,
-                    user_id: context.user.id
-                  },
-                  []
+                   MockUploader,
+                   context.user.id,
+                   %{
+                     filename: @filename,
+                     user_avatar_id: context.user_avatar.id,
+                     user_id: context.user.id
+                   },
+                   []
                  )
 
         StorageSandbox.set_abort_multipart_upload_responses([
@@ -641,7 +702,7 @@ defmodule Uppy.UploaderTest do
     end
   end
 
-  describe "&confirm_multipart_upload/3" do
+  describe "&complete_multipart_upload/3" do
     @tag oban_testing: "manual"
     test "deletes record if key in temp path and creates lifecycle jobs", context do
       Oban.Testing.with_testing_mode(:manual, fn ->
@@ -659,14 +720,14 @@ defmodule Uppy.UploaderTest do
 
         assert {:ok, %{schema_data: schema_data}} =
                  Uploader.start_multipart_upload(
-                  MockUploader,
-                  context.user.id,
-                  %{
-                    filename: @filename,
-                    user_avatar_id: context.user_avatar.id,
-                    user_id: context.user.id
-                  },
-                  []
+                   MockUploader,
+                   context.user.id,
+                   %{
+                     filename: @filename,
+                     user_avatar_id: context.user_avatar.id,
+                     user_id: context.user.id
+                   },
+                   []
                  )
 
         StorageSandbox.set_head_object_responses([
@@ -695,34 +756,34 @@ defmodule Uppy.UploaderTest do
         assert schema_data_unique_identifier
         assert schema_data_key
 
-        StorageSandbox.set_confirm_multipart_upload_responses([
+        StorageSandbox.set_complete_multipart_upload_responses([
           {@bucket,
            fn ->
              {:ok,
               %{
                 location: "https://s3.com/image.jpeg",
                 bucket: @bucket,
-                key: "image.jpeg",
-                e_tag: "e_tag"
+                key: @filename,
+                e_tag: @e_tag
               }}
            end}
         ])
 
         assert {:ok,
                 %{
-                  schema_data: confirm_upload_schema_data,
+                  schema_data: complete_upload_schema_data,
                   job: run_pipeline_job,
                   metadata: %{
                     location: "https://s3.com/image.jpeg",
                     bucket: @bucket,
-                    key: "image.jpeg",
-                    e_tag: "e_tag"
+                    key: @filename,
+                    e_tag: @e_tag
                   }
                 }} =
-                 Uploader.confirm_multipart_upload(
+                 Uploader.complete_multipart_upload(
                    MockUploader,
                    %{id: schema_data_id},
-                   [{1, "e_tag"}]
+                   [{1, @e_tag}]
                  )
 
         assert %Oban.Job{
@@ -735,38 +796,38 @@ defmodule Uppy.UploaderTest do
 
         # e_tag should be the only new value set on the completed upload record
         assert %Uppy.Support.PG.Objects.UserAvatarObject{
-                 id: confirm_upload_schema_data_id,
-                 unique_identifier: confirm_upload_schema_data_unique_identifier,
-                 key: confirm_upload_schema_data_key,
+                 id: complete_upload_schema_data_id,
+                 unique_identifier: complete_upload_schema_data_unique_identifier,
+                 key: complete_upload_schema_data_key,
                  filename: @filename,
                  archived: false,
                  archived_at: nil,
-                 user_avatar_id: confirm_upload_schema_data_user_avatar_id,
-                 user_id: confirm_upload_schema_data_user_id,
+                 user_avatar_id: complete_upload_schema_data_user_avatar_id,
+                 user_id: complete_upload_schema_data_user_id,
                  # object metadata fields except e_tag should be nil
-                 e_tag: confirm_upload_schema_data_e_tag,
+                 e_tag: complete_upload_schema_data_e_tag,
                  upload_id: "upload_id",
                  content_length: nil,
                  content_type: nil,
                  last_modified: nil
-               } = confirm_upload_schema_data
+               } = complete_upload_schema_data
 
-        assert is_binary(confirm_upload_schema_data_e_tag)
+        assert is_binary(complete_upload_schema_data_e_tag)
 
         # these should be the starting values
-        assert confirm_upload_schema_data_id === schema_data_id
+        assert complete_upload_schema_data_id === schema_data_id
 
-        assert confirm_upload_schema_data_unique_identifier ===
+        assert complete_upload_schema_data_unique_identifier ===
                  schema_data_unique_identifier
 
-        assert confirm_upload_schema_data_key === schema_data_key
+        assert complete_upload_schema_data_key === schema_data_key
 
-        assert confirm_upload_schema_data_user_avatar_id ===
+        assert complete_upload_schema_data_user_avatar_id ===
                  schema_data_user_avatar_id
 
-        assert confirm_upload_schema_data_user_id === context.user.id
+        assert complete_upload_schema_data_user_id === context.user.id
 
-        assert confirm_upload_schema_data.id === schema_data_id
+        assert complete_upload_schema_data.id === schema_data_id
 
         assert_enqueued(
           worker: Uppy.Adapters.Scheduler.Oban.PostProcessorWorker,
@@ -778,29 +839,96 @@ defmodule Uppy.UploaderTest do
           queue: :post_processing
         )
 
-        assert {:ok,%{
-          result: %{
-            actions_adapter: @actions_adapter,
-            storage_adapter: @storage_adapter,
-            bucket: @bucket,
-            resource_name: @resource_name,
-            temporary_scope_adapter: @temporary_scope_adapter,
-            permanent_scope_adapter: @permanent_scope_adapter,
-            schema_data: job_pipeline_schema_data,
-            private: job_pipeline_private,
-            options: []
-          },
-          phases: []
-        }} =
+        StorageSandbox.set_put_object_copy_responses([
+          {
+            @bucket,
+            fn ->
+              {:ok, %{
+                body: "body",
+                headers: [
+                  {"x-amz-id-2", "amz_id"},
+                  {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
+                  {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
+                  {"x-amz-server-side-encryption", "AES256"},
+                  {"content-type", "application/xml"},
+                  {"server", "AmazonS3"},
+                  {"content-length", "224"}
+                ],
+                status_code: 200
+              }}
+            end
+          }
+        ])
+
+        assert {:ok,
+                %{
+                  result: %{
+                    value: job_pipeline_schema_data,
+                    context: %{
+                      bucket: @bucket,
+                      schema: @schema,
+                      resource_name: @resource_name,
+                      action_adapter: @action_adapter,
+                      storage_adapter: @storage_adapter,
+                      permanent_scope_adapter: @permanent_scope_adapter,
+                      temporary_scope_adapter: @temporary_scope_adapter
+                    },
+                    private: job_pipeline_private
+                  } = _input,
+                  phases: [
+                    Uppy.Pipeline.Phases.PutObjectCopy,
+                    Uppy.Pipeline.Phases.LoadHolder
+                  ]
+                }} =
                  perform_job(Uppy.Adapters.Scheduler.Oban.PostProcessorWorker, %{
                    event: "uppy.post_processor.run_pipeline",
                    uploader: "Uppy.UploaderTest.MockUploader",
                    id: schema_data_id
                  })
 
-          # pipeline result should match the input
+        # pipeline result should match the input
         assert job_pipeline_schema_data.id === schema_data_id
-        assert job_pipeline_private === %{}
+        assert [
+          {
+            Elixir.Uppy.Pipeline.Phases.PutObjectCopy,
+            %{
+              basename: job_pipeline_private_basename,
+              metadata: @head_object_params,
+              schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                e_tag: @e_tag,
+                archived: false,
+                archived_at: nil,
+                inserted_at: _,
+                updated_at: _
+              } = job_pipeline_private_schema_data,
+              partition_id: job_pipeline_partition_id,
+              destination_object: job_pipeline_destination_object,
+              source_object: job_pipeline_source_object
+            }
+          }
+        ] = job_pipeline_private
+
+        assert job_pipeline_partition_id === context.user.company_id
+
+        assert job_pipeline_private_schema_data.upload_id === schema_data.upload_id
+        assert job_pipeline_private_schema_data.id === schema_data.id
+        assert job_pipeline_private_schema_data.user_id === context.user.id
+        assert job_pipeline_private_schema_data.user_avatar_id === context.user_avatar.id
+
+        expected_permanent_object = Enum.join([
+          "#{String.reverse("#{context.user.company_id}")}-user-avatars/",
+          "#{schema_data.unique_identifier}-#{schema_data.filename}"
+        ])
+
+        assert job_pipeline_private_schema_data.key === expected_permanent_object
+        assert job_pipeline_destination_object === expected_permanent_object
+        assert job_pipeline_source_object === schema_data.key
+
+        assert job_pipeline_private_basename === "#{schema_data.unique_identifier}-#{schema_data.filename}"
+
+        assert job_pipeline_private_schema_data.content_length === @head_object_params.content_length
+        assert job_pipeline_private_schema_data.content_type === @head_object_params.content_type
+        assert job_pipeline_private_schema_data.last_modified === @head_object_params.last_modified
       end)
     end
   end

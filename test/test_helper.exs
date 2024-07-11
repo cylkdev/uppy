@@ -10,6 +10,9 @@ Code.put_compiler_option(:warnings_as_errors, true)
 ])
 
 {:ok, _} = Uppy.Support.Repo.start_link()
+
 {:ok, _} = Oban.start_link(Uppy.Config.oban())
 
-Uppy.Support.StorageSandbox.start_link()
+{:ok, _} = Uppy.Support.StorageSandbox.start_link()
+
+{:ok, _} = Uppy.Adapters.HTTP.Finch.start_link()

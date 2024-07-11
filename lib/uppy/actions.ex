@@ -1,14 +1,14 @@
 defmodule Uppy.Actions do
-  alias Uppy.Adapter.Actions
+  alias Uppy.Adapter.Action
 
-  @type t_res(t) :: Actions.t_res(t)
+  @type t_res(t) :: Action.t_res(t)
 
-  @type adapter :: Actions.adapter()
-  @type id :: Actions.id()
-  @type schema :: Actions.schema()
-  @type schema_data :: Actions.schema_data()
-  @type params :: Actions.params()
-  @type options :: Actions.options()
+  @type adapter :: Action.adapter()
+  @type id :: Action.id()
+  @type schema :: Action.schema()
+  @type schema_data :: Action.schema_data()
+  @type params :: Action.params()
+  @type options :: Action.options()
 
   @spec create(
           adapter :: adapter(),
