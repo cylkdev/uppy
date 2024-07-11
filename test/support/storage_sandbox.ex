@@ -293,7 +293,13 @@ defmodule Uppy.Support.StorageSandbox do
   end
 
   @spec put_object_copy_response(bucket, object, bucket, object, options) :: any
-  def put_object_copy_response(dest_bucket, destination_object, src_bucket, source_object, options) do
+  def put_object_copy_response(
+        dest_bucket,
+        destination_object,
+        src_bucket,
+        source_object,
+        options
+      ) do
     func = find!(:put_object_copy, dest_bucket)
 
     case :erlang.fun_info(func)[:arity] do

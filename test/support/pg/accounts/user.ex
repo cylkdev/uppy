@@ -14,8 +14,8 @@ defmodule Uppy.Support.PG.Accounts.User do
 
   @required_fields [:company_id]
   @allowed_fields [
-    :email
-  ] ++ @required_fields
+                    :email
+                  ] ++ @required_fields
 
   @doc false
   def changeset(model_or_changeset, attrs) do

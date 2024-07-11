@@ -342,13 +342,26 @@ defmodule Uppy.Storage do
           source_object :: object(),
           options :: options()
         ) :: t_res()
-  def put_object_copy(adapter, dest_bucket, destination_object, src_bucket, source_object, options) do
+  def put_object_copy(
+        adapter,
+        dest_bucket,
+        destination_object,
+        src_bucket,
+        source_object,
+        options
+      ) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
 
     if sandbox? && !sandbox_disabled?() do
-      sandbox_put_object_copy_response(dest_bucket, destination_object, src_bucket, source_object, options)
+      sandbox_put_object_copy_response(
+        dest_bucket,
+        destination_object,
+        src_bucket,
+        source_object,
+        options
+      )
     else
       dest_bucket
       |> adapter.put_object_copy(destination_object, src_bucket, source_object, options)

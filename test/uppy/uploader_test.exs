@@ -367,38 +367,40 @@ defmodule Uppy.UploaderTest do
           {
             @bucket,
             fn ->
-              {:ok, %{
-                body: "body",
-                headers: [
-                  {"x-amz-id-2", "amz_id"},
-                  {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
-                  {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
-                  {"x-amz-server-side-encryption", "AES256"},
-                  {"content-type", "application/xml"},
-                  {"server", "AmazonS3"},
-                  {"content-length", "224"}
-                ],
-                status_code: 200
-              }}
+              {:ok,
+               %{
+                 body: "body",
+                 headers: [
+                   {"x-amz-id-2", "amz_id"},
+                   {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
+                   {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
+                   {"x-amz-server-side-encryption", "AES256"},
+                   {"content-type", "application/xml"},
+                   {"server", "AmazonS3"},
+                   {"content-length", "224"}
+                 ],
+                 status_code: 200
+               }}
             end
           }
         ])
 
         assert {:ok,
                 %{
-                  result: %{
-                    value: job_pipeline_schema_data,
-                    context: %{
-                      bucket: @bucket,
-                      schema: @schema,
-                      resource_name: @resource_name,
-                      action_adapter: @action_adapter,
-                      storage_adapter: @storage_adapter,
-                      permanent_scope_adapter: @permanent_scope_adapter,
-                      temporary_scope_adapter: @temporary_scope_adapter
-                    },
-                    private: job_pipeline_private
-                  } = _input,
+                  result:
+                    %{
+                      value: job_pipeline_schema_data,
+                      context: %{
+                        bucket: @bucket,
+                        schema: @schema,
+                        resource_name: @resource_name,
+                        action_adapter: @action_adapter,
+                        storage_adapter: @storage_adapter,
+                        permanent_scope_adapter: @permanent_scope_adapter,
+                        temporary_scope_adapter: @temporary_scope_adapter
+                      },
+                      private: job_pipeline_private
+                    } = _input,
                   phases: [
                     Uppy.Pipeline.Phases.PutObjectCopy,
                     Uppy.Pipeline.Phases.LoadHolder
@@ -412,26 +414,28 @@ defmodule Uppy.UploaderTest do
 
         # pipeline result should match the input
         assert job_pipeline_schema_data.id === schema_data_id
+
         assert [
-          {
-            Elixir.Uppy.Pipeline.Phases.PutObjectCopy,
-            %{
-              basename: job_pipeline_private_basename,
-              metadata: @head_object_params,
-              schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
-                e_tag: @e_tag,
-                upload_id: nil,
-                archived: false,
-                archived_at: nil,
-                inserted_at: _,
-                updated_at: _
-              } = job_pipeline_private_schema_data,
-              partition_id: job_pipeline_partition_id,
-              destination_object: job_pipeline_destination_object,
-              source_object: job_pipeline_source_object
-            }
-          }
-        ] = job_pipeline_private
+                 {
+                   Elixir.Uppy.Pipeline.Phases.PutObjectCopy,
+                   %{
+                     basename: job_pipeline_private_basename,
+                     metadata: @head_object_params,
+                     schema_data:
+                       %Uppy.Support.PG.Objects.UserAvatarObject{
+                         e_tag: @e_tag,
+                         upload_id: nil,
+                         archived: false,
+                         archived_at: nil,
+                         inserted_at: _,
+                         updated_at: _
+                       } = job_pipeline_private_schema_data,
+                     partition_id: job_pipeline_partition_id,
+                     destination_object: job_pipeline_destination_object,
+                     source_object: job_pipeline_source_object
+                   }
+                 }
+               ] = job_pipeline_private
 
         assert job_pipeline_partition_id === context.user.company_id
 
@@ -439,20 +443,26 @@ defmodule Uppy.UploaderTest do
         assert job_pipeline_private_schema_data.user_id === context.user.id
         assert job_pipeline_private_schema_data.user_avatar_id === context.user_avatar.id
 
-        expected_permanent_object = Enum.join([
-          "#{String.reverse("#{context.user.company_id}")}-user-avatars/",
-          "#{schema_data.unique_identifier}-#{schema_data.filename}"
-        ])
+        expected_permanent_object =
+          Enum.join([
+            "#{String.reverse("#{context.user.company_id}")}-user-avatars/",
+            "#{schema_data.unique_identifier}-#{schema_data.filename}"
+          ])
 
         assert job_pipeline_private_schema_data.key === expected_permanent_object
         assert job_pipeline_destination_object === expected_permanent_object
         assert job_pipeline_source_object === schema_data.key
 
-        assert job_pipeline_private_basename === "#{schema_data.unique_identifier}-#{schema_data.filename}"
+        assert job_pipeline_private_basename ===
+                 "#{schema_data.unique_identifier}-#{schema_data.filename}"
 
-        assert job_pipeline_private_schema_data.content_length === @head_object_params.content_length
+        assert job_pipeline_private_schema_data.content_length ===
+                 @head_object_params.content_length
+
         assert job_pipeline_private_schema_data.content_type === @head_object_params.content_type
-        assert job_pipeline_private_schema_data.last_modified === @head_object_params.last_modified
+
+        assert job_pipeline_private_schema_data.last_modified ===
+                 @head_object_params.last_modified
       end)
     end
   end
@@ -843,38 +853,40 @@ defmodule Uppy.UploaderTest do
           {
             @bucket,
             fn ->
-              {:ok, %{
-                body: "body",
-                headers: [
-                  {"x-amz-id-2", "amz_id"},
-                  {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
-                  {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
-                  {"x-amz-server-side-encryption", "AES256"},
-                  {"content-type", "application/xml"},
-                  {"server", "AmazonS3"},
-                  {"content-length", "224"}
-                ],
-                status_code: 200
-              }}
+              {:ok,
+               %{
+                 body: "body",
+                 headers: [
+                   {"x-amz-id-2", "amz_id"},
+                   {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
+                   {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
+                   {"x-amz-server-side-encryption", "AES256"},
+                   {"content-type", "application/xml"},
+                   {"server", "AmazonS3"},
+                   {"content-length", "224"}
+                 ],
+                 status_code: 200
+               }}
             end
           }
         ])
 
         assert {:ok,
                 %{
-                  result: %{
-                    value: job_pipeline_schema_data,
-                    context: %{
-                      bucket: @bucket,
-                      schema: @schema,
-                      resource_name: @resource_name,
-                      action_adapter: @action_adapter,
-                      storage_adapter: @storage_adapter,
-                      permanent_scope_adapter: @permanent_scope_adapter,
-                      temporary_scope_adapter: @temporary_scope_adapter
-                    },
-                    private: job_pipeline_private
-                  } = _input,
+                  result:
+                    %{
+                      value: job_pipeline_schema_data,
+                      context: %{
+                        bucket: @bucket,
+                        schema: @schema,
+                        resource_name: @resource_name,
+                        action_adapter: @action_adapter,
+                        storage_adapter: @storage_adapter,
+                        permanent_scope_adapter: @permanent_scope_adapter,
+                        temporary_scope_adapter: @temporary_scope_adapter
+                      },
+                      private: job_pipeline_private
+                    } = _input,
                   phases: [
                     Uppy.Pipeline.Phases.PutObjectCopy,
                     Uppy.Pipeline.Phases.LoadHolder
@@ -888,25 +900,27 @@ defmodule Uppy.UploaderTest do
 
         # pipeline result should match the input
         assert job_pipeline_schema_data.id === schema_data_id
+
         assert [
-          {
-            Elixir.Uppy.Pipeline.Phases.PutObjectCopy,
-            %{
-              basename: job_pipeline_private_basename,
-              metadata: @head_object_params,
-              schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
-                e_tag: @e_tag,
-                archived: false,
-                archived_at: nil,
-                inserted_at: _,
-                updated_at: _
-              } = job_pipeline_private_schema_data,
-              partition_id: job_pipeline_partition_id,
-              destination_object: job_pipeline_destination_object,
-              source_object: job_pipeline_source_object
-            }
-          }
-        ] = job_pipeline_private
+                 {
+                   Elixir.Uppy.Pipeline.Phases.PutObjectCopy,
+                   %{
+                     basename: job_pipeline_private_basename,
+                     metadata: @head_object_params,
+                     schema_data:
+                       %Uppy.Support.PG.Objects.UserAvatarObject{
+                         e_tag: @e_tag,
+                         archived: false,
+                         archived_at: nil,
+                         inserted_at: _,
+                         updated_at: _
+                       } = job_pipeline_private_schema_data,
+                     partition_id: job_pipeline_partition_id,
+                     destination_object: job_pipeline_destination_object,
+                     source_object: job_pipeline_source_object
+                   }
+                 }
+               ] = job_pipeline_private
 
         assert job_pipeline_partition_id === context.user.company_id
 
@@ -915,20 +929,26 @@ defmodule Uppy.UploaderTest do
         assert job_pipeline_private_schema_data.user_id === context.user.id
         assert job_pipeline_private_schema_data.user_avatar_id === context.user_avatar.id
 
-        expected_permanent_object = Enum.join([
-          "#{String.reverse("#{context.user.company_id}")}-user-avatars/",
-          "#{schema_data.unique_identifier}-#{schema_data.filename}"
-        ])
+        expected_permanent_object =
+          Enum.join([
+            "#{String.reverse("#{context.user.company_id}")}-user-avatars/",
+            "#{schema_data.unique_identifier}-#{schema_data.filename}"
+          ])
 
         assert job_pipeline_private_schema_data.key === expected_permanent_object
         assert job_pipeline_destination_object === expected_permanent_object
         assert job_pipeline_source_object === schema_data.key
 
-        assert job_pipeline_private_basename === "#{schema_data.unique_identifier}-#{schema_data.filename}"
+        assert job_pipeline_private_basename ===
+                 "#{schema_data.unique_identifier}-#{schema_data.filename}"
 
-        assert job_pipeline_private_schema_data.content_length === @head_object_params.content_length
+        assert job_pipeline_private_schema_data.content_length ===
+                 @head_object_params.content_length
+
         assert job_pipeline_private_schema_data.content_type === @head_object_params.content_type
-        assert job_pipeline_private_schema_data.last_modified === @head_object_params.last_modified
+
+        assert job_pipeline_private_schema_data.last_modified ===
+                 @head_object_params.last_modified
       end)
     end
   end

@@ -145,7 +145,7 @@ defmodule Uppy.Uploader do
 
     with {:ok, complete_multipart_upload} <-
            Core.complete_multipart_upload(
-            action_adapter,
+             action_adapter,
              storage_adapter,
              bucket,
              temporary_scope_adapter,
@@ -182,7 +182,7 @@ defmodule Uppy.Uploader do
     operation = fn ->
       with {:ok, abort_multipart_upload} <-
              Core.abort_multipart_upload(
-              action_adapter,
+               action_adapter,
                storage_adapter,
                bucket,
                temporary_scope_adapter,
@@ -221,7 +221,7 @@ defmodule Uppy.Uploader do
     operation = fn ->
       with {:ok, start_multipart_upload} <-
              Core.start_multipart_upload(
-              action_adapter,
+               action_adapter,
                storage_adapter,
                bucket,
                temporary_scope_adapter,
@@ -290,7 +290,7 @@ defmodule Uppy.Uploader do
 
     with {:ok, complete_upload} <-
            Core.complete_upload(
-            action_adapter,
+             action_adapter,
              storage_adapter,
              bucket,
              temporary_scope_adapter,
@@ -367,7 +367,7 @@ defmodule Uppy.Uploader do
     operation = fn ->
       with {:ok, start_upload_payload} <-
              Core.start_upload(
-              action_adapter,
+               action_adapter,
                storage_adapter,
                bucket,
                temporary_scope_adapter,

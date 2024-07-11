@@ -17,7 +17,7 @@ defmodule Uppy.Core do
   end
 
   def presigned_part(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -56,7 +56,7 @@ defmodule Uppy.Core do
   end
 
   def find_parts(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -95,7 +95,7 @@ defmodule Uppy.Core do
   end
 
   def complete_multipart_upload(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -137,7 +137,7 @@ defmodule Uppy.Core do
   end
 
   def abort_multipart_upload(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -209,8 +209,8 @@ defmodule Uppy.Core do
     with {:ok, multipart_upload} <-
            Storage.initiate_multipart_upload(storage_adapter, bucket, key, options),
          {:ok, schema_data} <-
-          Actions.create(
-            action_adapter,
+           Actions.create(
+             action_adapter,
              schema,
              Map.merge(params, %{
                upload_id: multipart_upload.upload_id,
@@ -231,29 +231,30 @@ defmodule Uppy.Core do
   end
 
   def run_pipeline(
-    pipeline,
-    context,
-    schema,
-    params,
-    options
-  ) do
-    with {:ok, schema_data} <-
-      find_completed_upload(
-        context.action_adapter,
-        context.temporary_scope_adapter,
+        pipeline,
+        context,
         schema,
         params,
         options
       ) do
+    with {:ok, schema_data} <-
+           find_completed_upload(
+             context.action_adapter,
+             context.temporary_scope_adapter,
+             schema,
+             params,
+             options
+           ) do
       input = %{
         value: schema_data,
-        context: Map.merge(context, %{
-          schema: schema,
-          storage_adapter: context.storage_adapter,
-          bucket: context.bucket,
-          resource_name: context.resource_name,
-          permanent_scope_adapter: context.permanent_scope_adapter
-        }),
+        context:
+          Map.merge(context, %{
+            schema: schema,
+            storage_adapter: context.storage_adapter,
+            bucket: context.bucket,
+            resource_name: context.resource_name,
+            permanent_scope_adapter: context.permanent_scope_adapter
+          }),
         private: []
       }
 
@@ -269,7 +270,7 @@ defmodule Uppy.Core do
   end
 
   def complete_upload(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -289,12 +290,19 @@ defmodule Uppy.Core do
              },
              options
            ) do
-      find_object_and_update_upload_e_tag(action_adapter, storage_adapter, bucket, schema, schema_data, options)
+      find_object_and_update_upload_e_tag(
+        action_adapter,
+        storage_adapter,
+        bucket,
+        schema,
+        schema_data,
+        options
+      )
     end
   end
 
   def find_object_and_update_upload_e_tag(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         schema,
@@ -305,7 +313,7 @@ defmodule Uppy.Core do
            Storage.head_object(storage_adapter, bucket, schema_data.key, options),
          {:ok, schema_data} <-
            Actions.update(
-            action_adapter,
+             action_adapter,
              schema,
              schema_data,
              %{e_tag: metadata.e_tag},
@@ -319,9 +327,23 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_object_and_update_upload_e_tag(action_adapter, storage_adapter, bucket, schema, params, options) do
+  def find_object_and_update_upload_e_tag(
+        action_adapter,
+        storage_adapter,
+        bucket,
+        schema,
+        params,
+        options
+      ) do
     with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
-      find_object_and_update_upload_e_tag(action_adapter, storage_adapter, bucket, schema, schema_data, options)
+      find_object_and_update_upload_e_tag(
+        action_adapter,
+        storage_adapter,
+        bucket,
+        schema,
+        schema_data,
+        options
+      )
     end
   end
 
@@ -337,7 +359,7 @@ defmodule Uppy.Core do
   end
 
   defp ensure_not_found(action_adapter, schema, params, options) do
-    case Actions.find(action_adapter,  schema, params, options) do
+    case Actions.find(action_adapter, schema, params, options) do
       {:ok, schema_data} ->
         details = %{
           schema: schema,
@@ -391,13 +413,13 @@ defmodule Uppy.Core do
 
   def find_completed_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
     with {:ok, schema_data} <-
-          find_temporary_upload(
-            action_adapter,
-            temporary_scope_adapter,
-            schema,
-            params,
-            options
-          ) do
+           find_temporary_upload(
+             action_adapter,
+             temporary_scope_adapter,
+             schema,
+             params,
+             options
+           ) do
       if is_nil(schema_data.e_tag) === false do
         {:ok, schema_data}
       else
@@ -429,7 +451,7 @@ defmodule Uppy.Core do
   end
 
   def start_upload(
-    action_adapter,
+        action_adapter,
         storage_adapter,
         bucket,
         temporary_scope_adapter,
@@ -460,7 +482,7 @@ defmodule Uppy.Core do
            Storage.presigned_upload(storage_adapter, bucket, key, options),
          {:ok, schema_data} <-
            Actions.create(
-            action_adapter,
+             action_adapter,
              schema,
              Map.merge(params, %{
                unique_identifier: unique_identifier,

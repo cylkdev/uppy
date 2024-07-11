@@ -3,11 +3,11 @@ defmodule Uppy.Pipeline.Phases.LoadHolder do
 
   def run(input, options) do
     with {:ok, holder} <-
-      find_holder_by_association(
-        input.context.schema,
-        input.value,
-        options
-      ) do
+           find_holder_by_association(
+             input.context.schema,
+             input.value,
+             options
+           ) do
       {:ok, Map.put(input, :holder, holder)}
     end
   end
