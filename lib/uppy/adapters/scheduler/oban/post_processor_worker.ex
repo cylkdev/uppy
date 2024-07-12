@@ -8,7 +8,11 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.{Uploader, Utils}
+    alias Uppy.{
+      Adapters.Scheduler.Oban.AdapterConfig,
+      Uploader,
+      Utils
+    }
 
     @type params :: Uppy.params()
     @type max_age_in_seconds :: Uppy.max_age_in_seconds()
@@ -33,7 +37,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
     def queue_run_pipeline(uploader, id, options) do
       Oban.insert(
-        oban_name(),
+        AdapterConfig.oban_name(),
         new(%{
           event: @event_run_pipeline,
           uploader: Utils.module_to_string(uploader),
@@ -42,7 +46,5 @@ if Uppy.Utils.application_loaded?(:oban) do
         options
       )
     end
-
-    defp oban_name, do: Keyword.get(Uppy.Config.oban(), :name, Uppy.Oban)
   end
 end

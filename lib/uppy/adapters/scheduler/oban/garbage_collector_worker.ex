@@ -8,7 +8,11 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.{Uploader, Utils}
+    alias Uppy.{
+      Adapters.Scheduler.Oban.AdapterConfig,
+      Uploader,
+      Utils
+    }
 
     @type params :: Uppy.params()
     @type max_age_in_seconds :: Uppy.max_age_in_seconds()
@@ -33,7 +37,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
     def schedule_garbage_collect_object(uploader, key, date_time_or_seconds, options) do
       Oban.insert(
-        oban_name(),
+        AdapterConfig.oban_name(),
         new(%{
           event: @event_garbage_collect_object,
           uploader: Utils.module_to_string(uploader),
@@ -50,7 +54,5 @@ if Uppy.Utils.application_loaded?(:oban) do
     defp schedule_opt(options, seconds) when is_integer(seconds) do
       Keyword.put(options, :schedule_in, seconds)
     end
-
-    defp oban_name, do: Keyword.get(Uppy.Config.oban(), :name, Uppy.Oban)
   end
 end

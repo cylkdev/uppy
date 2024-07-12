@@ -10,10 +10,6 @@ defmodule Uppy.Config do
   def atomize_keys?, do: Application.get_env(@app, :atomize_keys?) || true
 
   @doc false
-  @spec oban :: Keyword.t()
-  def oban, do: Application.get_env(@app, Oban, [])
-
-  @doc false
   @spec error_message_adapter :: module()
   def error_message_adapter do
     Application.get_env(@app, :error_message_adapter) || ErrorMessage
