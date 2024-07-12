@@ -3,7 +3,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @moduledoc """
     Implements the `Uppy.Adapter.Storage` behaviour.
     """
-    alias Uppy.Utils
+    alias Uppy.{Error, Utils}
 
     @behaviour Uppy.Adapter.Storage
 
@@ -224,9 +224,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp handle_response({:error, msg}) do
       if msg =~ "there's nothing to see here" do
-        {:error, ErrorMessage.not_found("resource not found.")}
+        {:error, Error.call(:not_found, "resource not found.")}
       else
-        {:error, ErrorMessage.service_unavailable("storage service unavailable.")}
+        {:error, Error.call(:service_unavailable, "storage service unavailable.")}
       end
     end
 

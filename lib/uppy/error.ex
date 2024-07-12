@@ -3,17 +3,7 @@ defmodule Uppy.Error do
 
   alias Uppy.Config
 
-  def call(code, message, details, options \\ []) do
-    options
-    |> error_message_adapter!()
-    |> apply(code, [message, details])
-  end
-
-  defp error_message_adapter!(options) do
-    Keyword.get(
-      options,
-      :error_message_adapter,
-      Config.error_message_adapter()
-    )
+  def call(code, message, details \\ nil) do
+    apply(Config.error_message_adapter(), code, [message, details])
   end
 end

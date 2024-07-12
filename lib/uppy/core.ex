@@ -35,8 +35,7 @@ defmodule Uppy.Core do
                schema: schema,
                schema_data: schema_data,
                params: params
-             },
-             options
+             }
            ),
          {:ok, presigned_part} <-
            Storage.presigned_part_upload(
@@ -74,8 +73,7 @@ defmodule Uppy.Core do
                schema: schema,
                schema_data: schema_data,
                params: params
-             },
-             options
+             }
            ),
          {:ok, parts} <-
            Storage.list_parts(
@@ -113,8 +111,7 @@ defmodule Uppy.Core do
                schema: schema,
                schema_data: schema_data,
                params: params
-             },
-             options
+             }
            ),
          {:ok, metadata} <-
            Storage.complete_multipart_upload(
@@ -154,8 +151,7 @@ defmodule Uppy.Core do
                schema: schema,
                schema_data: schema_data,
                params: params
-             },
-             options
+             }
            ),
          {:ok, abort_multipart_upload_payload} <-
            handle_abort_multipart_upload(
@@ -287,8 +283,7 @@ defmodule Uppy.Core do
                schema: schema,
                schema_data: schema_data,
                params: params
-             },
-             options
+             }
            ) do
       find_object_and_update_upload_e_tag(
         action_adapter,
@@ -367,7 +362,7 @@ defmodule Uppy.Core do
           schema_data: schema_data
         }
 
-        {:error, Error.call(:forbidden, "record found", details, options)}
+        {:error, Error.call(:forbidden, "record found", details)}
 
       {:error, %{code: :not_found}} ->
         :ok
@@ -387,8 +382,7 @@ defmodule Uppy.Core do
                schema: schema,
                schema_data: schema_data,
                params: params
-             },
-             options
+             }
            ),
          {:ok, schema_data} <- Actions.delete(action_adapter, schema_data, options) do
       {:ok, %{schema_data: schema_data}}
@@ -406,7 +400,7 @@ defmodule Uppy.Core do
           params: params
         }
 
-        {:error, Error.call(:forbidden, "not a permanent upload", details, options)}
+        {:error, Error.call(:forbidden, "not a permanent upload", details)}
       end
     end
   end
@@ -429,7 +423,7 @@ defmodule Uppy.Core do
           params: params
         }
 
-        {:error, Error.call(:forbidden, "upload incomplete", details, options)}
+        {:error, Error.call(:forbidden, "upload incomplete", details)}
       end
     end
   end
@@ -445,7 +439,7 @@ defmodule Uppy.Core do
           params: params
         }
 
-        {:error, Error.call(:forbidden, "not a temporary upload", details, options)}
+        {:error, Error.call(:forbidden, "not a temporary upload", details)}
       end
     end
   end
@@ -501,17 +495,17 @@ defmodule Uppy.Core do
     end
   end
 
-  defp check_if_multipart_upload(schema_data, details, options) do
+  defp check_if_multipart_upload(schema_data, details) do
     if has_upload_id?(schema_data) do
       {:ok, schema_data}
     else
-      {:error, Error.call(:forbidden, "must be a multipart upload", details, options)}
+      {:error, Error.call(:forbidden, "must be a multipart upload", details)}
     end
   end
 
-  defp check_if_non_multipart_upload(schema_data, details, options) do
+  defp check_if_non_multipart_upload(schema_data, details) do
     if has_upload_id?(schema_data) do
-      {:error, Error.call(:forbidden, "must be a non multipart upload", details, options)}
+      {:error, Error.call(:forbidden, "must be a non multipart upload", details)}
     else
       {:ok, schema_data}
     end

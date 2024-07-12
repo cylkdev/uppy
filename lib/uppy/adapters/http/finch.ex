@@ -54,6 +54,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     #{NimbleOptions.docs(@definition)}
     """
     alias Uppy.Adapters.HTTP.Finch.Response
+    alias Uppy.Error
 
     @type t_res :: Uppy.t_res(Response.t())
     @type headers :: [{binary | atom, binary}]
@@ -215,13 +216,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       |> handle_response(options)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      RuntimeError ->
+        {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
     catch
+      # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         ErrorMessage.service_unavailable(
-           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
-         )}
+        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
     end
 
     @doc """
@@ -247,13 +247,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       |> handle_response(options)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      RuntimeError ->
+        {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
     catch
+      # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         ErrorMessage.service_unavailable(
-           "Uppy.Adapters.HTTP.Finch post exited: #{inspect(reason)}"
-         )}
+        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
     end
 
     @doc """
@@ -279,13 +278,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       |> handle_response(options)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      RuntimeError ->
+        {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
     catch
+      # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         ErrorMessage.service_unavailable(
-           "Uppy.Adapters.HTTP.Finch post exited: #{inspect(reason)}"
-         )}
+        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
     end
 
     @doc """
@@ -311,10 +309,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       |> handle_response(options)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      RuntimeError ->
+        {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
     catch
       # Nimble pool out of workers error
-      :exit, _ -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      :exit, reason ->
+        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
     end
 
     @doc """
@@ -340,13 +340,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       |> handle_response(options)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      RuntimeError ->
+        {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
     catch
+      # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         ErrorMessage.service_unavailable(
-           "Uppy.Adapters.HTTP.Finch get exited: #{inspect(reason)}"
-         )}
+        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
     end
 
     @doc """
@@ -372,13 +371,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       |> handle_response(options)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, ErrorMessage.service_unavailable("Out of HTTP workers")}
+      RuntimeError ->
+        {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
     catch
+      # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         ErrorMessage.service_unavailable(
-           "Uppy.Adapters.HTTP.Finch get exited: #{inspect(reason)}"
-         )}
+        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
     end
 
     defp run_and_measure(fnc, headers, method, options) do
@@ -414,37 +412,36 @@ if Uppy.Utils.application_loaded?(:finch) do
 
       if Map.has_key?(error_code_map, code) do
         {error, message} = Map.get(error_code_map, code)
-
-        {:error, apply(ErrorMessage, error, [message, details])}
+          {:error, Error.call(error, message, details)}
       else
         message = unknown_error_message(api_name)
-        {:error, ErrorMessage.internal_server_error(message, details)}
+        {:error, Error.call(:internal_server_error, message, details)}
       end
     end
 
     defp handle_response({:error, e}, opts) when is_binary(e) or is_atom(e) do
       message = "#{opts[:name]}: #{e}"
-      {:error, ErrorMessage.internal_server_error(message, %{error: e})}
+      {:error, Error.call(:internal_server_error, message, %{error: e})}
     end
 
     defp handle_response({:error, %Mint.TransportError{reason: :timeout} = e}, opts) do
       message = "#{opts[:name]}: Endpoint timeout."
-      {:error, ErrorMessage.request_timeout(message, %{error: e})}
+      {:error, Error.call(:request_timeout, message, %{error: e})}
     end
 
     defp handle_response({:error, %Mint.TransportError{reason: :econnrefused} = e}, opts) do
       message = "#{opts[:name]}: HTTP connection refused."
-      {:error, ErrorMessage.service_unavailable(message, %{error: e})}
+      {:error, Error.call(:service_unavailable, message, %{error: e})}
     end
 
     defp handle_response({:error, e}, opts) do
       message = unknown_error_message(opts[:name])
-      {:error, ErrorMessage.internal_server_error(message, %{error: e})}
+      {:error, Error.call(:internal_server_error, message, %{error: e})}
     end
 
     defp handle_response(e, opts) do
       message = unknown_error_message(opts[:name])
-      {:error, ErrorMessage.internal_server_error(message, %{error: e})}
+      {:error, Error.call(:internal_server_error, message, %{error: e})}
     end
 
     defp unknown_error_message(api_name) do
