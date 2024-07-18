@@ -1,11 +1,11 @@
 if Uppy.Utils.application_loaded?(:thumbor) do
   defmodule Uppy.Adapters.Thumbor do
-    @config Application.compile_env(Uppy.Config.app(), __MODULE__, [])
+    config = Uppy.Config.thumbor()
 
-    @host @config[:host] || "http://localhost:80"
-    @security_code @config[:security_code]
-    @http_adapter @config[:http_adapter] || Uppy.Adapters.HTTP.Finch
-    @storage_adapter @config[:storage_adapter] || Uppy.Adapters.Storage.S3
+    @host config[:host] || "http://localhost:80"
+    @security_code config[:security_code]
+    @http_adapter config[:http_adapter] || Uppy.Adapters.HTTP.Finch
+    @storage_adapter config[:storage_adapter] || Uppy.Adapters.Storage.S3
 
     def build_url(image_url, params) do
       Thumbor.build_url(image_url, params)

@@ -135,9 +135,7 @@ defmodule Uppy.Storage do
       |> Keyword.merge(options)
       |> Keyword.update(:query_params, query_params, &Map.merge(&1, query_params))
 
-    http_method = upload_http_method(options, :presigned_part_upload)
-
-    presigned_url(adapter, bucket, http_method, object, options)
+    presigned_upload(adapter, bucket, object, options)
   end
 
   @doc """
@@ -152,13 +150,13 @@ defmodule Uppy.Storage do
   def presigned_upload(adapter, bucket, object, options \\ []) do
     options = Keyword.merge(@default_options, options)
 
-    http_method = upload_http_method(options, :presigned_upload)
+    http_method = upload_http_method(options)
 
     presigned_url(adapter, bucket, http_method, object, options)
   end
 
-  defp upload_http_method(options, action) do
-    case options[:storage][action][:http_method] do
+  defp upload_http_method(options) do
+    case options[:storage][:http_method] do
       :post -> :post
       :put -> :put
       term -> raise ArgumentError, "expected `:put` or `:put`, got: #{inspect(term)}"

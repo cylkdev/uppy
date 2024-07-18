@@ -261,19 +261,32 @@ defmodule Uppy.Uploader do
     pipeline = pipeline(uploader)
 
     context = %{
-      action_adapter: action_adapter,
-      storage_adapter: storage_adapter,
-      bucket: bucket,
-      resource_name: resource_name,
-      temporary_scope_adapter: temporary_scope_adapter,
-      permanent_scope_adapter: permanent_scope_adapter
+      action_adapter: Uppy.Adapters.Action,
+      storage_adapter: Uppy.Adapters.Storage.S3,
+      bucket: "your-bucket-name",
+      resource_name: "resource-name",
+      temporary_scope_adapter: Uppy.Adapters.TemporaryScope,
+      permanent_scope_adapter: Uppy.Adapters.PermanentScope
     }
 
     Core.run_pipeline(
-      pipeline,
-      context,
-      schema,
-      params,
+      [
+        Uppy.Pipeline.Phases.EctoHolderLoader,
+        Uppy.Pipeline.Phases.PutObjectCopy
+      ],
+      %{
+        action_adapter: Uppy.Adapters.Action,
+        storage_adapter: Uppy.Adapters.Storage.S3,
+        bucket: "your-bucket-name",
+        resource_name: "resource-name",
+        temporary_scope_adapter: Uppy.Adapters.TemporaryScope,
+        permanent_scope_adapter: Uppy.Adapters.PermanentScope
+      },
+      Uppy.Support.PG.Objects.UserAvatarObject,
+      %{
+        user_avatar_id: 1,
+        user_id: 1
+      },
       options
     )
   end

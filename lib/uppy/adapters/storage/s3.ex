@@ -7,17 +7,22 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @behaviour Uppy.Adapter.Storage
 
-    @config Application.compile_env(Uppy.Config.app(), __MODULE__, [])
+    @one_minute_seconds 60
 
     @impl true
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.list_objects/2`.
     """
-    def list_objects(bucket, prefix \\ "", options \\ []) do
-      s3_options = Keyword.put(options, :prefix, prefix)
+    def list_objects(bucket, prefix \\ nil, options \\ []) do
+      options =
+        if prefix in [nil, ""] do
+          options
+        else
+          Keyword.put(options, :prefix, prefix)
+        end
 
       bucket
-      |> ExAws.S3.list_objects_v2(s3_options)
+      |> ExAws.S3.list_objects_v2(options)
       |> ExAws.request(options)
       |> deserialize_response()
     end
@@ -51,17 +56,26 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     def presigned_url(bucket, http_method, object, options \\ []) do
       options = s3_accelerate(http_method, options)
 
-      :s3
-      |> ExAws.Config.new(options)
-      |> ExAws.S3.presigned_url(http_method, bucket, object, options)
-      |> handle_response()
+      options = Keyword.put_new(options, :expires_in, @one_minute_seconds)
+
+      expires_in = options[:expires_in]
+
+      with {:ok, url} <-
+        :s3
+        |> ExAws.Config.new(options)
+        |> ExAws.S3.presigned_url(http_method, bucket, object, options)
+        |> handle_response() do
+        {:ok, %{
+          key: object,
+          url: url,
+          expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
+        }}
+      end
     end
 
     defp s3_accelerate(http_method, options) do
       if http_method in [:post, :put] do
-        s3_accelerate =
-          options[:s3_accelerate] === true or
-            @config[:s3_accelerate] === true
+        s3_accelerate = options[:s3_accelerate] === true
 
         Keyword.put_new(options, :s3_accelerate, s3_accelerate)
       else
