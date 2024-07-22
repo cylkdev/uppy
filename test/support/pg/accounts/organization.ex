@@ -1,10 +1,10 @@
-defmodule Uppy.Support.PG.Accounts.Company do
+defmodule Uppy.Support.PG.Accounts.Organization do
   @moduledoc false
   use Ecto.Schema
 
   import Ecto.Changeset
 
-  schema "companies" do
+  schema "organizations" do
     field :name, :string
 
     has_many :users, Uppy.Support.PG.Accounts.User

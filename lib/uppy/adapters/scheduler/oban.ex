@@ -1,14 +1,28 @@
 if Uppy.Utils.application_loaded?(:oban) do
   defmodule Uppy.Adapters.Scheduler.Oban do
 
+    alias Uppy.Utils
     alias Uppy.Adapters.Scheduler.Oban.{
       GarbageCollectorWorker,
-      PostProcessingPipelineWorker,
+      PostProcessingWorker,
       AbortUploadWorker
     }
 
-    def queue_garbage_collect_object(bucket, schema, key, schedule_at_or_schedule_in, options) do
-      GarbageCollectorWorker.queue_garbage_collect_object(bucket, schema, key, schedule_at_or_schedule_in, options)
+    def convert_schema_to_job_arguments({schema, source}) do
+      %{
+        schema: Utils.module_to_string(schema),
+        source: source
+      }
+    end
+
+    def convert_schema_to_job_arguments(schema) do
+      %{
+        schema: Utils.module_to_string(schema)
+      }
+    end
+
+    def queue_delete_object_if_upload_not_found(bucket, schema, key, schedule_at_or_schedule_in, options) do
+      GarbageCollectorWorker.queue_delete_object_if_upload_not_found(bucket, schema, key, schedule_at_or_schedule_in, options)
     end
 
     @doc """
@@ -28,8 +42,16 @@ if Uppy.Utils.application_loaded?(:oban) do
     @doc """
     ...
     """
-    def queue_run_pipeline(pipeline_module, bucket, resource_name, schema, id, nil_or_schedule_at_or_schedule_in, options) do
-      PostProcessingPipelineWorker.queue_run_pipeline(
+    def queue_run_pipeline(
+      pipeline_module,
+      bucket,
+      resource_name,
+      schema,
+      id,
+      nil_or_schedule_at_or_schedule_in,
+      options
+    ) do
+      PostProcessingWorker.queue_run_pipeline(
         pipeline_module,
         bucket,
         resource_name,

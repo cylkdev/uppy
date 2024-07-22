@@ -4,7 +4,7 @@ defmodule Uppy.Support.Repo.Migrations.CreateUsers do
   def change do
     create table(:users) do
       add :email, :text
-      add :company_id, references(:companies)
+      add :organization_id, references(:organizations)
 
       timestamps()
     end

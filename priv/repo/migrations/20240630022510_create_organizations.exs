@@ -1,8 +1,8 @@
-defmodule Uppy.Support.Repo.Migrations.CreateCompanies do
+defmodule Uppy.Support.Repo.Migrations.CreateOrganizations do
   use Ecto.Migration
 
   def change do
-    create table(:companies) do
+    create table(:organizations) do
       add :name, :text
 
       timestamps()

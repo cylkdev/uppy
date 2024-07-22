@@ -1,5 +1,5 @@
 if Uppy.Utils.application_loaded?(:oban) do
-  defmodule Uppy.Adapters.Scheduler.Oban.PostProcessingPipelineWorker do
+  defmodule Uppy.Adapters.Scheduler.Oban.PostProcessingWorker do
     @moduledoc false
     use Oban.Worker,
       queue: :post_processing,
@@ -10,8 +10,25 @@ if Uppy.Utils.application_loaded?(:oban) do
 
     alias Uppy.{Core, Config, Utils}
 
-    @event_prefix "uppy"
+    @event_prefix "uppy.post_processing_worker"
     @event_run_pipeline "#{@event_prefix}.run_pipeline"
+
+    def perform(%Oban.Job{
+      args: %{
+        "event" => @event_run_pipeline,
+        "pipeline" => pipeline_module,
+        "bucket" => bucket,
+        "resource_name" => resource_name,
+        "schema" => schema,
+        "source" => source,
+        "id" => id
+      }
+    }) do
+      pipeline_module = Utils.string_to_existing_module!(pipeline_module)
+      schema = Utils.string_to_existing_module!(schema)
+
+      Core.run_pipeline(pipeline_module, bucket, resource_name, {schema, source}, %{id: id})
+    end
 
     def perform(%Oban.Job{
       args: %{
@@ -32,14 +49,17 @@ if Uppy.Utils.application_loaded?(:oban) do
     def queue_run_pipeline(pipeline_module, bucket, resource_name, schema, id, nil_or_schedule_at_or_schedule_in, options) do
       options = ensure_schedule_opt(options, nil_or_schedule_at_or_schedule_in)
 
-      changeset = new(%{
-        event: @event_run_pipeline,
-        pipeline: Utils.module_to_string(pipeline_module),
-        bucket: bucket,
-        resource_name: resource_name,
-        schema: Utils.module_to_string(schema),
-        id: id
-      })
+      changeset =
+        schema
+        |> Uppy.Adapters.Scheduler.Oban.convert_schema_to_job_arguments()
+        |> Map.merge(%{
+          event: @event_run_pipeline,
+          pipeline: Utils.module_to_string(pipeline_module),
+          bucket: bucket,
+          resource_name: resource_name,
+          id: id
+        })
+        |> new()
 
       Oban.insert(oban_name(), changeset, options)
     end

@@ -10,12 +10,26 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       alias Uppy.{Core, Config, Utils}
 
-    @event_prefix "uppy.garbage_collector"
-    @event_garbage_collect_object "#{@event_prefix}.garbage_collect_object"
+    @event_prefix "uppy.garbage_collector_worker"
+    @event_delete_object_if_upload_not_found "#{@event_prefix}.delete_object_if_upload_not_found"
 
     def perform(%Oban.Job{
       args: %{
-        "event" => @event_garbage_collect_object,
+        "event" => @event_delete_object_if_upload_not_found,
+        "bucket" => bucket,
+        "schema" => schema,
+        "source" => source,
+        "key" => key
+      }
+    }) do
+      schema = Utils.string_to_existing_module!(schema)
+
+      Core.delete_object_if_upload_not_found(bucket, {schema, source}, key)
+    end
+
+    def perform(%Oban.Job{
+      args: %{
+        "event" => @event_delete_object_if_upload_not_found,
         "bucket" => bucket,
         "schema" => schema,
         "key" => key
@@ -23,18 +37,21 @@ if Uppy.Utils.application_loaded?(:oban) do
     }) do
       schema = Utils.string_to_existing_module!(schema)
 
-      Core.garbage_collect_object(bucket, schema, key)
+      Core.delete_object_if_upload_not_found(bucket, schema, key)
     end
 
-    def queue_garbage_collect_object(bucket, schema, key, schedule_at_or_schedule_in, options) do
+    def queue_delete_object_if_upload_not_found(bucket, schema, key, schedule_at_or_schedule_in, options) do
       options = ensure_schedule_opt(options, schedule_at_or_schedule_in)
 
-      changeset = new(%{
-        event: @event_garbage_collect_object,
-        bucket: bucket,
-        schema: Utils.module_to_string(schema),
-        key: key
-      })
+      changeset =
+        schema
+        |> Uppy.Adapters.Scheduler.Oban.convert_schema_to_job_arguments()
+        |> Map.merge(%{
+          event: @event_delete_object_if_upload_not_found,
+          bucket: bucket,
+          key: key
+        })
+        |> new()
 
       Oban.insert(oban_name(), changeset, options)
     end

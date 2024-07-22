@@ -1,5 +1,5 @@
 if Uppy.Utils.application_loaded?(:ecto_shorts) do
-  defmodule Uppy.Adapters.Actions do
+  defmodule Uppy.Adapters.EctoShortsActions do
     @moduledoc """
     Implements the `Uppy.Adapter.Action` behaviour.
 
@@ -23,8 +23,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
 
     See `EctoShorts` for more documentation.
     """
-    alias EctoShorts.Actions
-
     @behaviour Uppy.Adapter.Actions
 
     @type t_res(t) :: {:ok, t} | {:error, term()}
@@ -39,7 +37,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             options :: Keyword.t()
           ) :: t_res(struct())
     def create(schema, params, options) do
-      Actions.create(schema, params, options)
+      EctoShorts.Actions.create(schema, params, options)
     end
 
     @impl true
@@ -52,7 +50,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             options :: Keyword.t()
           ) :: t_res(struct())
     def find(schema, params, options) do
-      Actions.find(schema, params, options)
+      EctoShorts.Actions.find(schema, params, options)
     end
 
     @impl true
@@ -66,7 +64,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             options :: Keyword.t()
           ) :: t_res(struct())
     def update(schema, id_or_schema_data, params, options) do
-      Actions.update(schema, id_or_schema_data, params, options)
+      EctoShorts.Actions.update(schema, id_or_schema_data, params, options)
     end
 
     @impl true
@@ -78,7 +76,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             options :: Keyword.t()
           ) :: t_res(struct())
     def delete(%_{} = schema_data, options) do
-      Actions.delete(schema_data, options)
+      EctoShorts.Actions.delete(schema_data, options)
     end
 
     @impl true
@@ -91,7 +89,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             options :: Keyword.t()
           ) :: t_res(struct())
     def delete(schema, id, options) do
-      Actions.delete(schema, id, options)
+      EctoShorts.Actions.delete(schema, id, options)
     end
 
     @impl true

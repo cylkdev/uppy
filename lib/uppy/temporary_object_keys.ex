@@ -1,7 +1,7 @@
 defmodule Uppy.TemporaryObjectKeys do
   @moduledoc false
 
-  def validate(adapter, key), do: adapter.validate(key)
+  def validate_path(adapter, key), do: adapter.validate_path(key)
 
   def encode_id(adapter, id), do: adapter.encode_id(id)
 

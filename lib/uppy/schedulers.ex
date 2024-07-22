@@ -1,8 +1,8 @@
 defmodule Uppy.Schedulers do
 
-  def queue_garbage_collect_object(scheduler_adapter, bucket, schema, key, schedule_at_or_schedule_in, options) do
+  def queue_delete_object_if_upload_not_found(scheduler_adapter, bucket, schema, key, schedule_at_or_schedule_in, options) do
     bucket
-    |> scheduler_adapter.queue_garbage_collect_object(schema, key, schedule_at_or_schedule_in, options)
+    |> scheduler_adapter.queue_delete_object_if_upload_not_found(schema, key, schedule_at_or_schedule_in, options)
     |> handle_response()
   end
 
@@ -20,20 +20,20 @@ defmodule Uppy.Schedulers do
 
   def queue_run_pipeline(
     scheduler_adapter,
+    pipeline_module,
     bucket,
     resource_name,
     schema,
     id,
-    pipeline_module,
     maybe_schedule_at_or_schedule_in,
     options
   ) do
-    bucket
+    pipeline_module
     |> scheduler_adapter.queue_run_pipeline(
+      bucket,
       resource_name,
       schema,
       id,
-      pipeline_module,
       maybe_schedule_at_or_schedule_in,
       options
     )

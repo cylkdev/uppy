@@ -20,8 +20,7 @@ defmodule Uppy.Storage do
   @default_options [
     storage: [
       sandbox: Mix.env() === :test,
-      presigned_upload: [http_method: :put],
-      presigned_part_upload: [http_method: :put]
+      http_method: :put
     ]
   ]
 
@@ -150,16 +149,17 @@ defmodule Uppy.Storage do
   def presigned_upload(adapter, bucket, object, options \\ []) do
     options = Keyword.merge(@default_options, options)
 
-    http_method = upload_http_method(options)
+    http_method = upload_http_method!(options)
 
     presigned_url(adapter, bucket, http_method, object, options)
   end
 
-  defp upload_http_method(options) do
+  defp upload_http_method!(options) do
     case options[:storage][:http_method] do
+      nil -> :put
       :post -> :post
       :put -> :put
-      term -> raise ArgumentError, "expected `:put` or `:put`, got: #{inspect(term)}"
+      term -> raise ArgumentError, "Expected `:post` or `:put`, got: #{inspect(term)}"
     end
   end
 

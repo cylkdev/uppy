@@ -1,9 +1,9 @@
-defmodule Uppy.Support.Factory.Accounts.Company do
+defmodule Uppy.Support.Factory.Accounts.Organization do
   @moduledoc false
   @behaviour FactoryEx
 
   @impl FactoryEx
-  def schema, do: Uppy.Support.PG.Accounts.Company
+  def schema, do: Uppy.Support.PG.Accounts.Organization
 
   @impl FactoryEx
   def repo, do: Uppy.Support.Repo

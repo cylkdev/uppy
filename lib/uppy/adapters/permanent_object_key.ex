@@ -43,7 +43,7 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   Returns true is string starts with `#{@prefix}`.
   """
   @impl Uppy.Adapter.PermanentObjectKey
-  def validate(path) do
+  def validate_path(path) do
     with {:ok, path} <- ensure_starts_with_prefix(path),
       {:ok, _} <- decode_path(path) do
       {:ok, path}
@@ -56,7 +56,7 @@ defmodule Uppy.Adapters.PermanentObjectKey do
     if String.starts_with?(path, prefix) do
       {:ok, path}
     else
-      {:error, Uppy.Error.call(:forbidden, "invalid permanent object key", %{
+      {:error, Uppy.Error.call(:forbidden, "invalid temporary object key path", %{
         path: path,
         prefix: prefix
       })}

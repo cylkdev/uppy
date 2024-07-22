@@ -10,9 +10,23 @@ if Uppy.Utils.application_loaded?(:oban) do
 
     alias Uppy.{Core, Config, Utils}
 
-    @event_prefix "uppy"
+    @event_prefix "uppy.abort_upload_worker"
     @event_abort_upload "#{@event_prefix}.abort_upload"
     @event_abort_multipart_upload "#{@event_prefix}.abort_multipart_upload"
+
+    def perform(%Oban.Job{
+      args: %{
+        "event" => @event_abort_multipart_upload,
+        "bucket" => bucket,
+        "schema" => schema,
+        "source" => source,
+        "id" => id
+      }
+    }) do
+      schema = Utils.string_to_existing_module!(schema)
+
+      Core.abort_multipart_upload(bucket, {schema, source}, %{id: id})
+    end
 
     def perform(%Oban.Job{
       args: %{
@@ -32,6 +46,20 @@ if Uppy.Utils.application_loaded?(:oban) do
         "event" => @event_abort_upload,
         "bucket" => bucket,
         "schema" => schema,
+        "source" => source,
+        "id" => id
+      }
+    }) do
+      schema = Utils.string_to_existing_module!(schema)
+
+      Core.abort_upload(bucket, {schema, source}, %{id: id})
+    end
+
+    def perform(%Oban.Job{
+      args: %{
+        "event" => @event_abort_upload,
+        "bucket" => bucket,
+        "schema" => schema,
         "id" => id
       }
     }) do
@@ -43,12 +71,15 @@ if Uppy.Utils.application_loaded?(:oban) do
     def queue_abort_multipart_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
       options = ensure_schedule_opt(options, schedule_at_or_schedule_in)
 
-      changeset = new(%{
-        event: @event_abort_multipart_upload,
-        bucket: bucket,
-        schema: Utils.module_to_string(schema),
-        id: id
-      })
+      changeset =
+        schema
+        |> Uppy.Adapters.Scheduler.Oban.convert_schema_to_job_arguments()
+        |> Map.merge(%{
+          event: @event_abort_multipart_upload,
+          bucket: bucket,
+          id: id
+        })
+        |> new()
 
       Oban.insert(oban_name(), changeset, options)
     end
@@ -56,12 +87,15 @@ if Uppy.Utils.application_loaded?(:oban) do
     def queue_abort_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
       options = ensure_schedule_opt(options, schedule_at_or_schedule_in)
 
-      changeset = new(%{
-        event: @event_abort_upload,
-        bucket: bucket,
-        schema: Utils.module_to_string(schema),
-        id: id
-      })
+      changeset =
+        schema
+        |> Uppy.Adapters.Scheduler.Oban.convert_schema_to_job_arguments()
+        |> Map.merge(%{
+          event: @event_abort_upload,
+          bucket: bucket,
+          id: id
+        })
+        |> new()
 
       Oban.insert(oban_name(), changeset, options)
     end

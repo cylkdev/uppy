@@ -19,9 +19,10 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   @doc """
   ...
   """
-  def decode_path([prefix, basename]) do
+  def decode_path([prefix, partition, basename]) do
     {:ok, %{
       prefix: prefix,
+      partition: partition,
       basename: URI.decode_www_form(basename)
     }}
   end
@@ -31,14 +32,14 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   end
 
   def decode_path(path) do
-    {:error, Uppy.Error.call(:forbidden, "cannot decode permanent object path", %{path: path})}
+    {:error, Uppy.Error.call(:forbidden, "invalid temporary object key path", %{path: path})}
   end
 
   @doc """
   Returns true is string starts with `#{@prefix}`.
   """
   @impl Uppy.Adapter.TemporaryObjectKey
-  def validate(path) do
+  def validate_path(path) do
     with {:ok, path} <- ensure_starts_with_prefix(path),
       {:ok, _} <- decode_path(path) do
       {:ok, path}

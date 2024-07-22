@@ -7,12 +7,12 @@ defmodule Uppy.Support.PG.Accounts.User do
   schema "users" do
     field :email, :string
 
-    belongs_to :company, Uppy.Support.PG.Accounts.Company
+    belongs_to :organization, Uppy.Support.PG.Accounts.Organization
 
     timestamps()
   end
 
-  @required_fields [:company_id]
+  @required_fields [:organization_id]
   @allowed_fields [
                     :email
                   ] ++ @required_fields

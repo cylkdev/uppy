@@ -173,7 +173,7 @@
 #   end
 
 #   defp partition_id(holder, options) do
-#     partition_key = Keyword.get(options, :partition_key, :company_id)
+#     partition_key = Keyword.get(options, :partition_key, :organization_id)
 
 #     case Map.fetch!(holder, partition_key) do
 #       nil ->
