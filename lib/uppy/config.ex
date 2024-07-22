@@ -6,10 +6,6 @@ defmodule Uppy.Config do
   def app, do: @app
 
   @doc false
-  @spec atomize_keys? :: module()
-  def atomize_keys?, do: Application.get_env(@app, :atomize_keys?) || true
-
-  @doc false
   @spec error_message_adapter :: module()
   def error_message_adapter, do: Application.get_env(@app, :error_message_adapter) || ErrorMessage
 
@@ -21,57 +17,27 @@ defmodule Uppy.Config do
   @spec http_adapter :: module()
   def http_adapter, do: Application.get_env(@app, :http_adapter) || Uppy.Adapters.HTTP.Finch
 
-  # context configuration
+  @doc false
+  @spec actions_adapter :: module() | nil
+  def actions_adapter, do: Application.get_env(@app, :actions_adapter)
 
   @doc false
-  @spec bucket :: String.t()
-  def bucket, do: Application.get_env(@app, :bucket) || "<UPPY_BUCKET>"
+  @spec scheduler_adapter :: module() | nil
+  def scheduler_adapter, do: Application.get_env(@app, :scheduler_adapter)
 
   @doc false
-  @spec resource_name :: String.t()
-  def resource_name, do: Application.get_env(@app, :resource_name)
+  @spec storage_adapter :: module() | nil
+  def storage_adapter, do: Application.get_env(@app, :storage_adapter)
 
   @doc false
-  @spec storage_adapter :: module()
-  def storage_adapter, do: Application.get_env(@app, :storage_adapter) || Uppy.Adapters.Storage.S3
+  @spec temporary_object_key_adapter :: module() | nil
+  def temporary_object_key_adapter, do: Application.get_env(@app, :temporary_object_key_adapter)
 
   @doc false
-  @spec action_adapter :: module()
-  def action_adapter, do: Application.get_env(@app, :action_adapter) || Uppy.Adapters.Action
+  @spec permanent_object_key_adapter :: module() | nil
+  def permanent_object_key_adapter, do: Application.get_env(@app, :permanent_object_key_adapter)
 
   @doc false
-  @spec temporary_scope_adapter :: module()
-  def temporary_scope_adapter, do: Application.get_env(@app, :temporary_scope_adapter) || Uppy.Adapters.TemporaryScope
-
-  @doc false
-  @spec permanent_scope_adapter :: module()
-  def permanent_scope_adapter, do: Application.get_env(@app, :permanent_scope_adapter) || Uppy.Adapters.PermanentScope
-
-  # @doc false
-  # @spec thumbor_adapter :: module()
-  # def thumbor_adapter do
-  #   Application.get_env(@app, :thumbor_adapter) || Uppy.Adapters.Thumbor
-  # end
-
-  # @doc false
-  # @spec thumbor :: Keyword.t()
-  # def thumbor do
-  #   Application.get_env(@app, :thumbor) || []
-  # end
-
-  # def oban_adapter(adapter) do
-  #   Application.get_env(@app, adapter) || [app: @app]
-  # end
-
-  # def oban_adapter_app(adapter) do
-  #   oban_adapter(adapter)[:app] || @app
-  # end
-
-  # def oban(adapter) do
-  #   Application.get_env(adapter_app(adapter), Oban) || []
-  # end
-
-  # def oban_name do
-  #   oban()[:name] || Uppy.Oban
-  # end
+  @spec oban :: module()
+  def oban, do: Application.get_env(@app, Oban) || []
 end

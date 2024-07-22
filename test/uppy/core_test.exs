@@ -21,8 +21,8 @@ defmodule Uppy.CoreTest do
   # @owner_schema PG.Accounts.User
   # @owner_association_source :user_id
   # @owner_primary_key_source :id
-  # @temporary_object_key Uppy.Adapters.PermanentScope
-  # @permanent_object_key Uppy.Adapters.PermanentScope
+  # @temporary_object_key Uppy.Adapters.PermanentObjectKey
+  # @permanent_object_key Uppy.Adapters.PermanentObjectKey
 
   setup do
     user = FactoryEx.insert!(Factory.Accounts.User)

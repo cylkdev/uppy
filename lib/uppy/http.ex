@@ -339,7 +339,7 @@ defmodule Uppy.HTTP do
   defp handle_json_response({:error, _} = e, _), do: e
 
   defp maybe_atomize_keys(val, options) do
-    if Keyword.get(options, :atomize_keys?, Config.atomize_keys?()) do
+    if Keyword.get(options, :atomize_keys?) === true do
       Utils.atomize_keys(val)
     else
       val

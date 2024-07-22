@@ -1,4 +1,4 @@
-defmodule Uppy.Adapter.Action do
+defmodule Uppy.Adapter.Actions do
   @type adapter :: module()
   @type id :: term()
   @type schema :: module()

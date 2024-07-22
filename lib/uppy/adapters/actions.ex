@@ -1,5 +1,5 @@
 if Uppy.Utils.application_loaded?(:ecto_shorts) do
-  defmodule Uppy.Adapters.Action do
+  defmodule Uppy.Adapters.Actions do
     @moduledoc """
     Implements the `Uppy.Adapter.Action` behaviour.
 
@@ -25,7 +25,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     """
     alias EctoShorts.Actions
 
-    @behaviour Uppy.Adapter.Action
+    @behaviour Uppy.Adapter.Actions
 
     @type t_res(t) :: {:ok, t} | {:error, term()}
 
@@ -125,9 +125,9 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     defp repo!(options), do: Keyword.get(options, :repo, EctoShorts.Config.repo())
   end
 else
-  if Uppy.Config.action_adapter() === Uppy.Adapter.Action do
+  if Uppy.Config.actions_adapter() === Uppy.Adapter.Action do
     raise """
-    The config `:action_adapter` is set to `Uppy.Adapter.Action` and
+    The config `:actions_adapter` is set to `Uppy.Adapter.Action` and
     a required dependency is missing.
 
     To fix this error you can do one of the following:
@@ -143,11 +143,11 @@ else
       end
       ```
 
-    - Set the config `:action_adapter` to a different module:
+    - Set the config `:actions_adapter` to a different module:
 
       ```
       # config.exs
-      config :uppy, :action_adapter, YourApp.ActionsModule
+      config :uppy, :actions_adapter, YourApp.ActionsModule
       ```
     """
   end

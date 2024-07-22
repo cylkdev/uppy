@@ -1,15 +1,7 @@
 defmodule Uppy.Pipeline do
   alias Uppy.Pipeline.Phases
 
-  @default_input %{
-    value: nil,
-    context: %{},
-    private: []
-  }
-
   def run(input, pipeline) do
-    input = Map.merge(@default_input, input)
-
     pipeline
     |> List.flatten()
     |> run_phase(input)

@@ -79,8 +79,8 @@ defmodule Uppy.Utils do
     Enum.all?(modules, &Code.ensure_loaded?/1)
   end
 
-  @spec to_existing_module!(String.t()) :: atom()
-  def to_existing_module!(string) do
+  @spec string_to_existing_module!(String.t()) :: atom()
+  def string_to_existing_module!(string) do
     String.to_existing_atom("Elixir.#{string}")
   end
 
