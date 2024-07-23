@@ -31,13 +31,14 @@ defmodule Uppy.Core do
     Config,
     Error,
     PermanentObjectKeys,
-    Pipeline,
     Pipelines,
     Schedulers,
-    Storage,
+    Storages,
     TemporaryObjectKeys,
     Utils
   }
+
+  @logger_prefix "Uppy.Core"
 
   @default_hash_size 32
   @one_hour_seconds 3_600
@@ -87,7 +88,7 @@ defmodule Uppy.Core do
   """
   def find_permanent_multipart_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_permanent_upload(schema, params, options) do
-      ensure_multipart_upload(schema_data)
+      check_if_multipart_upload(schema_data)
     end
   end
 
@@ -111,7 +112,7 @@ defmodule Uppy.Core do
   """
   def find_completed_multipart_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_completed_upload(schema, params, options) do
-      ensure_multipart_upload(schema_data)
+      check_if_multipart_upload(schema_data)
     end
   end
 
@@ -134,16 +135,16 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_temporary_multipart_upload({YourSchema, "source"}, %{id: 1})
       iex> Uppy.Core.find_temporary_multipart_upload(YourSchema, %{id: 1})
   """
-  def find_temporary_multipart_upload(schema, params, options) do
+  def find_temporary_multipart_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_temporary_upload(schema, params, options) do
-      ensure_multipart_upload(schema_data)
+      check_if_multipart_upload(schema_data)
     end
   end
 
   @doc """
   Fetches a temporary upload database record by params, completes the multipart upload and updates the
   field `:e_tag` on the database record to the value of the field `:e_tag` on the metadata retrieved
-  from the function `&Storage.complete_multipart_upload/6`.
+  from the function `&Storages.complete_multipart_upload/6`.
 
   Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
   function `&Uppy.Core.abort_upload/5`.
@@ -151,7 +152,7 @@ defmodule Uppy.Core do
   ### Options
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
   ### Examples
 
@@ -160,13 +161,21 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_parts("bucket", "unique_id", YourSchema, %{id: 1}, "next_part_number_marker")
       iex> Uppy.Core.find_parts("bucket", "unique_id", YourSchema, %{id: 1})
   """
+  def find_parts(
+        bucket,
+        schema,
+        params_or_schema_data,
+        maybe_next_part_number_marker \\ nil,
+        options \\ []
+      )
+
   def find_parts(bucket, _schema, %_{} = schema_data, maybe_next_part_number_marker, options) do
     storage_adapter = storage_adapter!(options)
 
-    with {:ok, schema_data} <- ensure_temporary_object_key_path(schema_data, options),
-         {:ok, schema_data} <- ensure_multipart_upload(schema_data),
+    with {:ok, schema_data} <- validate_temporary_object_key_path(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, parts} <-
-           Storage.list_parts(
+           Storages.list_parts(
              storage_adapter,
              bucket,
              schema_data.key,
@@ -193,7 +202,7 @@ defmodule Uppy.Core do
   @doc """
   Fetches a temporary upload database record by params, completes the multipart upload and updates the
   field `:e_tag` on the database record to the value of the field `:e_tag` on the metadata retrieved
-  from the function `&Storage.complete_multipart_upload/6`.
+  from the function `&Storages.complete_multipart_upload/6`.
 
   Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
   function `&Uppy.Core.abort_upload/5`.
@@ -201,7 +210,7 @@ defmodule Uppy.Core do
   ### Options
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
   ### Examples
 
@@ -214,17 +223,17 @@ defmodule Uppy.Core do
   def presigned_part(bucket, _schema, %_{} = schema_data, part_number, options) do
     storage_adapter = storage_adapter!(options)
 
-    with {:ok, schema_data} <- ensure_temporary_object_key_path(schema_data, options),
-         {:ok, schema_data} <- ensure_multipart_upload(schema_data),
+    with {:ok, schema_data} <- validate_temporary_object_key_path(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, presigned_part} <-
-          Storage.presigned_part_upload(
-            storage_adapter,
-            bucket,
-            schema_data.key,
-            schema_data.upload_id,
-            part_number,
-            options
-          ) do
+           Storages.presigned_part_upload(
+             storage_adapter,
+             bucket,
+             schema_data.key,
+             schema_data.upload_id,
+             part_number,
+             options
+           ) do
       {:ok,
        %{
          presigned_part: presigned_part,
@@ -244,7 +253,7 @@ defmodule Uppy.Core do
   @doc """
   Fetches a temporary upload database record by params, completes the multipart upload and updates the
   field `:e_tag` on the database record to the value of the field `:e_tag` on the metadata returned
-  from the storage `&Storage.complete_multipart_upload/6` function.
+  from the storage `&Storages.complete_multipart_upload/6` function.
 
   Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
   function `&Uppy.Core.abort_upload/5`.
@@ -255,7 +264,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
   ### Examples
 
@@ -263,61 +272,99 @@ defmodule Uppy.Core do
       iex> Uppy.Core.complete_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1}, [{1, "e_tag"}])
       iex> Uppy.Core.complete_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1}, [{1, "e_tag"}])
   """
-  def complete_multipart_upload(bucket, resource_name, pipeline_module, schema, find_params_or_schema_data, update_params, parts, options \\ [])
+  def complete_multipart_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        find_params_or_schema_data,
+        update_params,
+        parts,
+        options \\ []
+      )
 
-  def complete_multipart_upload(bucket, resource_name, pipeline_module, schema, %_{} = schema_data, update_params, parts, options) do
+  def complete_multipart_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        %_{} = schema_data,
+        update_params,
+        parts,
+        options
+      ) do
     actions_adapter = actions_adapter!(options)
     scheduler_adapter = scheduler_adapter!(options)
     storage_adapter = storage_adapter!(options)
 
-    with {:ok, schema_data} <- ensure_temporary_object_key_path(schema_data, options),
-      {:ok, schema_data} <- ensure_multipart_upload(schema_data),
-      {:ok, metadata} <- complete_multipart_upload_or_head_object(
-        storage_adapter,
-        bucket,
-        schema_data,
-        parts,
-        options
-      ) do
-
+    with {:ok, schema_data} <- validate_temporary_object_key_path(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
+         {:ok, metadata} <-
+           complete_multipart_upload_or_head_object(
+             storage_adapter,
+             bucket,
+             schema_data,
+             parts,
+             options
+           ) do
       update_params = Map.put(update_params, :e_tag, metadata.e_tag)
 
-      operation =
-        fn ->
-          with {:ok, schema_data} <-
-            Actions.update(actions_adapter, schema, schema_data, update_params, options) do
-            if Keyword.get(options, :scheduler_enabled?, true) do
-              with {:ok, job} <-
-                Schedulers.queue_run_pipeline(
-                  scheduler_adapter,
-                  pipeline_module,
-                  bucket,
-                  resource_name,
-                  schema,
-                  schema_data.id,
-                  options[:schedule][:run_pipeline],
-                  options
-                ) do
-                {:ok, %{
-                  metadata: metadata,
-                  schema_data: schema_data,
-                  jobs: %{run_pipeline: job}
-                }}
-              end
-            else
-              {:ok, %{
-                metadata: metadata,
-                schema_data: schema_data
-              }}
+      operation = fn ->
+        with {:ok, schema_data} <-
+               Actions.update(actions_adapter, schema, schema_data, update_params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            Uppy.Utils.Logger.debug(
+              @logger_prefix,
+              "[complete_multipart_upload] scheduler enabled."
+            )
+
+            with {:ok, job} <-
+                   Schedulers.queue_run_pipeline(
+                     scheduler_adapter,
+                     pipeline_module,
+                     bucket,
+                     resource_name,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:run_pipeline],
+                     options
+                   ) do
+              {:ok,
+               %{
+                 metadata: metadata,
+                 schema_data: schema_data,
+                 jobs: %{run_pipeline: job}
+               }}
             end
+          else
+            Uppy.Utils.Logger.debug(
+              @logger_prefix,
+              "[complete_multipart_upload] scheduler disabled."
+            )
+
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: schema_data
+             }}
           end
         end
+      end
 
       Actions.transaction(actions_adapter, operation, options)
     end
   end
 
-  def complete_multipart_upload(bucket, resource_name, pipeline_module, schema, find_params, update_params, parts, options) do
+  def complete_multipart_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        find_params,
+        update_params,
+        parts,
+        options
+      ) do
     actions_adapter = actions_adapter!(options)
 
     with {:ok, schema_data} <- Actions.find(actions_adapter, schema, find_params, options) do
@@ -335,22 +382,22 @@ defmodule Uppy.Core do
   end
 
   defp complete_multipart_upload_or_head_object(
-    storage_adapter,
-    bucket,
-    schema_data,
-    parts,
-    options
-  ) do
+         storage_adapter,
+         bucket,
+         schema_data,
+         parts,
+         options
+       ) do
     with {:error, %{code: :not_found}} <-
-      Storage.complete_multipart_upload(
-        storage_adapter,
-        bucket,
-        schema_data.key,
-        schema_data.upload_id,
-        parts,
-        options
-      ) do
-      Storage.head_object(storage_adapter, bucket, schema_data.key, options)
+           Storages.complete_multipart_upload(
+             storage_adapter,
+             bucket,
+             schema_data.key,
+             schema_data.upload_id,
+             parts,
+             options
+           ) do
+      Storages.head_object(storage_adapter, bucket, schema_data.key, options)
     end
   end
 
@@ -366,7 +413,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -385,43 +432,51 @@ defmodule Uppy.Core do
     scheduler_adapter = scheduler_adapter!(options)
     storage_adapter = storage_adapter!(options)
 
-    with {:ok, schema_data} <- ensure_temporary_object_key_path(schema_data, options),
-        {:ok, schema_data} <- ensure_multipart_upload(schema_data),
-        {:ok, maybe_metadata} <-
-          handle_abort_multipart_upload(
-            storage_adapter,
-            bucket,
-            schema_data.key,
-            schema_data.upload_id,
-            options
-          ) do
-      operation =
-        fn ->
-          with {:ok, schema_data} <- Actions.delete(actions_adapter, schema_data, options) do
-            if Keyword.get(options, :scheduler_enabled?, true) do
-              with {:ok, job} <-
-                Schedulers.queue_delete_object_if_upload_not_found(
-                  scheduler_adapter,
-                  bucket,
-                  schema,
-                  schema_data.key,
-                  options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
-                  options
-                ) do
-                {:ok, %{
-                  metadata: maybe_metadata,
-                  schema_data: schema_data,
-                  jobs: %{delete_object_if_upload_not_found: job}
-                }}
-              end
-            else
-              {:ok, %{
-                metadata: maybe_metadata,
-                schema_data: schema_data
-              }}
+    with {:ok, schema_data} <- validate_temporary_object_key_path(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
+         {:ok, maybe_metadata} <-
+           handle_abort_multipart_upload(
+             storage_adapter,
+             bucket,
+             schema_data.key,
+             schema_data.upload_id,
+             options
+           ) do
+      operation = fn ->
+        with {:ok, schema_data} <- Actions.delete(actions_adapter, schema_data, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            Uppy.Utils.Logger.debug(@logger_prefix, "[abort_multipart_upload] scheduler enabled.")
+
+            with {:ok, job} <-
+                   Schedulers.queue_delete_object_if_upload_not_found(
+                     scheduler_adapter,
+                     bucket,
+                     schema,
+                     schema_data.key,
+                     options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok,
+               %{
+                 metadata: maybe_metadata,
+                 schema_data: schema_data,
+                 jobs: %{delete_object_if_upload_not_found: job}
+               }}
             end
+          else
+            Uppy.Utils.Logger.debug(
+              @logger_prefix,
+              "[abort_multipart_upload] scheduler disabled."
+            )
+
+            {:ok,
+             %{
+               metadata: maybe_metadata,
+               schema_data: schema_data
+             }}
           end
         end
+      end
 
       Actions.transaction(actions_adapter, operation, options)
     end
@@ -436,7 +491,7 @@ defmodule Uppy.Core do
   end
 
   defp handle_abort_multipart_upload(storage_adapter, bucket, key, upload_id, options) do
-    case Storage.abort_multipart_upload(storage_adapter, bucket, key, upload_id, options) do
+    case Storages.abort_multipart_upload(storage_adapter, bucket, key, upload_id, options) do
       {:ok, metadata} -> {:ok, %{metadata: metadata}}
       {:error, %{code: :not_found}} -> {:ok, :not_found}
       {:error, _} = error -> error
@@ -470,7 +525,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -482,14 +537,18 @@ defmodule Uppy.Core do
       iex> Uppy.Core.start_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1})
       iex> Uppy.Core.start_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1})
   """
-  def start_multipart_upload(bucket, partition_id, schema, params, options) when is_integer(partition_id) do
+  def start_multipart_upload(bucket, partition_id, schema, params, options \\ [])
+
+  def start_multipart_upload(bucket, partition_id, schema, params, options)
+      when is_integer(partition_id) do
     start_multipart_upload(bucket, Integer.to_string(partition_id), schema, params, options)
   end
 
-  def start_multipart_upload(bucket, partition_id, schema, params, options) when is_binary(partition_id) do
-    actions_adapter   = actions_adapter!(options)
+  def start_multipart_upload(bucket, partition_id, schema, params, options)
+      when is_binary(partition_id) do
+    actions_adapter = actions_adapter!(options)
     scheduler_adapter = scheduler_adapter!(options)
-    storage_adapter   = storage_adapter!(options)
+    storage_adapter = storage_adapter!(options)
     temporary_object_key_adapter = temporary_object_key_adapter!(options)
 
     filename = params.filename
@@ -498,46 +557,57 @@ defmodule Uppy.Core do
 
     key = TemporaryObjectKeys.prefix(temporary_object_key_adapter, partition_id, basename)
 
-    params = Map.merge(params, %{
-      unique_identifier: unique_identifier,
-      filename: filename,
-      key: key
-    })
+    with {:ok, multipart_upload} <-
+           Storages.initiate_multipart_upload(storage_adapter, bucket, key, options) do
+      params =
+        Map.merge(params, %{
+          upload_id: multipart_upload.upload_id,
+          unique_identifier: unique_identifier,
+          filename: filename,
+          key: key
+        })
 
-    with {:ok, multipart_upload} <- Storage.initiate_multipart_upload(storage_adapter, bucket, key, options) do
-      operation =
-        fn ->
-          with {:ok, schema_data} <- Actions.create(actions_adapter, schema, params, options) do
-            if Keyword.get(options, :scheduler_enabled?, true) do
-              with {:ok, job} <-
-                Schedulers.queue_abort_multipart_upload(
-                  scheduler_adapter,
-                  bucket,
-                  schema,
-                  schema_data.id,
-                  options[:schedule][:abort_multipart_upload] || @one_hour_seconds,
-                  options
-                ) do
-                {:ok, %{
-                  unique_identifier: unique_identifier,
-                  basename: basename,
-                  key: key,
-                  multipart_upload: multipart_upload,
-                  schema_data: schema_data,
-                  jobs: %{abort_multipart_upload: job}
-                }}
-              end
-            else
-              {:ok, %{
-                unique_identifier: unique_identifier,
-                basename: basename,
-                key: key,
-                multipart_upload: multipart_upload,
-                schema_data: schema_data
-              }}
+      operation = fn ->
+        with {:ok, schema_data} <- Actions.create(actions_adapter, schema, params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            Uppy.Utils.Logger.debug(@logger_prefix, "[start_multipart_upload] scheduler enabled.")
+
+            with {:ok, job} <-
+                   Schedulers.queue_abort_multipart_upload(
+                     scheduler_adapter,
+                     bucket,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:abort_multipart_upload] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok,
+               %{
+                 unique_identifier: unique_identifier,
+                 basename: basename,
+                 key: key,
+                 multipart_upload: multipart_upload,
+                 schema_data: schema_data,
+                 jobs: %{abort_multipart_upload: job}
+               }}
             end
+          else
+            Uppy.Utils.Logger.debug(
+              @logger_prefix,
+              "[start_multipart_upload] scheduler disabled."
+            )
+
+            {:ok,
+             %{
+               unique_identifier: unique_identifier,
+               basename: basename,
+               key: key,
+               multipart_upload: multipart_upload,
+               schema_data: schema_data
+             }}
           end
         end
+      end
 
       Actions.transaction(actions_adapter, operation, options)
     end
@@ -566,9 +636,17 @@ defmodule Uppy.Core do
 
   See the `Uppy.Pipeline` module documentation for more information on the pipeline.
   """
-  def run_pipeline(pipeline_module_or_pipeline, bucket, resource_name, schema, params_or_schema_data, options \\ [])
+  def run_pipeline(
+        pipeline_module_or_pipeline,
+        bucket,
+        resource_name,
+        schema,
+        params_or_schema_data,
+        options \\ []
+      )
 
-  def run_pipeline(pipeline_module, bucket, resource_name, schema, params_or_schema_data, options) when is_atom(pipeline_module) do
+  def run_pipeline(pipeline_module, bucket, resource_name, schema, params_or_schema_data, options)
+      when is_atom(pipeline_module) do
     pipeline_module
     |> Pipelines.pipeline()
     |> run_pipeline(bucket, resource_name, schema, params_or_schema_data, options)
@@ -577,24 +655,31 @@ defmodule Uppy.Core do
   def run_pipeline(pipeline, bucket, resource_name, schema, %_{} = schema_data, options) do
     context = Keyword.get(options, :context, %{})
 
-    input = %{
+    {schema, maybe_source} =
+      case schema do
+        {schema, source} -> {schema, source}
+        schema -> {schema, nil}
+      end
+
+    input = %Uppy.Pipelines.Input{
       bucket: bucket,
       resource_name: resource_name,
       schema: schema,
+      source: maybe_source,
       schema_data: schema_data,
       context: context,
       options: options
     }
 
-    with {:ok, output, executed_phases} <- Pipeline.run(input, pipeline) do
-      {:ok, %{output: output, phases: executed_phases}}
+    with {:ok, output, executed_phases} <- Pipelines.run(input, pipeline) do
+      {:ok, {output, executed_phases}}
     end
   end
 
   def run_pipeline(pipeline, bucket, resource_name, schema, params, options) do
     actions_adapter = actions_adapter!(options)
 
-    with  {:ok, schema_data} <- Actions.find(actions_adapter, schema, params, options) do
+    with {:ok, schema_data} <- Actions.find(actions_adapter, schema, params, options) do
       run_pipeline(pipeline, bucket, resource_name, schema, schema_data, options)
     end
   end
@@ -608,7 +693,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
   ### Examples
 
@@ -620,9 +705,9 @@ defmodule Uppy.Core do
     actions_adapter = actions_adapter!(options)
     storage_adapter = storage_adapter!(options)
 
-    with :ok <- ensure_not_found(actions_adapter, schema, %{key: key}, options),
-      {:ok, _} <- Storage.head_object(storage_adapter, bucket, key, options),
-      {:ok, _} <- Storage.delete_object(storage_adapter, bucket, key, options) do
+    with :ok <- validate_not_found(actions_adapter, schema, %{key: key}, options),
+         {:ok, _} <- Storages.head_object(storage_adapter, bucket, key, options),
+         {:ok, _} <- Storages.delete_object(storage_adapter, bucket, key, options) do
       :ok
     else
       {:error, %{code: :not_found}} -> :ok
@@ -630,16 +715,15 @@ defmodule Uppy.Core do
     end
   end
 
-  defp ensure_not_found(actions_adapter, schema, params, options) do
+  defp validate_not_found(actions_adapter, schema, params, options) do
     case Actions.find(actions_adapter, schema, params, options) do
       {:ok, schema_data} ->
-        details = %{
-          schema: schema,
-          params: params,
-          schema_data: schema_data
-        }
-
-        {:error, Error.call(:forbidden, "record found", details)}
+        {:error,
+         Error.call(:forbidden, "deleting the object for an existing record is not allowed", %{
+           schema: schema,
+           params: params,
+           schema_data: schema_data
+         })}
 
       {:error, %{code: :not_found}} ->
         :ok
@@ -668,31 +752,12 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_permanent_upload({YourSchema, "source"}, %{id: 1})
       iex> Uppy.Core.find_permanent_upload(YourSchema, %{id: 1})
   """
-  def find_permanent_upload(schema, params, options) do
+  def find_permanent_upload(schema, params, options \\ []) do
     actions_adapter = actions_adapter!(options)
-    permanent_object_key_adapter = permanent_object_key_adapter!(options)
 
-    with {:ok, schema_data} <- Actions.find(actions_adapter, schema, params, options) do
-      case PermanentObjectKeys.validate_path(permanent_object_key_adapter, schema_data.key) do
-        {:ok, _path} ->
-          if is_nil(schema_data.e_tag) === false do
-            {:ok, schema_data}
-          else
-            {:error, Error.call(:forbidden, "permanent upload does not contain an e-tag", %{
-              schema: schema,
-              schema_data: schema_data,
-              params: params
-            })}
-          end
-
-        {:error, error} ->
-          {:error, Error.call(:forbidden, "not a permanent upload", %{
-            schema: schema,
-            schema_data: schema_data,
-            params: params,
-            error: error
-          })}
-      end
+    with {:ok, schema_data} <- Actions.find(actions_adapter, schema, params, options),
+         {:ok, schema_data} <- check_e_tag_non_nil(schema_data) do
+      validate_permanent_object_key_path(schema_data, options)
     end
   end
 
@@ -714,19 +779,9 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_completed_upload({YourSchema, "source"}, %{id: 1})
       iex> Uppy.Core.find_completed_upload(YourSchema, %{id: 1})
   """
-  def find_completed_upload(schema, params, options) do
+  def find_completed_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_temporary_upload(schema, params, options) do
-      if is_nil(schema_data.e_tag) === false do
-        {:ok, schema_data}
-      else
-        details = %{
-          schema: schema,
-          schema_data: schema_data,
-          params: params
-        }
-
-        {:error, Error.call(:forbidden, "upload incomplete", details)}
-      end
+      check_e_tag_non_nil(schema_data)
     end
   end
 
@@ -749,20 +804,11 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_temporary_upload({YourSchema, "source"}, %{id: 1})
       iex> Uppy.Core.find_temporary_upload(YourSchema, %{id: 1})
   """
-  def find_temporary_upload(schema, params, options) do
+  def find_temporary_upload(schema, params, options \\ []) do
     actions_adapter = actions_adapter!(options)
 
     with {:ok, schema_data} <- Actions.find(actions_adapter, schema, params, options) do
-      ensure_temporary_object_key_path(schema_data, options)
-    end
-  end
-
-  defp ensure_temporary_object_key_path(schema_data, options) do
-    temporary_object_key_adapter = temporary_object_key_adapter!(options)
-
-    case TemporaryObjectKeys.validate_path(temporary_object_key_adapter, schema_data.key) do
-      {:ok, _path} -> {:ok, schema_data}
-      {:error, error} -> {:error, Error.call(:forbidden, "failed to validate temporary object key path", %{schema_data: schema_data, error: error})}
+      validate_temporary_object_key_path(schema_data, options)
     end
   end
 
@@ -775,29 +821,34 @@ defmodule Uppy.Core do
     actions_adapter = actions_adapter!(options)
     scheduler_adapter = scheduler_adapter!(options)
 
-    operation =
-      fn ->
-        with {:ok, schema_data} <- Actions.delete(actions_adapter, schema_data, options) do
-          if Keyword.get(options, :scheduler_enabled?, true) do
-            with {:ok, job} <-
-              Schedulers.queue_delete_object_if_upload_not_found(
-                scheduler_adapter,
-                bucket,
-                schema,
-                schema_data.key,
-                options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
-                options
-              ) do
-              {:ok, %{
-                schema_data: schema_data,
-                jobs: %{delete_object_if_upload_not_found: job}
-              }}
-            end
-          else
-            {:ok, %{schema_data: schema_data}}
+    operation = fn ->
+      with {:ok, schema_data} <- validate_permanent_object_key_path(schema_data, options),
+           {:ok, schema_data} <- Actions.delete(actions_adapter, schema_data, options) do
+        if Keyword.get(options, :scheduler_enabled?, true) do
+          Uppy.Utils.Logger.debug(@logger_prefix, "[delete_upload] scheduler enabled.")
+
+          with {:ok, job} <-
+                 Schedulers.queue_delete_object_if_upload_not_found(
+                   scheduler_adapter,
+                   bucket,
+                   schema,
+                   schema_data.key,
+                   options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
+                   options
+                 ) do
+            {:ok,
+             %{
+               schema_data: schema_data,
+               jobs: %{delete_object_if_upload_not_found: job}
+             }}
           end
+        else
+          Uppy.Utils.Logger.debug(@logger_prefix, "[delete_upload] scheduler disabled.")
+
+          {:ok, %{schema_data: schema_data}}
         end
       end
+    end
 
     Actions.transaction(actions_adapter, operation, options)
   end
@@ -824,7 +875,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -837,59 +888,96 @@ defmodule Uppy.Core do
       iex> Uppy.Core.complete_upload("bucket", {YourSchema, "source"}, %YourSchema{id: 1})
       iex> Uppy.Core.complete_upload("bucket", YourSchema, %{id: 1})
   """
-  def complete_upload(bucket, resource_name, pipeline_module, schema, find_params_or_schema_data, update_params \\ %{}, options \\ [])
+  def complete_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        find_params_or_schema_data,
+        update_params \\ %{},
+        options \\ []
+      )
 
-  def complete_upload(bucket, resource_name, pipeline_module, schema, %_{} = schema_data, update_params, options) do
+  def complete_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        %_{} = schema_data,
+        update_params,
+        options
+      ) do
     actions_adapter = actions_adapter!(options)
     scheduler_adapter = scheduler_adapter!(options)
     storage_adapter = storage_adapter!(options)
 
-    with {:ok, schema_data} <- ensure_temporary_object_key_path(schema_data, options),
-        {:ok, schema_data} <- ensure_non_multipart_upload(schema_data),
-        {:ok, metadata} <- Storage.head_object(storage_adapter, bucket, schema_data.key, options) do
-
+    with {:ok, schema_data} <- validate_temporary_object_key_path(schema_data, options),
+         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
+         {:ok, metadata} <-
+           Storages.head_object(storage_adapter, bucket, schema_data.key, options) do
       update_params = Map.merge(update_params, %{e_tag: metadata.e_tag})
 
-      operation =
-        fn ->
-          with {:ok, schema_data} <-
-            Actions.update(actions_adapter, schema, schema_data, update_params, options) do
-            if Keyword.get(options, :scheduler_enabled?, true) do
-              with {:ok, job} <-
-                Schedulers.queue_run_pipeline(
-                  scheduler_adapter,
-                  pipeline_module,
-                  bucket,
-                  resource_name,
-                  schema,
-                  schema_data.id,
-                  options[:schedule][:run_pipeline],
-                  options
-                ) do
-                {:ok, %{
-                  metadata: metadata,
-                  schema_data: schema_data,
-                  jobs: %{run_pipeline: job}
-                }}
-              end
-            else
-              {:ok, %{
-                metadata: metadata,
-                schema_data: schema_data
-              }}
+      operation = fn ->
+        with {:ok, schema_data} <-
+               Actions.update(actions_adapter, schema, schema_data, update_params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            Uppy.Utils.Logger.debug(@logger_prefix, "[delete_upload] scheduler enabled.")
+
+            with {:ok, job} <-
+                   Schedulers.queue_run_pipeline(
+                     scheduler_adapter,
+                     pipeline_module,
+                     bucket,
+                     resource_name,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:run_pipeline],
+                     options
+                   ) do
+              {:ok,
+               %{
+                 metadata: metadata,
+                 schema_data: schema_data,
+                 jobs: %{run_pipeline: job}
+               }}
             end
+          else
+            Uppy.Utils.Logger.debug(@logger_prefix, "[complete_upload] scheduler disabled.")
+
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: schema_data
+             }}
           end
         end
+      end
 
       Actions.transaction(actions_adapter, operation, options)
     end
   end
 
-  def complete_upload(bucket, resource_name, pipeline_module, schema, find_params, update_params, options) do
+  def complete_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        find_params,
+        update_params,
+        options
+      ) do
     actions_adapter = actions_adapter!(options)
 
     with {:ok, schema_data} <- Actions.find(actions_adapter, schema, find_params, options) do
-      complete_upload(bucket, resource_name, pipeline_module, schema, schema_data, update_params, options)
+      complete_upload(
+        bucket,
+        resource_name,
+        pipeline_module,
+        schema,
+        schema_data,
+        update_params,
+        options
+      )
     end
   end
 
@@ -920,33 +1008,36 @@ defmodule Uppy.Core do
     actions_adapter = actions_adapter!(options)
     scheduler_adapter = scheduler_adapter!(options)
 
+    with {:ok, schema_data} <- validate_temporary_object_key_path(schema_data, options),
+         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
+         {:ok, schema_data} <- check_e_tag_is_nil(schema_data) do
+      operation = fn ->
+        with {:ok, schema_data} <- Actions.delete(actions_adapter, schema_data, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            Uppy.Utils.Logger.debug(@logger_prefix, "[abort_upload] scheduler enabled.")
 
-    with {:ok, schema_data} <- ensure_temporary_object_key_path(schema_data, options),
-        {:ok, schema_data} <- ensure_non_multipart_upload(schema_data),
-        {:ok, schema_data} <- ensure_upload_not_complete(schema_data) do
-      operation =
-        fn ->
-          with {:ok, schema_data} <- Actions.delete(actions_adapter, schema_data, options) do
-            if Keyword.get(options, :scheduler_enabled?, true) do
-              with {:ok, job} <-
-                Schedulers.queue_delete_object_if_upload_not_found(
-                  scheduler_adapter,
-                  bucket,
-                  schema,
-                  schema_data.key,
-                  options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
-                  options
-                ) do
-                {:ok, %{
-                  schema_data: schema_data,
-                  jobs: %{delete_object_if_upload_not_found: job}
-                }}
-              end
-            else
-              {:ok, %{schema_data: schema_data}}
+            with {:ok, job} <-
+                   Schedulers.queue_delete_object_if_upload_not_found(
+                     scheduler_adapter,
+                     bucket,
+                     schema,
+                     schema_data.key,
+                     options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok,
+               %{
+                 schema_data: schema_data,
+                 jobs: %{delete_object_if_upload_not_found: job}
+               }}
             end
+          else
+            Uppy.Utils.Logger.debug(@logger_prefix, "[abort_upload] scheduler disabled.")
+
+            {:ok, %{schema_data: schema_data}}
           end
         end
+      end
 
       Actions.transaction(actions_adapter, operation, options)
     end
@@ -957,14 +1048,6 @@ defmodule Uppy.Core do
 
     with {:ok, schema_data} <- Actions.find(actions_adapter, schema, params, options) do
       abort_upload(bucket, schema, schema_data, options)
-    end
-  end
-
-  defp ensure_upload_not_complete(schema_data) do
-    if is_nil(schema_data.e_tag) do
-      {:ok, schema_data}
-    else
-      {:error, Error.call(:forbidden, "cannot abort completed upload", %{schema_data: schema_data})}
     end
   end
 
@@ -993,7 +1076,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Adapter.Storages` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -1012,10 +1095,44 @@ defmodule Uppy.Core do
   end
 
   def start_upload(bucket, partition_id, schema, params, options) when is_binary(partition_id) do
-    actions_adapter   = actions_adapter!(options)
+    Uppy.Utils.Logger.debug(
+      @logger_prefix,
+      """
+      [start_upload] called with arguments:
+
+      bucket:
+      #{inspect(bucket)}
+
+      partition_id:
+      #{inspect(partition_id)}
+
+      schema:
+      #{inspect(schema)}
+
+      params:
+      #{inspect(params, pretty: true)}
+
+      options:
+      #{inspect(options, pretty: true)}
+      """
+    )
+
+    actions_adapter = actions_adapter!(options)
     scheduler_adapter = scheduler_adapter!(options)
-    storage_adapter   = storage_adapter!(options)
+    storage_adapter = storage_adapter!(options)
     temporary_object_key_adapter = temporary_object_key_adapter!(options)
+
+    Uppy.Utils.Logger.debug(
+      @logger_prefix,
+      """
+      [start_upload] executing function with adapters:
+
+      actions_adapter: #{inspect(actions_adapter)}
+      scheduler_adapter: #{inspect(scheduler_adapter)}
+      storage_adapter: #{inspect(storage_adapter)}
+      temporary_object_key_adapter: #{inspect(temporary_object_key_adapter)}
+      """
+    )
 
     filename = params.filename
     unique_identifier = maybe_generate_unique_identifier(params[:unique_identifier], options)
@@ -1023,64 +1140,131 @@ defmodule Uppy.Core do
 
     key = TemporaryObjectKeys.prefix(temporary_object_key_adapter, partition_id, basename)
 
-    params = Map.merge(params, %{
-      unique_identifier: unique_identifier,
-      filename: filename,
-      key: key
-    })
+    response =
+      with {:ok, presigned_upload} <-
+             Storages.presigned_upload(storage_adapter, bucket, key, options) do
+        params =
+          Map.merge(params, %{
+            unique_identifier: unique_identifier,
+            filename: filename,
+            key: key
+          })
 
-    with {:ok, presigned_upload} <- Storage.presigned_upload(storage_adapter, bucket, key, options) do
-      operation =
-        fn ->
+        operation = fn ->
           with {:ok, schema_data} <- Actions.create(actions_adapter, schema, params, options) do
             if Keyword.get(options, :scheduler_enabled?, true) do
+              Uppy.Utils.Logger.debug(@logger_prefix, "[start_upload] scheduler enabled.")
+
               with {:ok, job} <-
-                Schedulers.queue_abort_upload(
-                  scheduler_adapter,
-                  bucket,
-                  schema,
-                  schema_data.id,
-                  options[:schedule][:abort_upload] || @one_hour_seconds,
-                  options
-                ) do
-                {:ok, %{
-                  unique_identifier: unique_identifier,
-                  basename: basename,
-                  key: key,
-                  presigned_upload: presigned_upload,
-                  schema_data: schema_data,
-                  jobs: %{abort_upload: job}
-                }}
+                     Schedulers.queue_abort_upload(
+                       scheduler_adapter,
+                       bucket,
+                       schema,
+                       schema_data.id,
+                       options[:schedule][:abort_upload] || @one_hour_seconds,
+                       options
+                     ) do
+                {:ok,
+                 %{
+                   unique_identifier: unique_identifier,
+                   basename: basename,
+                   key: key,
+                   presigned_upload: presigned_upload,
+                   schema_data: schema_data,
+                   jobs: %{abort_upload: job}
+                 }}
               end
             else
-              {:ok, %{
-                unique_identifier: unique_identifier,
-                basename: basename,
-                key: key,
-                presigned_upload: presigned_upload,
-                schema_data: schema_data
-              }}
+              Uppy.Utils.Logger.debug(@logger_prefix, "[start_upload] scheduler disabled.")
+
+              {:ok,
+               %{
+                 unique_identifier: unique_identifier,
+                 basename: basename,
+                 key: key,
+                 presigned_upload: presigned_upload,
+                 schema_data: schema_data
+               }}
             end
           end
         end
 
-      Actions.transaction(actions_adapter, operation, options)
+        Actions.transaction(actions_adapter, operation, options)
+      end
+
+    Uppy.Utils.Logger.debug(
+      @logger_prefix,
+      """
+      [start_upload] completed with response:
+
+      #{inspect(response, pretty: true)}
+      """
+    )
+
+    response
+  end
+
+  defp check_e_tag_is_nil(schema_data) do
+    if is_nil(schema_data.e_tag) do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.call(:forbidden, "Expected field `:e_tag` to be nil", %{schema_data: schema_data})}
     end
   end
 
-  defp ensure_multipart_upload(schema_data) do
-    if has_upload_id?(schema_data) do
+  defp check_e_tag_non_nil(schema_data) do
+    if is_nil(schema_data.e_tag) === false do
       {:ok, schema_data}
     else
-      {:error, Error.call(:forbidden, "Expected a multipart upload", %{schema_data: schema_data})}
+      {:error,
+       Error.call(:forbidden, "Expected field `:e_tag` to be non-nil", %{schema_data: schema_data})}
     end
   end
 
-  defp ensure_non_multipart_upload(schema_data) do
-    if has_upload_id?(schema_data) do
-      {:error, Error.call(:forbidden, "Expected a non multipart upload", %{schema_data: schema_data})}
+  defp validate_permanent_object_key_path(schema_data, options) do
+    if Keyword.get(options, :validate_path, true) do
+      permanent_object_key_adapter = permanent_object_key_adapter!(options)
+
+      with {:ok, _} <-
+             PermanentObjectKeys.validate_path(permanent_object_key_adapter, schema_data.key) do
+        {:ok, schema_data}
+      end
     else
       {:ok, schema_data}
+    end
+  end
+
+  defp validate_temporary_object_key_path(schema_data, options) do
+    if Keyword.get(options, :validate_path, true) do
+      temporary_object_key_adapter = temporary_object_key_adapter!(options)
+
+      with {:ok, _} <-
+             TemporaryObjectKeys.validate_path(temporary_object_key_adapter, schema_data.key) do
+        {:ok, schema_data}
+      end
+    else
+      {:ok, schema_data}
+    end
+  end
+
+  defp check_if_multipart_upload(schema_data) do
+    if has_upload_id?(schema_data) do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.call(:forbidden, "Expected `:upload_id` to be non-nil", %{schema_data: schema_data})}
+    end
+  end
+
+  defp check_if_non_multipart_upload(schema_data) do
+    if has_upload_id?(schema_data) === false do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.call(:forbidden, "Expected `:upload_id` to be nil", %{
+         schema_data: schema_data
+       })}
     end
   end
 

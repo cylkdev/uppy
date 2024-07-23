@@ -1,4 +1,4 @@
-defmodule Uppy.Storage do
+defmodule Uppy.Storages do
   @type t_res :: Uppy.Adapter.Storage.t_res()
 
   @type adapter :: Uppy.Adapter.Storage.adapter()

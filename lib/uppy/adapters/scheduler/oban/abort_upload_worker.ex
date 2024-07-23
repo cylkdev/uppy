@@ -15,54 +15,54 @@ if Uppy.Utils.application_loaded?(:oban) do
     @event_abort_multipart_upload "#{@event_prefix}.abort_multipart_upload"
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_abort_multipart_upload,
-        "bucket" => bucket,
-        "schema" => schema,
-        "source" => source,
-        "id" => id
-      }
-    }) do
+          args: %{
+            "event" => @event_abort_multipart_upload,
+            "bucket" => bucket,
+            "schema" => schema,
+            "source" => source,
+            "id" => id
+          }
+        }) do
       schema = Utils.string_to_existing_module!(schema)
 
       Core.abort_multipart_upload(bucket, {schema, source}, %{id: id})
     end
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_abort_multipart_upload,
-        "bucket" => bucket,
-        "schema" => schema,
-        "id" => id
-      }
-    }) do
+          args: %{
+            "event" => @event_abort_multipart_upload,
+            "bucket" => bucket,
+            "schema" => schema,
+            "id" => id
+          }
+        }) do
       schema = Utils.string_to_existing_module!(schema)
 
       Core.abort_multipart_upload(bucket, schema, %{id: id})
     end
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_abort_upload,
-        "bucket" => bucket,
-        "schema" => schema,
-        "source" => source,
-        "id" => id
-      }
-    }) do
+          args: %{
+            "event" => @event_abort_upload,
+            "bucket" => bucket,
+            "schema" => schema,
+            "source" => source,
+            "id" => id
+          }
+        }) do
       schema = Utils.string_to_existing_module!(schema)
 
       Core.abort_upload(bucket, {schema, source}, %{id: id})
     end
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_abort_upload,
-        "bucket" => bucket,
-        "schema" => schema,
-        "id" => id
-      }
-    }) do
+          args: %{
+            "event" => @event_abort_upload,
+            "bucket" => bucket,
+            "schema" => schema,
+            "id" => id
+          }
+        }) do
       schema = Utils.string_to_existing_module!(schema)
 
       Core.abort_upload(bucket, schema, %{id: id})

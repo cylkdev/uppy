@@ -14,16 +14,16 @@ if Uppy.Utils.application_loaded?(:oban) do
     @event_run_pipeline "#{@event_prefix}.run_pipeline"
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_run_pipeline,
-        "pipeline" => pipeline_module,
-        "bucket" => bucket,
-        "resource_name" => resource_name,
-        "schema" => schema,
-        "source" => source,
-        "id" => id
-      }
-    }) do
+          args: %{
+            "event" => @event_run_pipeline,
+            "pipeline" => pipeline_module,
+            "bucket" => bucket,
+            "resource_name" => resource_name,
+            "schema" => schema,
+            "source" => source,
+            "id" => id
+          }
+        }) do
       pipeline_module = Utils.string_to_existing_module!(pipeline_module)
       schema = Utils.string_to_existing_module!(schema)
 
@@ -31,22 +31,30 @@ if Uppy.Utils.application_loaded?(:oban) do
     end
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_run_pipeline,
-        "pipeline" => pipeline_module,
-        "bucket" => bucket,
-        "resource_name" => resource_name,
-        "schema" => schema,
-        "id" => id
-      }
-    }) do
+          args: %{
+            "event" => @event_run_pipeline,
+            "pipeline" => pipeline_module,
+            "bucket" => bucket,
+            "resource_name" => resource_name,
+            "schema" => schema,
+            "id" => id
+          }
+        }) do
       pipeline_module = Utils.string_to_existing_module!(pipeline_module)
       schema = Utils.string_to_existing_module!(schema)
 
       Core.run_pipeline(pipeline_module, bucket, resource_name, schema, %{id: id})
     end
 
-    def queue_run_pipeline(pipeline_module, bucket, resource_name, schema, id, nil_or_schedule_at_or_schedule_in, options) do
+    def queue_run_pipeline(
+          pipeline_module,
+          bucket,
+          resource_name,
+          schema,
+          id,
+          nil_or_schedule_at_or_schedule_in,
+          options
+        ) do
       options = ensure_schedule_opt(options, nil_or_schedule_at_or_schedule_in)
 
       changeset =

@@ -7,7 +7,8 @@ defmodule Uppy.PermanentObjectKeys do
 
   def decode_id(adapter, encoded_id), do: adapter.decode_id(encoded_id)
 
-  def prefix(adapter, id, resource_name, basename), do: adapter.prefix(id, resource_name, basename)
+  def prefix(adapter, id, resource_name, basename),
+    do: adapter.prefix(id, resource_name, basename)
 
   def prefix(adapter, id, basename), do: adapter.prefix(id, basename)
 

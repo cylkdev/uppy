@@ -20,11 +20,12 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   ...
   """
   def decode_path([prefix, partition, basename]) do
-    {:ok, %{
-      prefix: prefix,
-      partition: partition,
-      basename: URI.decode_www_form(basename)
-    }}
+    {:ok,
+     %{
+       prefix: prefix,
+       partition: partition,
+       basename: URI.decode_www_form(basename)
+     }}
   end
 
   def decode_path(path) when is_binary(path) do
@@ -40,9 +41,8 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   """
   @impl Uppy.Adapter.TemporaryObjectKey
   def validate_path(path) do
-    with {:ok, path} <- ensure_starts_with_prefix(path),
-      {:ok, _} <- decode_path(path) do
-      {:ok, path}
+    with {:ok, path} <- ensure_starts_with_prefix(path) do
+      decode_path(path)
     end
   end
 
@@ -52,10 +52,11 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
     if String.starts_with?(path, prefix) do
       {:ok, path}
     else
-      {:error, Uppy.Error.call(:forbidden, "invalid temporary object key", %{
-        path: path,
-        prefix: prefix
-      })}
+      {:error,
+       Uppy.Error.call(:forbidden, "invalid temporary object key", %{
+         path: path,
+         prefix: prefix
+       })}
     end
   end
 

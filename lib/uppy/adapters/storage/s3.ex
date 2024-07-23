@@ -61,15 +61,16 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       expires_in = options[:expires_in]
 
       with {:ok, url} <-
-        :s3
-        |> ExAws.Config.new(options)
-        |> ExAws.S3.presigned_url(http_method, bucket, object, options)
-        |> handle_response() do
-        {:ok, %{
-          key: object,
-          url: url,
-          expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
-        }}
+             :s3
+             |> ExAws.Config.new(options)
+             |> ExAws.S3.presigned_url(http_method, bucket, object, options)
+             |> handle_response() do
+        {:ok,
+         %{
+           key: object,
+           url: url,
+           expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
+         }}
       end
     end
 

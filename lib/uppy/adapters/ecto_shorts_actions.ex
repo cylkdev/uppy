@@ -36,7 +36,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             params :: map(),
             options :: Keyword.t()
           ) :: t_res(struct())
-    def create(schema, params, options) do
+    def create(schema, params, options \\ []) do
       EctoShorts.Actions.create(schema, params, options)
     end
 
@@ -49,7 +49,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             params :: map(),
             options :: Keyword.t()
           ) :: t_res(struct())
-    def find(schema, params, options) do
+    def find(schema, params, options \\ []) do
       EctoShorts.Actions.find(schema, params, options)
     end
 
@@ -63,7 +63,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             params :: map(),
             options :: Keyword.t()
           ) :: t_res(struct())
-    def update(schema, id_or_schema_data, params, options) do
+    def update(schema, id_or_schema_data, params, options \\ []) do
       EctoShorts.Actions.update(schema, id_or_schema_data, params, options)
     end
 
@@ -77,6 +77,14 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
           ) :: t_res(struct())
     def delete(%_{} = schema_data, options) do
       EctoShorts.Actions.delete(schema_data, options)
+    end
+
+    def delete(schema, id) do
+      delete(schema, id, [])
+    end
+
+    def delete(%_{} = schema_data) do
+      delete(schema_data, [])
     end
 
     @impl true
@@ -100,7 +108,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
             func :: function(),
             options :: Keyword.t()
           ) :: t_res(struct())
-    def transaction(func, options) do
+    def transaction(func, options \\ []) do
       fn repo ->
         func
         |> execute_transaction(repo)

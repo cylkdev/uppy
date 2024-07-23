@@ -3,40 +3,64 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   ...
   """
 
+  alias Uppy.Error
+
   @behaviour Uppy.Adapter.PermanentObjectKey
 
   @default_prefix ""
+  @default_postfix "uploads"
 
   @prefix Application.compile_env(__MODULE__, :prefix, @default_prefix)
+  @postfix Application.compile_env(__MODULE__, :postfix, @default_postfix)
 
   if !(@prefix === "") and !String.ends_with?(@prefix, "/") do
     raise "Expected prefix to end with /, got: #{inspect(@prefix)}"
   end
 
+  if String.contains?(@postfix, "/") do
+    raise "Postfix cannot contain `/`, got: #{inspect(@postfix)}"
+  end
+
   @doc """
   ...
   """
-  def decode_path([prefix, partition_key, resource_name, basename]) do
-    {:ok, %{
-      prefix: prefix,
-      partition_key: partition_key,
-      resource_name: URI.decode_www_form(resource_name),
-      basename: URI.decode_www_form(basename)
-    }}
+  def decode_path([prefix, partition_key, resource_name, basename] = path) do
+    case validate_partition_key(partition_key) do
+      :ok ->
+        {:ok,
+         %{
+           prefix: prefix,
+           partition_key: partition_key,
+           resource_name: URI.decode_www_form(resource_name),
+           basename: URI.decode_www_form(basename)
+         }}
+
+      :error ->
+        {:error,
+         Error.call(
+           :forbidden,
+           "Expected partition key to be a binary in the format `<ID>-<POSTFIX>` at position '2' in path",
+           %{
+             path: path,
+             prefix: prefix,
+             partition_key: partition_key,
+             resource_name: resource_name,
+             basename: basename
+           }
+         )}
+    end
   end
 
   def decode_path([partition_key, resource_name, basename]) do
-    prefix = ""
-
-    decode_path([prefix, partition_key, resource_name, basename])
+    decode_path([nil, partition_key, resource_name, basename])
   end
 
   def decode_path(path) when is_binary(path) do
     path |> Path.split() |> decode_path()
   end
 
-  def decode_path(path) do
-    {:error, Uppy.Error.call(:forbidden, "cannot decode permanent object path", %{path: path})}
+  def decode_path(value) do
+    {:error, Uppy.Error.call(:forbidden, "Expected a binary or list", %{value: value})}
   end
 
   @doc """
@@ -44,9 +68,8 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   """
   @impl Uppy.Adapter.PermanentObjectKey
   def validate_path(path) do
-    with {:ok, path} <- ensure_starts_with_prefix(path),
-      {:ok, _} <- decode_path(path) do
-      {:ok, path}
+    with {:ok, path} <- ensure_starts_with_prefix(path) do
+      decode_path(path)
     end
   end
 
@@ -56,10 +79,11 @@ defmodule Uppy.Adapters.PermanentObjectKey do
     if String.starts_with?(path, prefix) do
       {:ok, path}
     else
-      {:error, Uppy.Error.call(:forbidden, "invalid temporary object key path", %{
-        path: path,
-        prefix: prefix
-      })}
+      {:error,
+       Uppy.Error.call(:forbidden, "Expected path to start with prefix", %{
+         path: path,
+         prefix: prefix
+       })}
     end
   end
 
@@ -79,6 +103,8 @@ defmodule Uppy.Adapters.PermanentObjectKey do
     encoded_id |> URI.decode_www_form() |> String.reverse()
   end
 
+  def partition_key(id), do: "#{encode_id(id)}-#{@postfix}"
+
   @doc """
   Returns the prefix string.
   """
@@ -97,11 +123,23 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   Returns the prefix string.
   """
   @impl Uppy.Adapter.PermanentObjectKey
-  def prefix(id), do: Path.join([prefix(), "#{encode_id(id)}-"])
+  def prefix(id), do: Path.join([prefix(), partition_key(id)])
 
   @doc """
   Returns the prefix string.
   """
   @impl Uppy.Adapter.PermanentObjectKey
   def prefix, do: @prefix
+
+  @doc """
+  Returns the postfix string.
+  """
+  def postfix, do: @postfix
+
+  defp validate_partition_key(partition_key) do
+    case String.split(partition_key, "-") do
+      [_id, @postfix] -> :ok
+      _term -> :error
+    end
+  end
 end

@@ -8,39 +8,45 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-      alias Uppy.{Core, Config, Utils}
+    alias Uppy.{Core, Config, Utils}
 
     @event_prefix "uppy.garbage_collector_worker"
     @event_delete_object_if_upload_not_found "#{@event_prefix}.delete_object_if_upload_not_found"
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_delete_object_if_upload_not_found,
-        "bucket" => bucket,
-        "schema" => schema,
-        "source" => source,
-        "key" => key
-      }
-    }) do
+          args: %{
+            "event" => @event_delete_object_if_upload_not_found,
+            "bucket" => bucket,
+            "schema" => schema,
+            "source" => source,
+            "key" => key
+          }
+        }) do
       schema = Utils.string_to_existing_module!(schema)
 
       Core.delete_object_if_upload_not_found(bucket, {schema, source}, key)
     end
 
     def perform(%Oban.Job{
-      args: %{
-        "event" => @event_delete_object_if_upload_not_found,
-        "bucket" => bucket,
-        "schema" => schema,
-        "key" => key
-      }
-    }) do
+          args: %{
+            "event" => @event_delete_object_if_upload_not_found,
+            "bucket" => bucket,
+            "schema" => schema,
+            "key" => key
+          }
+        }) do
       schema = Utils.string_to_existing_module!(schema)
 
       Core.delete_object_if_upload_not_found(bucket, schema, key)
     end
 
-    def queue_delete_object_if_upload_not_found(bucket, schema, key, schedule_at_or_schedule_in, options) do
+    def queue_delete_object_if_upload_not_found(
+          bucket,
+          schema,
+          key,
+          schedule_at_or_schedule_in,
+          options
+        ) do
       options = ensure_schedule_opt(options, schedule_at_or_schedule_in)
 
       changeset =

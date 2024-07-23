@@ -302,7 +302,7 @@ defmodule Uppy.HTTP do
       if attempt < max_retries do
         attempt = attempt + 1
 
-        Utils.Logger.warn(
+        Utils.Logger.warning(
           @logger_prefix,
           "Retrying failed HTTP request. Making attempt #{attempt} out of #{max_retries})."
         )

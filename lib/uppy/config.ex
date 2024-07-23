@@ -19,11 +19,13 @@ defmodule Uppy.Config do
 
   @doc false
   @spec actions_adapter :: module() | nil
-  def actions_adapter, do: Application.get_env(@app, :actions_adapter) || Uppy.Adapters.EctoShortsActions
+  def actions_adapter,
+    do: Application.get_env(@app, :actions_adapter) || Uppy.Adapters.EctoShortsActions
 
   @doc false
   @spec scheduler_adapter :: module() | nil
-  def scheduler_adapter, do: Application.get_env(@app, :scheduler_adapter) || Uppy.Adapters.Scheduler.Oban
+  def scheduler_adapter,
+    do: Application.get_env(@app, :scheduler_adapter) || Uppy.Adapters.Scheduler.Oban
 
   @doc false
   @spec storage_adapter :: module() | nil
@@ -31,11 +33,15 @@ defmodule Uppy.Config do
 
   @doc false
   @spec temporary_object_key_adapter :: module() | nil
-  def temporary_object_key_adapter, do: Application.get_env(@app, :temporary_object_key_adapter) || Uppy.Adapters.TemporaryObjectKey
+  def temporary_object_key_adapter,
+    do:
+      Application.get_env(@app, :temporary_object_key_adapter) || Uppy.Adapters.TemporaryObjectKey
 
   @doc false
   @spec permanent_object_key_adapter :: module() | nil
-  def permanent_object_key_adapter, do: Application.get_env(@app, :permanent_object_key_adapter) || Uppy.Adapters.PermanentObjectKey
+  def permanent_object_key_adapter,
+    do:
+      Application.get_env(@app, :permanent_object_key_adapter) || Uppy.Adapters.PermanentObjectKey
 
   @doc false
   @spec oban :: module()

@@ -221,7 +221,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
+         )}
     end
 
     @doc """
@@ -252,7 +256,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
+         )}
     end
 
     @doc """
@@ -283,7 +291,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
+         )}
     end
 
     @doc """
@@ -314,7 +326,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
+         )}
     end
 
     @doc """
@@ -345,7 +361,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
+         )}
     end
 
     @doc """
@@ -376,7 +396,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.call(:service_unavailable, "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}")}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "Uppy.Adapters.HTTP.Finch patch exited: #{inspect(reason)}"
+         )}
     end
 
     defp run_and_measure(fnc, headers, method, options) do
@@ -412,7 +436,7 @@ if Uppy.Utils.application_loaded?(:finch) do
 
       if Map.has_key?(error_code_map, code) do
         {error, message} = Map.get(error_code_map, code)
-          {:error, Error.call(error, message, details)}
+        {:error, Error.call(error, message, details)}
       else
         message = unknown_error_message(api_name)
         {:error, Error.call(:internal_server_error, message, details)}

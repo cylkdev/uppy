@@ -33,14 +33,14 @@ defmodule Uppy.Support.PG.Objects.UserAvatarObject do
   ]
 
   @allowed_fields [
-    :archived,
-    :archived_at,
-    :content_length,
-    :content_type,
-    :e_tag,
-    :last_modified,
-    :upload_id
-  ] ++ @required_fields
+                    :archived,
+                    :archived_at,
+                    :content_length,
+                    :content_type,
+                    :e_tag,
+                    :last_modified,
+                    :upload_id
+                  ] ++ @required_fields
 
   @doc false
   def changeset(model_or_changeset, attrs \\ %{}) do
