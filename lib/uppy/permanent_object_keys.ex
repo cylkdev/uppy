@@ -4,8 +4,8 @@ defmodule Uppy.PermanentObjectKeys do
 
   @default_permanent_object_key_adapter Uppy.Adapters.PermanentObjectKey
 
-  def validate_path(key, options \\ []) do
-    permanent_object_key_adapter!(options).validate_path(key, options)
+  def validate(key, options \\ []) do
+    permanent_object_key_adapter!(options).validate(key, options)
   end
 
   def encode_id(id, options) do

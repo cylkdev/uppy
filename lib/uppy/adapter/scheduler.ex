@@ -1,10 +1,65 @@
 defmodule Uppy.Adapter.Scheduler do
-  @type t_res :: {:ok, term()} | {:error, term()}
+  @moduledoc """
+  An adapter for scheduling chron jobs.
+  """
 
-  @callback queue(
-              action :: term(),
-              params :: map(),
-              nil_or_max_age_or_date_time :: non_neg_integer() | DateTime.t() | nil,
-              options :: Keyword.t()
-            ) :: t_res()
+  @type id :: non_neg_integer() | binary()
+  @type bucket :: binary()
+  @type resource_name :: binary()
+  @type queryable :: Ecto.Queryable.t()
+  @type key :: binary()
+  @type options :: keyword()
+
+  @type schedule_at :: DateTime.t()
+  @type schedule_in :: non_neg_integer()
+  @type schedule_at_or_schedule_in :: schedule_at() | schedule_in()
+  @type nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil
+
+  @type t_res(t) :: {:ok, t} | {:error, term()}
+
+  @doc """
+  Enqueues a job to delete an object from storage if the database record does not exist.
+  """
+  @callback queue_delete_object_if_upload_not_found(
+    bucket :: bucket(),
+    schema :: queryable(),
+    key :: key(),
+    schedule_at_or_schedule_in :: schedule_at_or_schedule_in(),
+    options :: options()
+  ) :: t_res(term())
+
+  @doc """
+  Enqueues a job to abort a multipart upload and delete the database record if the key is in a temporary path.
+  """
+  @callback queue_abort_multipart_upload(
+    bucket :: bucket(),
+    schema :: queryable(),
+    id :: id(),
+    schedule_at_or_schedule_in :: schedule_at_or_schedule_in(),
+    options :: options()
+  ) :: t_res(term())
+
+  @doc """
+  Enqueues a job to delete a non-multipart upload database record if the key is in a temporary path.
+  """
+  @callback queue_abort_upload(
+    bucket :: bucket(),
+    schema :: queryable(),
+    id :: id(),
+    schedule_at_or_schedule_in :: schedule_at_or_schedule_in(),
+    options :: options()
+  ) :: t_res(term())
+
+  @doc """
+  Enqueues a job to run a pipeline.
+  """
+  @callback queue_run_pipeline(
+    pipeline_module :: module(),
+    bucket :: bucket(),
+    resource_name :: resource_name(),
+    schema :: queryable(),
+    id :: id(),
+    nil_or_schedule_at_or_schedule_in :: nil_or_schedule_at_or_schedule_in(),
+    options :: options()
+  ) :: t_res(term())
 end

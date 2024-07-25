@@ -1,4 +1,4 @@
-defmodule Uppy.CoreTest do
+defmodule Uppy.CoreSchemaTest do
   use Uppy.Support.DataCase, async: true
 
   alias Uppy.{
@@ -14,8 +14,6 @@ defmodule Uppy.CoreTest do
   }
 
   @schema Uppy.Support.PG.Objects.UserAvatarObject
-  @source "user_avatar_objects"
-  @schema_source_tuple {@schema, @source}
 
   @resource_name "user-avatars"
 
@@ -299,7 +297,7 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  @resource_name,
                  MockTestPipeline,
-                 @schema_source_tuple,
+                 @schema,
                  expected_schema_data,
                  %{},
                  [{1, @e_tag}]
@@ -316,10 +314,9 @@ defmodule Uppy.CoreTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.run_pipeline",
         id: expected_schema_data.id,
-        pipeline: "Uppy.CoreTest.MockTestPipeline",
+        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
-        schema: inspect(@schema),
-        source: @source
+        schema: inspect(@schema)
       }
 
       assert %Oban.Job{
@@ -369,7 +366,7 @@ defmodule Uppy.CoreTest do
                      archived_at: nil
                    },
                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
-                   source: "user_avatar_objects",
+                   source: nil,
                    resource_name: "user-avatars",
                    bucket: @bucket
                  },
@@ -423,7 +420,7 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  @resource_name,
                  MockTestPipeline,
-                 @schema_source_tuple,
+                 @schema,
                  %{id: expected_schema_data.id},
                  %{},
                  [{1, @e_tag}]
@@ -438,10 +435,9 @@ defmodule Uppy.CoreTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.run_pipeline",
         id: expected_schema_data.id,
-        pipeline: "Uppy.CoreTest.MockTestPipeline",
+        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
-        schema: inspect(@schema),
-        source: @source
+        schema: inspect(@schema)
       }
 
       assert %Oban.Job{
@@ -490,7 +486,7 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  @resource_name,
                  MockTestPipeline,
-                 @schema_source_tuple,
+                 @schema,
                  %{id: expected_schema_data.id},
                  %{},
                  [{1, @e_tag}]
@@ -505,10 +501,9 @@ defmodule Uppy.CoreTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.run_pipeline",
         id: expected_schema_data.id,
-        pipeline: "Uppy.CoreTest.MockTestPipeline",
+        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
-        schema: inspect(@schema),
-        source: @source
+        schema: inspect(@schema)
       }
 
       assert %Oban.Job{
@@ -548,7 +543,7 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  @resource_name,
                  MockTestPipeline,
-                 @schema_source_tuple,
+                 @schema,
                  %{id: expected_schema_data.id},
                  %{},
                  [{1, @e_tag}]
@@ -594,8 +589,7 @@ defmodule Uppy.CoreTest do
               %{
                 schema_data: abort_multipart_upload_schema_data,
                 jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
-              }} =
-               Core.abort_multipart_upload(@bucket, @schema_source_tuple, expected_schema_data)
+              }} = Core.abort_multipart_upload(@bucket, @schema, expected_schema_data)
 
       # should be the same database record
       assert abort_multipart_upload_schema_data.id === expected_schema_data.id
@@ -607,7 +601,6 @@ defmodule Uppy.CoreTest do
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
       expected_delete_object_if_upload_not_found_job_args = %{
         key: expected_temporary_key,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -678,8 +671,7 @@ defmodule Uppy.CoreTest do
               %{
                 schema_data: abort_multipart_upload_schema_data,
                 jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
-              }} =
-               Core.abort_multipart_upload(@bucket, @schema_source_tuple, expected_schema_data)
+              }} = Core.abort_multipart_upload(@bucket, @schema, expected_schema_data)
 
       # should be the same database record
       assert abort_multipart_upload_schema_data.id === expected_schema_data.id
@@ -691,7 +683,6 @@ defmodule Uppy.CoreTest do
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
       expected_delete_object_if_upload_not_found_job_args = %{
         key: expected_temporary_key,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -731,7 +722,7 @@ defmodule Uppy.CoreTest do
       ])
 
       assert {:error, %{code: :internal_server_error}} =
-               Core.abort_multipart_upload(@bucket, @schema_source_tuple, expected_schema_data)
+               Core.abort_multipart_upload(@bucket, @schema, expected_schema_data)
     end
   end
 
@@ -762,7 +753,7 @@ defmodule Uppy.CoreTest do
                Core.start_multipart_upload(
                  @bucket,
                  context.user.id,
-                 @schema_source_tuple,
+                 @schema,
                  %{
                    filename: @filename,
                    user_avatar_id: context.user_avatar.id,
@@ -775,7 +766,7 @@ defmodule Uppy.CoreTest do
 
       assert ^expected_temporary_key = temporary_key
 
-      assert TemporaryObjectKeys.validate_path(temporary_key)
+      assert TemporaryObjectKeys.validate(temporary_key)
 
       assert ^basename = "#{unique_identifier}-#{expected_schema_data.filename}"
 
@@ -797,7 +788,6 @@ defmodule Uppy.CoreTest do
 
       expected_abort_multipart_upload_job_args = %{
         id: expected_schema_data.id,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.abort_upload_worker.abort_multipart_upload",
         bucket: @bucket
@@ -824,7 +814,6 @@ defmodule Uppy.CoreTest do
         event: "uppy.abort_upload_worker.abort_multipart_upload",
         bucket: @bucket,
         schema: inspect(@schema),
-        source: @source,
         id: expected_schema_data.id
       }
 
@@ -873,7 +862,6 @@ defmodule Uppy.CoreTest do
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
       expected_delete_object_if_upload_not_found_job_args = %{
         key: expected_temporary_key,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -941,7 +929,7 @@ defmodule Uppy.CoreTest do
                Core.start_multipart_upload(
                  @bucket,
                  context.user.id,
-                 @schema_source_tuple,
+                 @schema,
                  %{
                    filename: @filename,
                    user_avatar_id: context.user_avatar.id,
@@ -957,7 +945,7 @@ defmodule Uppy.CoreTest do
       assert ^expected_temporary_key =
                "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
 
-      assert TemporaryObjectKeys.validate_path(expected_temporary_key)
+      assert TemporaryObjectKeys.validate(expected_temporary_key)
 
       assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
 
@@ -1003,7 +991,7 @@ defmodule Uppy.CoreTest do
                   bucket: @bucket,
                   resource_name: @resource_name,
                   schema: @schema,
-                  source: @source,
+                  source: nil,
                   schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
                     id: ^expected_schema_data_id,
                     user_id: ^expected_user_id,
@@ -1028,7 +1016,7 @@ defmodule Uppy.CoreTest do
                  pipeline,
                  @bucket,
                  @resource_name,
-                 @schema_source_tuple,
+                 @schema,
                  expected_schema_data
                )
     end
@@ -1106,7 +1094,7 @@ defmodule Uppy.CoreTest do
       assert actual_schema_data.id === expected_schema_data.id
     end
 
-    test "can disable object key validation when option `:validate_path?` is set to false",
+    test "can disable object key validation when option `:validate?` is set to false",
          context do
       expected_schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
@@ -1120,7 +1108,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, actual_schema_data} =
                Core.find_permanent_upload(@schema, %{id: expected_schema_data.id},
-                 validate_path?: false
+                 validate?: false
                )
 
       assert actual_schema_data.id === expected_schema_data.id
@@ -1169,7 +1157,7 @@ defmodule Uppy.CoreTest do
       assert actual_schema_data.id === expected_schema_data.id
     end
 
-    test "can disable object key validation when option `:validate_path?` is set to false",
+    test "can disable object key validation when option `:validate?` is set to false",
          context do
       expected_schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
@@ -1183,7 +1171,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, actual_schema_data} =
                Core.find_temporary_upload(@schema, %{id: expected_schema_data.id},
-                 validate_path?: false
+                 validate?: false
                )
 
       assert actual_schema_data.id === expected_schema_data.id
@@ -1213,7 +1201,7 @@ defmodule Uppy.CoreTest do
               }} =
                Core.delete_upload(
                  @bucket,
-                 @schema_source_tuple,
+                 @schema,
                  %{id: schema_data.id}
                )
 
@@ -1275,7 +1263,6 @@ defmodule Uppy.CoreTest do
 
       expected_delete_object_if_upload_not_found_job_args = %{
         key: expected_permanent_key,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -1348,7 +1335,7 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  @resource_name,
                  MockTestPipeline,
-                 @schema_source_tuple,
+                 @schema,
                  expected_schema_data
                )
 
@@ -1362,10 +1349,9 @@ defmodule Uppy.CoreTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.run_pipeline",
         id: expected_schema_data.id,
-        pipeline: "Uppy.CoreTest.MockTestPipeline",
+        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
-        schema: inspect(@schema),
-        source: @source
+        schema: inspect(@schema)
       }
 
       assert %Oban.Job{
@@ -1415,7 +1401,7 @@ defmodule Uppy.CoreTest do
                      archived_at: nil
                    },
                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
-                   source: "user_avatar_objects",
+                   source: nil,
                    resource_name: "user-avatars",
                    bucket: @bucket
                  },
@@ -1455,7 +1441,7 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  @resource_name,
                  MockTestPipeline,
-                 @schema_source_tuple,
+                 @schema,
                  %{id: expected_schema_data.id}
                )
 
@@ -1469,10 +1455,9 @@ defmodule Uppy.CoreTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.run_pipeline",
         id: expected_schema_data.id,
-        pipeline: "Uppy.CoreTest.MockTestPipeline",
+        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
-        schema: inspect(@schema),
-        source: @source
+        schema: inspect(@schema)
       }
 
       assert %Oban.Job{
@@ -1509,7 +1494,7 @@ defmodule Uppy.CoreTest do
               %{
                 schema_data: abort_upload_schema_data,
                 jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
-              }} = Core.abort_upload(@bucket, @schema_source_tuple, schema_data)
+              }} = Core.abort_upload(@bucket, @schema, schema_data)
 
       # should be the same database record
       assert abort_upload_schema_data.id === schema_data.id
@@ -1521,7 +1506,6 @@ defmodule Uppy.CoreTest do
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
       expected_delete_object_if_upload_not_found_job_args = %{
         key: expected_temporary_key,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -1581,7 +1565,7 @@ defmodule Uppy.CoreTest do
                Core.start_upload(
                  @bucket,
                  context.user.id,
-                 @schema_source_tuple,
+                 @schema,
                  %{
                    filename: @filename,
                    user_avatar_id: context.user_avatar.id,
@@ -1593,7 +1577,7 @@ defmodule Uppy.CoreTest do
       assert ^expected_temporary_key =
                "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
 
-      assert TemporaryObjectKeys.validate_path(expected_temporary_key)
+      assert TemporaryObjectKeys.validate(expected_temporary_key)
 
       assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
 
@@ -1610,7 +1594,6 @@ defmodule Uppy.CoreTest do
 
       expected_abort_upload_job_args = %{
         id: expected_schema_data.id,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.abort_upload_worker.abort_upload",
         bucket: @bucket
@@ -1637,7 +1620,6 @@ defmodule Uppy.CoreTest do
         event: "uppy.abort_upload_worker.abort_upload",
         bucket: @bucket,
         schema: inspect(@schema),
-        source: @source,
         id: expected_schema_data.id
       }
 
@@ -1667,7 +1649,6 @@ defmodule Uppy.CoreTest do
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
       expected_delete_object_if_upload_not_found_job_args = %{
         key: expected_temporary_key,
-        source: @source,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -1722,7 +1703,7 @@ defmodule Uppy.CoreTest do
                Core.start_upload(
                  @bucket,
                  context.user.id,
-                 @schema_source_tuple,
+                 @schema,
                  %{
                    filename: @filename,
                    user_avatar_id: context.user_avatar.id,
@@ -1744,7 +1725,7 @@ defmodule Uppy.CoreTest do
                Core.start_upload(
                  @bucket,
                  context.user.id,
-                 @schema_source_tuple,
+                 @schema,
                  %{
                    filename: @filename,
                    user_avatar_id: context.user_avatar.id,
@@ -1760,7 +1741,7 @@ defmodule Uppy.CoreTest do
       assert ^expected_temporary_key =
                "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
 
-      assert TemporaryObjectKeys.validate_path(expected_temporary_key)
+      assert TemporaryObjectKeys.validate(expected_temporary_key)
 
       assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
 

@@ -1,42 +1,69 @@
 defmodule Uppy.Adapter.PermanentObjectKey do
   @moduledoc """
-  - Encodes and decodes ids used in keys.
-  - Provides functionality for searching the storage by prefix.
+  API for managing permanent object keys.
   """
 
-  @doc """
-  Returns `true` if the `key` starts with the object key prefix.
-  """
-  @callback validate_path(key :: binary(), options :: keyword()) ::
-              {:ok, key :: binary()} | {:error, term()}
+  @type id :: non_neg_integer() | binary()
+  @type encoded_id :: binary()
+  @type decoded_id :: binary()
+  @type resource_name :: binary()
+  @type basename :: binary()
+  @type path :: binary()
+  @type prefix :: binary()
+  @type options :: keyword()
 
   @doc """
-  ...
+  Validates the path.
   """
-  @callback encode_id(id :: binary()) :: binary()
+  @callback validate(path :: path(), options :: keyword()) :: {:ok, term()} | {:error, term()}
 
   @doc """
-  ...
+  Returns a string.
+
+  This function is used to serialize object keys going into storage.
   """
-  @callback decode_id(encoded_id :: binary()) :: binary()
+  @callback encode_id(id :: id()) :: encoded_id()
 
   @doc """
-  ...
+  Returns a string.
+
+  This function is used to de-serialize object keys in storage.
   """
-  @callback prefix(id :: binary(), resource_name :: binary(), basename :: binary()) :: binary()
+  @callback decode_id(encoded_id :: encoded_id()) :: decoded_id()
 
   @doc """
-  ...
+  Returns the prefix of the object path as a string.
+
+  The returned string must be a valid path that includes the `id`, `resource_name`, and `basename`
+  encoded as URL-friendly values (see `URI.encode_www_form/1`).
+
+  Examples:
+
+  ```
+  <prefix>/<id>-<postfix>/<resource_name>/<basename>
+  private/1-organization/organization-avatars/unique_identifier-image.jpeg
+
+  <prefix>/<id>-<postfix>/<resource_name>/
+  private/1-organization/organization-avatars/
+
+  <prefix>/<id>-<postfix>/
+  private/1-organization/
+  ```
   """
-  @callback prefix(id :: binary(), resource_name :: binary()) :: binary()
+  @callback prefix(id :: id(), resource_name :: resource_name(), basename :: basename()) :: prefix()
 
   @doc """
-  ...
+  See `c:Uppy.Adapter.PermanentObjectKey.prefix/3` for more information.
   """
-  @callback prefix(id :: binary()) :: binary()
+  @callback prefix(id :: id(), resource_name :: resource_name()) :: prefix()
 
   @doc """
-  ...
+  See `c:Uppy.Adapter.PermanentObjectKey.prefix/3` for more information.
   """
-  @callback prefix :: binary()
+  @callback prefix(id :: id()) :: prefix()
+
+  @doc """
+  See `c:Uppy.Adapter.PermanentObjectKey.prefix/3` for more information.
+  """
+  @callback prefix :: prefix()
 end

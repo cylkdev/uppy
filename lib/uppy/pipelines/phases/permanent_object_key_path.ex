@@ -31,7 +31,7 @@ defmodule Uppy.Pipelines.Phases.PermanentObjectKeyPath do
       """
     )
 
-    case PermanentObjectKeys.validate_path(permanent_object_key_adapter, schema_data.key) do
+    case PermanentObjectKeys.validate(permanent_object_key_adapter, schema_data.key) do
       {:ok, res} ->
         Utils.Logger.debug(
           @logger_prefix,

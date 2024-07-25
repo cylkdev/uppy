@@ -41,7 +41,7 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   Returns true is string starts with `#{@prefix}`.
   """
   @impl Uppy.Adapter.TemporaryObjectKey
-  def validate_path(path, options) do
+  def validate(path, options) do
     with {:ok, path} <- ensure_starts_with_prefix(path, options) do
       decode_path(path, options)
     end

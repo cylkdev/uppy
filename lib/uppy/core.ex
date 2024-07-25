@@ -1133,13 +1133,13 @@ defmodule Uppy.Core do
   defp maybe_generate_unique_identifier(unique_identifier, _options), do: unique_identifier
 
   defp validate_permanent_object(schema_data, options) do
-    if Keyword.get(options, :validate_path?, true) do
+    if Keyword.get(options, :validate?, true) do
       Utils.Logger.debug(
         @logger_prefix,
         "validating permanent object key #{inspect(schema_data.key)}"
       )
 
-      with {:ok, path} <- PermanentObjectKeys.validate_path(schema_data.key, options) do
+      with {:ok, path} <- PermanentObjectKeys.validate(schema_data.key, options) do
         Utils.Logger.debug(
           @logger_prefix,
           "validated permanent object key #{inspect(schema_data.key)}, got: #{inspect(path)}"
@@ -1158,13 +1158,13 @@ defmodule Uppy.Core do
   end
 
   defp validate_temporary_object(schema_data, options) do
-    if Keyword.get(options, :validate_path?, true) do
+    if Keyword.get(options, :validate?, true) do
       Utils.Logger.debug(
         @logger_prefix,
         "validating temporary object key #{inspect(schema_data.key)}"
       )
 
-      with {:ok, path} <- TemporaryObjectKeys.validate_path(schema_data.key, options) do
+      with {:ok, path} <- TemporaryObjectKeys.validate(schema_data.key, options) do
         Utils.Logger.debug(
           @logger_prefix,
           "validated temporary object key #{inspect(schema_data.key)}, got: #{inspect(path)}"

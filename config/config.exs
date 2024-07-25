@@ -1,15 +1,14 @@
 import Config
 
-config :uppy, ecto_repos: [Uppy.Support.Repo]
+config :uppy, ecto_repos: [Uppy.Repo]
 
 if Mix.env() === :test do
   config :ecto_shorts,
-    repo: Uppy.Support.Repo,
+    repo: Uppy.Repo,
     error_module: EctoShorts.Actions.Error
 
   config :uppy, :sql_sandbox, true
-
-  config :uppy, Uppy.Support.Repo,
+  config :uppy, Uppy.Repo,
     username: "postgres",
     database: "uppy_test",
     hostname: "localhost",
@@ -19,7 +18,7 @@ if Mix.env() === :test do
     pool: Ecto.Adapters.SQL.Sandbox,
     pool_size: 10
 else
-  config :uppy, Uppy.Support.Repo,
+  config :uppy, Uppy.Repo,
     username: "postgres",
     database: "uppy_test",
     hostname: "localhost",

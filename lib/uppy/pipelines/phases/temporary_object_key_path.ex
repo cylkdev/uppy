@@ -31,7 +31,7 @@ defmodule Uppy.Pipelines.Phases.TemporaryObjectKeyPath do
       """
     )
 
-    case TemporaryObjectKeys.validate_path(schema_data.key, runtime_options) do
+    case TemporaryObjectKeys.validate(schema_data.key, runtime_options) do
       {:ok, res} ->
         Utils.Logger.debug(
           @logger_prefix,

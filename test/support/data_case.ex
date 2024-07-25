@@ -18,9 +18,9 @@ defmodule Uppy.Support.DataCase do
 
   using do
     quote do
-      use Oban.Testing, repo: Uppy.Support.Repo
+      use Oban.Testing, repo: Uppy.Repo
 
-      alias Uppy.Support.Repo
+      alias Uppy.Repo
 
       import Ecto
       import Ecto.Changeset
@@ -35,10 +35,10 @@ defmodule Uppy.Support.DataCase do
   end
 
   def setup_sandbox(tags) do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Uppy.Support.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Uppy.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(Uppy.Support.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Uppy.Repo, {:shared, self()})
     end
   end
 

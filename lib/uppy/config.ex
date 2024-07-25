@@ -2,6 +2,7 @@ defmodule Uppy.Config do
   @moduledoc false
   @app :uppy
 
+  @doc false
   @spec app :: :uppy
   def app, do: @app
 

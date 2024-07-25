@@ -68,28 +68,9 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   Returns true is string starts with `#{@prefix}`.
   """
   @impl Uppy.Adapter.PermanentObjectKey
-  def validate_path(path, options) do
+  def validate(path, options) do
     with {:ok, path} <- ensure_starts_with_prefix(path, options) do
       decode_path(path, options)
-    end
-  end
-
-  defp ensure_starts_with_prefix(path, options) do
-    prefix = prefix()
-
-    if String.starts_with?(path, prefix) do
-      {:ok, path}
-    else
-      {:error,
-       Uppy.Error.call(
-         :forbidden,
-         "Expected path to start with prefix",
-         %{
-           path: path,
-           prefix: prefix
-         },
-         options
-       )}
     end
   end
 
@@ -141,6 +122,25 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   Returns the postfix string.
   """
   def postfix, do: @postfix
+
+  defp ensure_starts_with_prefix(path, options) do
+    prefix = prefix()
+
+    if String.starts_with?(path, prefix) do
+      {:ok, path}
+    else
+      {:error,
+       Uppy.Error.call(
+         :forbidden,
+         "Expected path to start with prefix",
+         %{
+           path: path,
+           prefix: prefix
+         },
+         options
+       )}
+    end
+  end
 
   defp validate_partition_key(partition_key) do
     case String.split(partition_key, "-") do

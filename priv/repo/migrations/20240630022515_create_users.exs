@@ -1,4 +1,4 @@
-defmodule Uppy.Support.Repo.Migrations.CreateUsers do
+defmodule Uppy.Repo.Migrations.CreateUsers do
   use Ecto.Migration
 
   def change do
