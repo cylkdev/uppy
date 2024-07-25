@@ -1,29 +1,44 @@
 defmodule Uppy.Actions do
-  def create(adapter, schema, params, options) do
-    adapter.create(schema, params, options)
+  @moduledoc """
+  ...
+  """
+  alias Uppy.Config
+
+  @default_actions_adapter Uppy.Adapters.EctoShortsAction
+
+  def create(schema, params, options) do
+    actions_adapter!(options).create(schema, params, options)
   end
 
-  def find(adapter, schema, params, options) do
-    adapter.find(schema, params, options)
+  def find(schema, params, options) do
+    actions_adapter!(options).find(schema, params, options)
   end
 
-  def update(adapter, schema, %_{} = schema_data, params, options) do
-    adapter.update(schema, schema_data, params, options)
+  def update(schema, %_{} = schema_data, params, options) do
+    actions_adapter!(options).update(schema, schema_data, params, options)
   end
 
-  def update(adapter, schema, id, params, options) do
-    adapter.update(schema, id, params, options)
+  def update(schema, id, params, options) do
+    actions_adapter!(options).update(schema, id, params, options)
   end
 
-  def delete(adapter, schema, id, options) do
-    adapter.delete(schema, id, options)
+  def delete(schema, id, options) do
+    actions_adapter!(options).delete(schema, id, options)
   end
 
-  def delete(adapter, schema_data, options) do
-    adapter.delete(schema_data, options)
+  def delete(schema_data, options) do
+    actions_adapter!(options).delete(schema_data, options)
   end
 
-  def transaction(adapter, func, options) do
-    adapter.transaction(func, options)
+  def delete(schema_data) do
+    delete(schema_data, [])
+  end
+
+  def transaction(func, options) do
+    actions_adapter!(options).transaction(func, options)
+  end
+
+  defp actions_adapter!(options) do
+    Keyword.get(options, :actions_adapter, Config.actions_adapter()) || @default_actions_adapter
   end
 end

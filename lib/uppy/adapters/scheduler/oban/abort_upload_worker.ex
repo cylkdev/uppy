@@ -8,7 +8,8 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.{Core, Config, Utils}
+    alias Uppy.Adapters.Scheduler.Oban.{Arguments, Global}
+    alias Uppy.{Core, Utils}
 
     @event_prefix "uppy.abort_upload_worker"
     @event_abort_upload "#{@event_prefix}.abort_upload"
@@ -73,7 +74,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       changeset =
         schema
-        |> Uppy.Adapters.Scheduler.Oban.convert_schema_to_job_arguments()
+        |> Arguments.convert_schema_to_arguments()
         |> Map.merge(%{
           event: @event_abort_multipart_upload,
           bucket: bucket,
@@ -81,7 +82,7 @@ if Uppy.Utils.application_loaded?(:oban) do
         })
         |> new()
 
-      Oban.insert(oban_name(), changeset, options)
+      Global.insert(changeset, options)
     end
 
     def queue_abort_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
@@ -89,7 +90,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       changeset =
         schema
-        |> Uppy.Adapters.Scheduler.Oban.convert_schema_to_job_arguments()
+        |> Arguments.convert_schema_to_arguments()
         |> Map.merge(%{
           event: @event_abort_upload,
           bucket: bucket,
@@ -97,7 +98,7 @@ if Uppy.Utils.application_loaded?(:oban) do
         })
         |> new()
 
-      Oban.insert(oban_name(), changeset, options)
+      Global.insert(changeset, options)
     end
 
     defp ensure_schedule_opt(options, %DateTime{} = schedule_at) do
@@ -106,10 +107,6 @@ if Uppy.Utils.application_loaded?(:oban) do
 
     defp ensure_schedule_opt(options, schedule_in) when is_integer(schedule_in) do
       Keyword.put(options, :schedule_in, schedule_in)
-    end
-
-    defp oban_name do
-      Config.oban()[:name] || Uppy.Oban
     end
   end
 end

@@ -29,7 +29,7 @@ defmodule Uppy do
   @type e_tag :: String.t()
   @type upload_id :: String.t()
   @type marker :: String.t()
-  @type maybe_marker :: marker() | nil
+  @type nil_or_marker :: marker() | nil
   @type part_number :: non_neg_integer()
   @type part :: {part_number(), e_tag()}
   @type parts :: list(part())
@@ -54,7 +54,7 @@ defmodule Uppy do
 
   defdelegate presigned_part(bucket, schema, params, part_number, options \\ []), to: Uppy.Core
 
-  defdelegate find_parts(bucket, schema, params, maybe_next_part_number_marker, options \\ []),
+  defdelegate find_parts(bucket, schema, params, nil_or_next_part_number_marker, options \\ []),
     to: Uppy.Core
 
   defdelegate find_permanent_multipart_upload(schema, params, options \\ []), to: Uppy.Core

@@ -36,7 +36,7 @@
 #         options
 #       )
 
-#     with :ok <- ensure_temporary_upload(temporary_object_key_adapter, schema_data),
+#     with :ok <- ensure_temporary_upload( schema_data),
 #          {:ok, payload} <-
 #            put_object_copy_and_update_metadata(
 #              bucket,
@@ -53,8 +53,8 @@
 #     end
 #   end
 
-#   defp ensure_temporary_upload(temporary_object_key_adapter, schema_data) do
-#     if TemporaryObjectKey.path?(temporary_object_key_adapter, schema_data.key) do
+#   defp ensure_temporary_upload( schema_data) do
+#     if TemporaryObjectKey.path?( schema_data.key) do
 #       :ok
 #     else
 #       {:error, Error.call(:forbidden, "not a temporary upload", %{schema_data: schema_data})}

@@ -40,7 +40,7 @@ allowed_imports = []
           #
           ## BlitzCredoChecks
           #
-          {BlitzCredoChecks.SetWarningsAsErrorsInTest, false},
+          {BlitzCredoChecks.SetWarningsAsErrorInTest, false},
           {BlitzCredoChecks.DocsBeforeSpecs, []},
           {BlitzCredoChecks.DoctestIndent, []},
           {BlitzCredoChecks.NoAsyncFalse, []},

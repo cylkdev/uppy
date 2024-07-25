@@ -1,7 +1,12 @@
 import Config
 
+config :uppy, ecto_repos: [Uppy.Support.Repo]
+
 if Mix.env() === :test do
-  config :uppy, ecto_repos: [Uppy.Support.Repo]
+  config :ecto_shorts,
+    repo: Uppy.Support.Repo,
+    error_module: EctoShorts.Actions.Error
+
   config :uppy, :sql_sandbox, true
 
   config :uppy, Uppy.Support.Repo,
@@ -13,20 +18,14 @@ if Mix.env() === :test do
     stacktrace: true,
     pool: Ecto.Adapters.SQL.Sandbox,
     pool_size: 10
-
-  config :ecto_shorts,
-    repo: Uppy.Support.Repo,
-    error_module: EctoShorts.Actions.Error
-
-  config :uppy, Oban,
-    name: Uppy.Oban,
-    repo: Uppy.Support.Repo,
-    queues: [
-      post_processing_pipeline: 50,
-      abort_upload: 10,
-      object_garbage_collection: 5
-    ],
-    testing: :manual
+else
+  config :uppy, Uppy.Support.Repo,
+    username: "postgres",
+    database: "uppy_test",
+    hostname: "localhost",
+    pool_size: 10,
+    show_sensitive_data_on_connection_error: true,
+    stacktrace: true
 end
 
 if System.get_env("CI") in [true, "true"] do

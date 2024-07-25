@@ -24,7 +24,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.list_objects_v2(options)
       |> ExAws.request(options)
-      |> deserialize_response()
+      |> deserialize_response(options)
     end
 
     @impl true
@@ -35,7 +35,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.get_object(object, options)
       |> ExAws.request(options)
-      |> deserialize_response()
+      |> deserialize_response(options)
     end
 
     @impl true
@@ -46,7 +46,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.head_object(object, options)
       |> ExAws.request(options)
-      |> deserialize_headers()
+      |> deserialize_headers(options)
     end
 
     @impl true
@@ -64,7 +64,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
              :s3
              |> ExAws.Config.new(options)
              |> ExAws.S3.presigned_url(http_method, bucket, object, options)
-             |> handle_response() do
+             |> handle_response(options) do
         {:ok,
          %{
            key: object,
@@ -92,7 +92,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.list_multipart_uploads(options)
       |> ExAws.request(options)
-      |> deserialize_response()
+      |> deserialize_response(options)
     end
 
     @impl true
@@ -103,7 +103,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.initiate_multipart_upload(object)
       |> ExAws.request(options)
-      |> deserialize_response()
+      |> deserialize_response(options)
     end
 
     @impl true
@@ -122,7 +122,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.list_parts(object, upload_id, options)
       |> ExAws.request(options)
-      |> deserialize_response()
+      |> deserialize_response(options)
     end
 
     @impl true
@@ -133,7 +133,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.abort_multipart_upload(object, upload_id)
       |> ExAws.request(options)
-      |> handle_response()
+      |> handle_response(options)
     end
 
     @impl true
@@ -144,7 +144,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.complete_multipart_upload(object, upload_id, parts)
       |> ExAws.request(options)
-      |> deserialize_response()
+      |> deserialize_response(options)
     end
 
     @impl true
@@ -155,7 +155,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       dest_bucket
       |> ExAws.S3.put_object_copy(destination_object, src_bucket, source_object, options)
       |> ExAws.request(options)
-      |> handle_response()
+      |> handle_response(options)
     end
 
     @impl true
@@ -166,7 +166,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.put_object(object, body, options)
       |> ExAws.request(options)
-      |> handle_response()
+      |> handle_response(options)
     end
 
     @impl true
@@ -177,10 +177,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.delete_object(object, options)
       |> ExAws.request(options)
-      |> handle_response()
+      |> handle_response(options)
     end
 
-    defp deserialize_response({:ok, %{body: %{contents: contents}}}) do
+    defp deserialize_response({:ok, %{body: %{contents: contents}}}, _options) do
       {:ok,
        Enum.map(contents, fn content ->
          %{
@@ -192,7 +192,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        end)}
     end
 
-    defp deserialize_response({:ok, %{body: %{parts: parts}}}) do
+    defp deserialize_response({:ok, %{body: %{parts: parts}}}, _options) do
       {:ok,
        Enum.map(parts, fn part ->
          %{
@@ -203,15 +203,18 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        end)}
     end
 
-    defp deserialize_response({:ok, %{body: body}}), do: {:ok, body}
+    defp deserialize_response({:ok, %{body: body}}, _options), do: {:ok, body}
 
-    defp deserialize_response({:error, _} = e), do: handle_response(e)
+    defp deserialize_response({:error, _} = e, options), do: handle_response(e, options)
 
-    defp deserialize_headers({:ok, %{headers: headers}}) when is_list(headers) do
-      deserialize_headers({:ok, %{headers: Map.new(headers)}})
+    defp deserialize_headers({:ok, %{headers: headers}}, options) when is_list(headers) do
+      deserialize_headers({:ok, %{headers: Map.new(headers)}}, options)
     end
 
-    defp deserialize_headers({:ok, %{headers: %{"etag" => _, "last-modified" => _} = headers}}) do
+    defp deserialize_headers(
+           {:ok, %{headers: %{"etag" => _, "last-modified" => _} = headers}},
+           _options
+         ) do
       {:ok,
        %{
          e_tag: remove_quotations(headers["etag"]),
@@ -221,7 +224,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        }}
     end
 
-    defp deserialize_headers({:ok, %{headers: %{"etag" => _} = headers}}) do
+    defp deserialize_headers({:ok, %{headers: %{"etag" => _} = headers}}, _options) do
       {:ok,
        %{
          e_tag: remove_quotations(headers["etag"]),
@@ -229,19 +232,20 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        }}
     end
 
-    defp deserialize_headers({:ok, %{headers: headers}}) do
+    defp deserialize_headers({:ok, %{headers: headers}}, _options) do
       {:ok, headers}
     end
 
-    defp deserialize_headers({:error, _} = e), do: handle_response(e)
+    defp deserialize_headers({:error, _} = e, options), do: handle_response(e, options)
 
-    defp handle_response({:ok, _} = res), do: res
+    defp handle_response({:ok, _} = res, _options), do: res
 
-    defp handle_response({:error, msg}) do
+    defp handle_response({:error, msg}, options) do
       if msg =~ "there's nothing to see here" do
-        {:error, Error.call(:not_found, "resource not found.")}
+        {:error, Error.call(:not_found, "resource not found.", %{error: msg}, options)}
       else
-        {:error, Error.call(:service_unavailable, "storage service unavailable.")}
+        {:error,
+         Error.call(:service_unavailable, "storage service unavailable.", %{error: msg}, options)}
       end
     end
 

@@ -16,7 +16,7 @@ defmodule Uppy.Adapter.Storage do
 
   @type e_tag :: Uppy.e_tag()
   @type upload_id :: Uppy.upload_id()
-  @type maybe_marker :: Uppy.maybe_marker()
+  @type nil_or_marker :: Uppy.nil_or_marker()
   @type part_number :: Uppy.part_number()
   @type part :: Uppy.part()
   @type parts :: Uppy.parts()

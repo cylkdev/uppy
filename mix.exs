@@ -13,7 +13,6 @@ defmodule Uppy.MixProject do
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
-        doctor: :test,
         coverage: :test,
         dialyzer: :test,
         "coveralls.lcov": :test,
@@ -36,25 +35,18 @@ defmodule Uppy.MixProject do
     ]
   end
 
-  # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(:dev), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
-
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
       {:ecto, "~> 3.11"},
-
-      # required for ecto
       {:postgrex, ">= 0.0.0", optional: true},
       {:ecto_sql, "~> 3.11", optional: true},
 
       # required for Uppy.Error
       {:error_message, "~> 0.3.0", optional: true},
 
-      # required for Uppy.Adapters.EctoShortsActions
+      # required for Uppy.Adapters.EctoShortsAction
       {:ecto_shorts, path: "../ecto_shorts", optional: true},
 
       # required for Uppy.Pipelines.Phases.Thumbor
@@ -84,6 +76,11 @@ defmodule Uppy.MixProject do
       {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false}
     ]
   end
+
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:dev), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   if Mix.env() in [:dev, :test] do
     defp aliases do

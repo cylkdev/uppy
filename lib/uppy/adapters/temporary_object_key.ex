@@ -19,7 +19,7 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   @doc """
   ...
   """
-  def decode_path([prefix, partition, basename]) do
+  def decode_path([prefix, partition, basename], _options) do
     {:ok,
      %{
        prefix: prefix,
@@ -28,35 +28,41 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
      }}
   end
 
-  def decode_path(path) when is_binary(path) do
-    path |> Path.split() |> decode_path()
+  def decode_path(path, options) when is_binary(path) do
+    path |> Path.split() |> decode_path(options)
   end
 
-  def decode_path(path) do
-    {:error, Uppy.Error.call(:forbidden, "invalid temporary object key path", %{path: path})}
+  def decode_path(path, options) do
+    {:error,
+     Uppy.Error.call(:forbidden, "invalid temporary object key path", %{path: path}, options)}
   end
 
   @doc """
   Returns true is string starts with `#{@prefix}`.
   """
   @impl Uppy.Adapter.TemporaryObjectKey
-  def validate_path(path) do
-    with {:ok, path} <- ensure_starts_with_prefix(path) do
-      decode_path(path)
+  def validate_path(path, options) do
+    with {:ok, path} <- ensure_starts_with_prefix(path, options) do
+      decode_path(path, options)
     end
   end
 
-  defp ensure_starts_with_prefix(path) do
+  defp ensure_starts_with_prefix(path, options) do
     prefix = prefix()
 
     if String.starts_with?(path, prefix) do
       {:ok, path}
     else
       {:error,
-       Uppy.Error.call(:forbidden, "invalid temporary object key", %{
-         path: path,
-         prefix: prefix
-       })}
+       Uppy.Error.call(
+         :forbidden,
+         "invalid temporary object key",
+         %{
+           path: path,
+           prefix: prefix
+         },
+         options
+       )}
     end
   end
 

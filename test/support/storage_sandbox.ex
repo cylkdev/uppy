@@ -28,7 +28,7 @@ defmodule Uppy.Support.StorageSandbox do
   @type upload_id :: String.t()
   @type part_number :: non_neg_integer()
   @type parts :: list(map())
-  @type maybe_marker :: String.t() | nil
+  @type nil_or_marker :: String.t() | nil
 
   @spec start_link :: {:error, any} | {:ok, pid}
   def start_link do
@@ -194,7 +194,7 @@ defmodule Uppy.Support.StorageSandbox do
     end
   end
 
-  @spec list_parts_response(bucket, object, upload_id, maybe_marker, options) :: any
+  @spec list_parts_response(bucket, object, upload_id, nil_or_marker, options) :: any
   def list_parts_response(bucket, object, upload_id, next_part_number_marker, options) do
     func = find!(:list_parts, bucket)
 

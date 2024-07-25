@@ -1,5 +1,5 @@
 if Uppy.Utils.application_loaded?(:ecto_shorts) do
-  defmodule Uppy.Adapters.EctoShortsActions do
+  defmodule Uppy.Adapters.EctoShortsAction do
     @moduledoc """
     Implements the `Uppy.Adapter.Action` behaviour.
 

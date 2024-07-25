@@ -1,18 +1,39 @@
 defmodule Uppy.PermanentObjectKeys do
   @moduledoc false
+  alias Uppy.Config
 
-  def validate_path(adapter, key), do: adapter.validate_path(key)
+  @default_permanent_object_key_adapter Uppy.Adapters.PermanentObjectKey
 
-  def encode_id(adapter, id), do: adapter.encode_id(id)
+  def validate_path(key, options \\ []) do
+    permanent_object_key_adapter!(options).validate_path(key, options)
+  end
 
-  def decode_id(adapter, encoded_id), do: adapter.decode_id(encoded_id)
+  def encode_id(id, options) do
+    permanent_object_key_adapter!(options).encode_id(id)
+  end
 
-  def prefix(adapter, id, resource_name, basename),
-    do: adapter.prefix(id, resource_name, basename)
+  def decode_id(encoded_id, options) do
+    permanent_object_key_adapter!(options).decode_id(encoded_id)
+  end
 
-  def prefix(adapter, id, basename), do: adapter.prefix(id, basename)
+  def prefix(id, resource_name, basename, options) do
+    permanent_object_key_adapter!(options).prefix(id, resource_name, basename)
+  end
 
-  def prefix(adapter, id), do: adapter.prefix(id)
+  def prefix(id, basename, options) do
+    permanent_object_key_adapter!(options).prefix(id, basename)
+  end
 
-  def prefix(adapter), do: adapter.prefix()
+  def prefix(id, options) do
+    permanent_object_key_adapter!(options).prefix(id)
+  end
+
+  def prefix(options) do
+    permanent_object_key_adapter!(options).prefix()
+  end
+
+  defp permanent_object_key_adapter!(options) do
+    Keyword.get(options, :permanent_object_key_adapter, Config.permanent_object_key_adapter()) ||
+      @default_permanent_object_key_adapter
+  end
 end

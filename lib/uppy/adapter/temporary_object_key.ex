@@ -7,7 +7,8 @@ defmodule Uppy.Adapter.TemporaryObjectKey do
   @doc """
   Returns `true` if the `key` starts with the object key prefix.
   """
-  @callback validate_path(key :: binary()) :: {:ok, key :: binary()} | {:error, term()}
+  @callback validate_path(key :: binary(), options :: keyword()) ::
+              {:ok, key :: binary()} | {:error, term()}
 
   @doc """
   ...
