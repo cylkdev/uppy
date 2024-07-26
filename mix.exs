@@ -42,6 +42,8 @@ defmodule Uppy.MixProject do
       {:ecto, "~> 3.11"},
       {:postgrex, ">= 0.0.0", optional: true},
       {:ecto_sql, "~> 3.11", optional: true},
+      {:mimerl, "~> 1.3", optional: true},
+      {:file_type, "~> 0.1.0"},
 
       # required for Uppy.Error
       {:error_message, "~> 0.3.0", optional: true},

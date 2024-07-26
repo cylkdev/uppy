@@ -5,7 +5,7 @@ defmodule Uppy.TemporaryObjectKeys do
   @default_temporary_object_key_adapter Uppy.Adapters.TemporaryObjectKey
 
   def validate(key, options \\ []) do
-    temporary_object_key_adapter!(options).validate(key, options)
+    temporary_object_key_adapter!(options).validate(key)
   end
 
   def encode_id(id, options) do

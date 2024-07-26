@@ -28,6 +28,22 @@ defmodule Uppy.Storages do
     ]
   ]
 
+  def download_chunk_stream(bucket, object, options) do
+    options = Keyword.merge(@default_options, options)
+
+    bucket
+    |> storage_adapter!(options).download_chunk_stream(object, options)
+    |> ensure_status_tuple!()
+  end
+
+  def get_chunk(bucket, object, start_byte, end_byte, options) do
+    options = Keyword.merge(@default_options, options)
+
+    bucket
+    |> storage_adapter!(options).get_chunk(object, start_byte, end_byte, options)
+    |> ensure_status_tuple!()
+  end
+
   @spec list_objects(
           bucket :: bucket(),
           prefix :: prefix(),

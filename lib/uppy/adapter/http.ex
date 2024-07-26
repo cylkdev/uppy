@@ -16,7 +16,7 @@ defmodule Uppy.Adapter.HTTP do
     headers: headers()
   }
 
-  @type t_http_res :: {:ok, {body(), http_response()}} | {:error, any()}
+  @type t_http_res :: {:ok, http_response()} | {:error, any()}
 
   @doc """
   Executes a HTTP HEAD request.

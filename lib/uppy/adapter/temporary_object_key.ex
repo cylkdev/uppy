@@ -9,12 +9,11 @@ defmodule Uppy.Adapter.TemporaryObjectKey do
   @type basename :: binary()
   @type path :: binary()
   @type prefix :: binary()
-  @type options :: keyword()
 
   @doc """
   Validates the path.
   """
-  @callback validate(path :: path(), options :: keyword()) :: {:ok, term()} | {:error, term()}
+  @callback validate(path :: path()) :: {:ok, term()} | {:error, term()}
 
   @doc """
   Returns a string.

@@ -43,15 +43,19 @@ defmodule Uppy.Core do
   @one_hour_seconds 3_600
 
   @doc """
-  Returns a string in the format of `<unique_identifier>-<path>`.
+  Returns a string in the format of `<unique_identifier>-<filename>`.
 
   ### Examples
 
-      iex> Uppy.Core.basename("unique_identifier", "path")
-      "unique_identifier-path"
+      iex> Uppy.Core.basename("unique_identifier", "filename")
+      "unique_identifier-filename"
   """
-  def basename(unique_identifier, path) do
-    "#{unique_identifier}-#{path}"
+  def basename(unique_identifier, filename) do
+    "#{unique_identifier}-#{filename}"
+  end
+
+  def basename(%{unique_identifier: unique_identifier, filename: filename}) do
+    basename(unique_identifier, filename)
   end
 
   @doc """
@@ -87,7 +91,7 @@ defmodule Uppy.Core do
   """
   def find_permanent_multipart_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_permanent_upload(schema, params, options) do
-      check_if_multipart_upload(schema_data, options)
+      check_if_multipart_upload(schema_data)
     end
   end
 
@@ -111,7 +115,7 @@ defmodule Uppy.Core do
   """
   def find_completed_multipart_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_completed_upload(schema, params, options) do
-      check_if_multipart_upload(schema_data, options)
+      check_if_multipart_upload(schema_data)
     end
   end
 
@@ -136,7 +140,7 @@ defmodule Uppy.Core do
   """
   def find_temporary_multipart_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_temporary_upload(schema, params, options) do
-      check_if_multipart_upload(schema_data, options)
+      check_if_multipart_upload(schema_data)
     end
   end
 
@@ -169,7 +173,7 @@ defmodule Uppy.Core do
       )
       when schema === schema_data_module do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_multipart_upload(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, parts} <-
            Storages.list_parts(
              bucket,
@@ -241,7 +245,7 @@ defmodule Uppy.Core do
   """
   def presigned_part(bucket, _schema, %_{} = schema_data, part_number, options) do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_multipart_upload(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, presigned_part} <-
            Storages.presigned_part_upload(
              bucket,
@@ -301,7 +305,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_multipart_upload(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, metadata} <-
            head_completed_multipart_upload(
              bucket,
@@ -435,7 +439,7 @@ defmodule Uppy.Core do
   """
   def abort_multipart_upload(bucket, schema, %_{} = schema_data, options) do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_multipart_upload(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, nil_or_metadata} <-
            handle_abort_multipart_upload(
              bucket,
@@ -615,48 +619,55 @@ defmodule Uppy.Core do
 
   See the `Uppy.Pipeline` module documentation for more information on the pipeline.
   """
-  def run_pipeline(pipeline_module, bucket, resource_name, schema, params_or_schema_data, options)
-      when is_atom(pipeline_module) do
+  def run_pipeline(pipeline_module, %Uppy.Pipelines.Input{} = input) when is_atom(pipeline_module) do
     pipeline_module
     |> Pipelines.pipeline()
-    |> run_pipeline(bucket, resource_name, schema, params_or_schema_data, options)
+    |> run_pipeline(input)
   end
 
-  def run_pipeline(pipeline, bucket, resource_name, schema, %_{} = schema_data, options) do
-    {schema, nil_or_source} = ensure_schema_source(schema)
+  def run_pipeline(pipeline, %Uppy.Pipelines.Input{} = input) do
+    with {:ok, output, executed_phases} <- Pipelines.run(input, pipeline) do
+      {:ok, {output, executed_phases}}
+    end
+  end
 
+  def run_pipeline(pipeline, params) do
+    run_pipeline(pipeline, Pipelines.Input.new!(params))
+  end
+
+  def run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, %_{} = schema_data, options) do
     context = Keyword.get(options, :context, %{})
+
+    {schema, nil_or_source} = ensure_schema_source(schema)
 
     input = %Uppy.Pipelines.Input{
       bucket: bucket,
       resource_name: resource_name,
       schema: schema,
       source: nil_or_source,
-      schema_data: schema_data,
+      value: schema_data,
       context: context,
       options: options
     }
 
-    with {:ok, output, executed_phases} <- Pipelines.run(input, pipeline) do
-      {:ok, {output, executed_phases}}
-    end
+    run_pipeline(pipeline_or_pipeline_module, input)
   end
 
-  def run_pipeline(pipeline, bucket, resource_name, schema, params, options) do
+  def run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, params, options) do
     with {:ok, schema_data} <- Actions.find(schema, params, options) do
-      run_pipeline(pipeline, bucket, resource_name, schema, schema_data, options)
+      run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, schema_data, options)
     end
   end
 
   def run_pipeline(
-        pipeline_module_or_pipeline,
-        bucket,
-        resource_name,
-        schema,
-        params_or_schema_data
-      ) do
+    pipeline_or_pipeline_module,
+    bucket,
+    resource_name,
+    schema,
+    params_or_schema_data
+  ) do
     run_pipeline(
-      pipeline_module_or_pipeline,
+      pipeline_or_pipeline_module,
       bucket,
       resource_name,
       schema,
@@ -707,8 +718,7 @@ defmodule Uppy.Core do
              schema: schema,
              params: params,
              schema_data: schema_data
-           },
-           options
+           }
          )}
 
       {:error, %{code: :not_found}} ->
@@ -740,7 +750,7 @@ defmodule Uppy.Core do
   """
   def find_permanent_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- Actions.find(schema, params, options),
-         {:ok, schema_data} <- check_e_tag_non_nil(schema_data, options) do
+         {:ok, schema_data} <- check_e_tag_non_nil(schema_data) do
       validate_permanent_object(schema_data, options)
     end
   end
@@ -765,7 +775,7 @@ defmodule Uppy.Core do
   """
   def find_completed_upload(schema, params, options \\ []) do
     with {:ok, schema_data} <- find_temporary_upload(schema, params, options) do
-      check_e_tag_non_nil(schema_data, options)
+      check_e_tag_non_nil(schema_data)
     end
   end
 
@@ -872,7 +882,7 @@ defmodule Uppy.Core do
         options
       ) do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data, options),
+         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
          {:ok, metadata} <-
            Storages.head_object(bucket, schema_data.key, options) do
       update_params = Map.put(update_params, :e_tag, metadata.e_tag)
@@ -992,8 +1002,8 @@ defmodule Uppy.Core do
   """
   def abort_upload(bucket, schema, %_{} = schema_data, options) do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data, options),
-         {:ok, schema_data} <- check_e_tag_is_nil(schema_data, options) do
+         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
+         {:ok, schema_data} <- check_e_tag_is_nil(schema_data) do
       operation = fn ->
         with {:ok, schema_data} <- Actions.delete(schema_data, options) do
           if Keyword.get(options, :scheduler_enabled?, true) do
@@ -1182,7 +1192,7 @@ defmodule Uppy.Core do
     end
   end
 
-  defp check_e_tag_is_nil(schema_data, options) do
+  defp check_e_tag_is_nil(schema_data) do
     if is_nil(schema_data.e_tag) do
       {:ok, schema_data}
     else
@@ -1190,13 +1200,12 @@ defmodule Uppy.Core do
        Error.call(
          :forbidden,
          "Expected field `:e_tag` to be nil",
-         %{schema_data: schema_data},
-         options
+         %{schema_data: schema_data}
        )}
     end
   end
 
-  defp check_e_tag_non_nil(schema_data, options) do
+  defp check_e_tag_non_nil(schema_data) do
     if is_nil(schema_data.e_tag) === false do
       {:ok, schema_data}
     else
@@ -1206,13 +1215,12 @@ defmodule Uppy.Core do
          "Expected field `:e_tag` to be non-nil",
          %{
            schema_data: schema_data
-         },
-         options
+         }
        )}
     end
   end
 
-  defp check_if_multipart_upload(schema_data, options) do
+  defp check_if_multipart_upload(schema_data) do
     if has_upload_id?(schema_data) do
       {:ok, schema_data}
     else
@@ -1220,13 +1228,12 @@ defmodule Uppy.Core do
        Error.call(
          :forbidden,
          "Expected `:upload_id` to be non-nil",
-         %{schema_data: schema_data},
-         options
+         %{schema_data: schema_data}
        )}
     end
   end
 
-  defp check_if_non_multipart_upload(schema_data, options) do
+  defp check_if_non_multipart_upload(schema_data) do
     if has_upload_id?(schema_data) === false do
       {:ok, schema_data}
     else
@@ -1236,8 +1243,7 @@ defmodule Uppy.Core do
          "Expected `:upload_id` to be nil",
          %{
            schema_data: schema_data
-         },
-         options
+         }
        )}
     end
   end

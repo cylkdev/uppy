@@ -9,6 +9,27 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @one_minute_seconds 60
 
+    @default_chunk_size 1_024 * 1_024 # approx 1 MB
+
+    def download_chunk_stream(bucket, object, options \\ []) do
+      with {:ok, metadata} <- head_object(bucket, object, options) do
+        {:ok, ExAws.S3.Download.chunk_stream(
+          metadata.content_length,
+          chunk_size!(options)
+        )}
+      end
+    end
+
+    def get_chunk(bucket, object, start_byte, end_byte, options \\ []) do
+      with {:ok, body} <-
+        bucket
+        |> ExAws.S3.get_object(object, range: "bytes=#{start_byte}-#{end_byte}")
+        |> ExAws.request(options)
+        |> deserialize_response() do
+        {:ok, {start_byte, body}}
+      end
+    end
+
     @impl true
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.list_objects/2`.
@@ -24,7 +45,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.list_objects_v2(options)
       |> ExAws.request(options)
-      |> deserialize_response(options)
+      |> deserialize_response()
     end
 
     @impl true
@@ -35,7 +56,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.get_object(object, options)
       |> ExAws.request(options)
-      |> deserialize_response(options)
+      |> deserialize_response()
     end
 
     @impl true
@@ -46,7 +67,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.head_object(object, options)
       |> ExAws.request(options)
-      |> deserialize_headers(options)
+      |> deserialize_headers()
     end
 
     @impl true
@@ -64,7 +85,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
              :s3
              |> ExAws.Config.new(options)
              |> ExAws.S3.presigned_url(http_method, bucket, object, options)
-             |> handle_response(options) do
+             |> handle_response() do
         {:ok,
          %{
            key: object,
@@ -92,7 +113,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.list_multipart_uploads(options)
       |> ExAws.request(options)
-      |> deserialize_response(options)
+      |> deserialize_response()
     end
 
     @impl true
@@ -103,7 +124,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.initiate_multipart_upload(object)
       |> ExAws.request(options)
-      |> deserialize_response(options)
+      |> deserialize_response()
     end
 
     @impl true
@@ -122,7 +143,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.list_parts(object, upload_id, options)
       |> ExAws.request(options)
-      |> deserialize_response(options)
+      |> deserialize_response()
     end
 
     @impl true
@@ -133,7 +154,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.abort_multipart_upload(object, upload_id)
       |> ExAws.request(options)
-      |> handle_response(options)
+      |> handle_response()
     end
 
     @impl true
@@ -144,7 +165,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.complete_multipart_upload(object, upload_id, parts)
       |> ExAws.request(options)
-      |> deserialize_response(options)
+      |> deserialize_response()
     end
 
     @impl true
@@ -155,7 +176,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       dest_bucket
       |> ExAws.S3.put_object_copy(destination_object, src_bucket, source_object, options)
       |> ExAws.request(options)
-      |> handle_response(options)
+      |> handle_response()
     end
 
     @impl true
@@ -166,7 +187,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.put_object(object, body, options)
       |> ExAws.request(options)
-      |> handle_response(options)
+      |> handle_response()
     end
 
     @impl true
@@ -177,10 +198,14 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       bucket
       |> ExAws.S3.delete_object(object, options)
       |> ExAws.request(options)
-      |> handle_response(options)
+      |> handle_response()
     end
 
-    defp deserialize_response({:ok, %{body: %{contents: contents}}}, _options) do
+    defp chunk_size!(options) do
+      Keyword.get(options, :chunk_size, @default_chunk_size)
+    end
+
+    defp deserialize_response({:ok, %{body: %{contents: contents}}}) do
       {:ok,
        Enum.map(contents, fn content ->
          %{
@@ -192,7 +217,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        end)}
     end
 
-    defp deserialize_response({:ok, %{body: %{parts: parts}}}, _options) do
+    defp deserialize_response({:ok, %{body: %{parts: parts}}}) do
       {:ok,
        Enum.map(parts, fn part ->
          %{
@@ -203,18 +228,15 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        end)}
     end
 
-    defp deserialize_response({:ok, %{body: body}}, _options), do: {:ok, body}
+    defp deserialize_response({:ok, %{body: body}}), do: {:ok, body}
 
-    defp deserialize_response({:error, _} = e, options), do: handle_response(e, options)
+    defp deserialize_response({:error, _} = e), do: handle_response(e)
 
-    defp deserialize_headers({:ok, %{headers: headers}}, options) when is_list(headers) do
-      deserialize_headers({:ok, %{headers: Map.new(headers)}}, options)
+    defp deserialize_headers({:ok, %{headers: headers}}) when is_list(headers) do
+      deserialize_headers({:ok, %{headers: Map.new(headers)}})
     end
 
-    defp deserialize_headers(
-           {:ok, %{headers: %{"etag" => _, "last-modified" => _} = headers}},
-           _options
-         ) do
+    defp deserialize_headers({:ok, %{headers: %{"etag" => _, "last-modified" => _} = headers}}) do
       {:ok,
        %{
          e_tag: remove_quotations(headers["etag"]),
@@ -224,7 +246,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        }}
     end
 
-    defp deserialize_headers({:ok, %{headers: %{"etag" => _} = headers}}, _options) do
+    defp deserialize_headers({:ok, %{headers: %{"etag" => _} = headers}}) do
       {:ok,
        %{
          e_tag: remove_quotations(headers["etag"]),
@@ -232,20 +254,20 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
        }}
     end
 
-    defp deserialize_headers({:ok, %{headers: headers}}, _options) do
+    defp deserialize_headers({:ok, %{headers: headers}}) do
       {:ok, headers}
     end
 
-    defp deserialize_headers({:error, _} = e, options), do: handle_response(e, options)
+    defp deserialize_headers({:error, _} = e), do: handle_response(e)
 
-    defp handle_response({:ok, _} = res, _options), do: res
+    defp handle_response({:ok, _} = res), do: res
 
-    defp handle_response({:error, msg}, options) do
+    defp handle_response({:error, msg}) do
       if msg =~ "there's nothing to see here" do
-        {:error, Error.call(:not_found, "resource not found.", %{error: msg}, options)}
+        {:error, Error.call(:not_found, "resource not found.", %{error: msg})}
       else
         {:error,
-         Error.call(:service_unavailable, "storage service unavailable.", %{error: msg}, options)}
+         Error.call(:service_unavailable, "storage service unavailable.", %{error: msg})}
       end
     end
 

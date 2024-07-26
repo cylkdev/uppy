@@ -7,9 +7,9 @@ defmodule Uppy.Config do
   def app, do: @app
 
   @doc false
-  @spec error_message_adapter :: module() | nil
+  @spec error_message_adapter :: module()
   def error_message_adapter do
-    Application.get_env(@app, :error_message_adapter)
+    Application.get_env(@app, :error_message_adapter) || ErrorMessage
   end
 
   @doc false

@@ -12,8 +12,6 @@ defmodule Uppy.Adapter.Scheduler do
 
   @type schedule_at :: DateTime.t()
   @type schedule_in :: non_neg_integer()
-  @type schedule_at_or_schedule_in :: schedule_at() | schedule_in()
-  @type nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
@@ -24,7 +22,7 @@ defmodule Uppy.Adapter.Scheduler do
     bucket :: bucket(),
     schema :: queryable(),
     key :: key(),
-    schedule_at_or_schedule_in :: schedule_at_or_schedule_in(),
+    schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
     options :: options()
   ) :: t_res(term())
 
@@ -35,7 +33,7 @@ defmodule Uppy.Adapter.Scheduler do
     bucket :: bucket(),
     schema :: queryable(),
     id :: id(),
-    schedule_at_or_schedule_in :: schedule_at_or_schedule_in(),
+    schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
     options :: options()
   ) :: t_res(term())
 
@@ -46,7 +44,7 @@ defmodule Uppy.Adapter.Scheduler do
     bucket :: bucket(),
     schema :: queryable(),
     id :: id(),
-    schedule_at_or_schedule_in :: schedule_at_or_schedule_in(),
+    schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
     options :: options()
   ) :: t_res(term())
 
@@ -59,7 +57,7 @@ defmodule Uppy.Adapter.Scheduler do
     resource_name :: resource_name(),
     schema :: queryable(),
     id :: id(),
-    nil_or_schedule_at_or_schedule_in :: nil_or_schedule_at_or_schedule_in(),
+    nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil,
     options :: options()
   ) :: t_res(term())
 end

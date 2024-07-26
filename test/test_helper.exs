@@ -2,7 +2,7 @@ ExUnit.start()
 
 Code.put_compiler_option(:warnings_as_errors, true)
 
-:application.ensure_all_started([
+{:ok, _} = :application.ensure_all_started([
   :ecto,
   :hackney,
   :oban,

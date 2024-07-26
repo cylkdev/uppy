@@ -24,7 +24,7 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   @doc """
   ...
   """
-  def decode_path([prefix, partition_key, resource_name, basename] = path, options) do
+  def decode_path([prefix, partition_key, resource_name, basename] = path) do
     case validate_partition_key(partition_key) do
       :ok ->
         {:ok,
@@ -46,31 +46,30 @@ defmodule Uppy.Adapters.PermanentObjectKey do
              partition_key: partition_key,
              resource_name: resource_name,
              basename: basename
-           },
-           options
+           }
          )}
     end
   end
 
-  def decode_path([partition_key, resource_name, basename], options) do
-    decode_path([nil, partition_key, resource_name, basename], options)
+  def decode_path([partition_key, resource_name, basename]) do
+    decode_path([nil, partition_key, resource_name, basename])
   end
 
-  def decode_path(path, options) when is_binary(path) do
-    path |> Path.split() |> decode_path(options)
+  def decode_path(path) when is_binary(path) do
+    path |> Path.split() |> decode_path()
   end
 
-  def decode_path(value, options) do
-    {:error, Uppy.Error.call(:forbidden, "Expected a binary or list", %{value: value}, options)}
+  def decode_path(value) do
+    {:error, Uppy.Error.call(:forbidden, "Expected a binary or list", %{value: value})}
   end
 
   @doc """
   Returns true is string starts with `#{@prefix}`.
   """
   @impl Uppy.Adapter.PermanentObjectKey
-  def validate(path, options) do
-    with {:ok, path} <- ensure_starts_with_prefix(path, options) do
-      decode_path(path, options)
+  def validate(path) do
+    with {:ok, path} <- ensure_starts_with_prefix(path) do
+      decode_path(path)
     end
   end
 
@@ -123,7 +122,7 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   """
   def postfix, do: @postfix
 
-  defp ensure_starts_with_prefix(path, options) do
+  defp ensure_starts_with_prefix(path) do
     prefix = prefix()
 
     if String.starts_with?(path, prefix) do
@@ -136,8 +135,7 @@ defmodule Uppy.Adapters.PermanentObjectKey do
          %{
            path: path,
            prefix: prefix
-         },
-         options
+         }
        )}
     end
   end
