@@ -19,45 +19,45 @@ defmodule Uppy.Adapter.Scheduler do
   Enqueues a job to delete an object from storage if the database record does not exist.
   """
   @callback queue_delete_object_if_upload_not_found(
-    bucket :: bucket(),
-    schema :: queryable(),
-    key :: key(),
-    schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
-    options :: options()
-  ) :: t_res(term())
+              bucket :: bucket(),
+              schema :: queryable(),
+              key :: key(),
+              schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
+              options :: options()
+            ) :: t_res(term())
 
   @doc """
   Enqueues a job to abort a multipart upload and delete the database record if the key is in a temporary path.
   """
   @callback queue_abort_multipart_upload(
-    bucket :: bucket(),
-    schema :: queryable(),
-    id :: id(),
-    schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
-    options :: options()
-  ) :: t_res(term())
+              bucket :: bucket(),
+              schema :: queryable(),
+              id :: id(),
+              schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
+              options :: options()
+            ) :: t_res(term())
 
   @doc """
   Enqueues a job to delete a non-multipart upload database record if the key is in a temporary path.
   """
   @callback queue_abort_upload(
-    bucket :: bucket(),
-    schema :: queryable(),
-    id :: id(),
-    schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
-    options :: options()
-  ) :: t_res(term())
+              bucket :: bucket(),
+              schema :: queryable(),
+              id :: id(),
+              schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
+              options :: options()
+            ) :: t_res(term())
 
   @doc """
   Enqueues a job to run a pipeline.
   """
   @callback queue_run_pipeline(
-    pipeline_module :: module(),
-    bucket :: bucket(),
-    resource_name :: resource_name(),
-    schema :: queryable(),
-    id :: id(),
-    nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil,
-    options :: options()
-  ) :: t_res(term())
+              pipeline_module :: module(),
+              bucket :: bucket(),
+              resource_name :: resource_name(),
+              schema :: queryable(),
+              id :: id(),
+              nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil,
+              options :: options()
+            ) :: t_res(term())
 end

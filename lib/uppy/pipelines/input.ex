@@ -13,36 +13,38 @@ defmodule Uppy.Pipelines.Input do
     :source
   ]
 
-  def new!(attrs), do: struct!(__MODULE__, attrs)
+  def create(attrs) do
+    struct!(__MODULE__, attrs)
+  end
 
-  def find_private(input, key) do
-    case get_private(input, key) do
-      nil -> Error.call(:not_found, "state not found", %{key: key, input: input})
+  def put_holder(%__MODULE__{holder: _} = resolution, value) do
+    %{resolution | holder: value}
+  end
+
+  def find_private(%__MODULE__{holder: _} = resolution, key) do
+    case get_private(resolution, key) do
+      nil -> Error.not_found("state not found", %{key: key, resolution: resolution})
       state -> {:ok, state}
     end
   end
 
-  def put_holder(%{holder: _} = input, value) do
-    %{input | holder: value}
-  end
-
-  def get_private(%{private: private}, key) do
+  def get_private(%__MODULE__{private: private}, key) do
     Map.get(private, key)
   end
 
-  def put_private(%{private: private} = input, key, value) do
-    %{input | private: Map.put(private, key, value)}
+  def put_private(%__MODULE__{private: private} = resolution, key, value) do
+    %{resolution | private: Map.put(private, key, value)}
   end
 
-  def put_context(input, assigns) when is_list(assigns) do
-    put_context(input, Map.new(assigns))
+  def put_context(%__MODULE__{} = resolution, assigns) when is_list(assigns) do
+    put_context(resolution, Map.new(assigns))
   end
 
-  def put_context(%{context: context} = input, assigns) do
-    %{input | context: Map.merge(context, assigns)}
+  def put_context(%__MODULE__{context: context} = resolution, assigns) do
+    %{resolution | context: Map.merge(context, assigns)}
   end
 
-  def put_value(%{value: _} = input, value) do
-    %{input | value: value}
+  def put_value(%__MODULE__{value: _} = resolution, value) do
+    %{resolution | value: value}
   end
 end

@@ -9,9 +9,10 @@ defmodule Uppy.Pipelines.Phases.UpdateSchemaMetadata do
   - `:content_length`
   - `:last_modified`
   """
-  alias Uppy.Pipelines.Input
   alias Uppy.{
     Actions,
+    Pipelines.Input,
+    Pipelines.Phases,
     Storages,
     Utils
   }
@@ -34,58 +35,69 @@ defmodule Uppy.Pipelines.Phases.UpdateSchemaMetadata do
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-    %Uppy.Pipelines.Input{
-      bucket: bucket,
-      schema: schema,
-      value: schema_data,
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
-    Utils.Logger.debug(@logger_prefix, "run schema=#{inspect(schema)}, id=#{inspect(schema_data.id)}")
+        %Uppy.Pipelines.Input{
+          bucket: bucket,
+          schema: schema,
+          value: schema_data,
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
+    Utils.Logger.debug(
+      @logger_prefix,
+      "run schema=#{inspect(schema)}, id=#{inspect(schema_data.id)}"
+    )
 
     options = Keyword.merge(phase_options, runtime_options)
 
     with {:ok, update_params} <-
-        build_update_params(input, bucket, schema_data, options),
-      {:ok, schema_data} <-
-        Actions.update(schema, schema_data, update_params, options) do
-      Utils.Logger.debug(@logger_prefix, "updated schema data:\n\n#{inspect(schema_data, pretty: true)}")
+           build_update_params(input, bucket, schema_data, options),
+         {:ok, schema_data} <-
+           Actions.update(schema, schema_data, update_params, options) do
+      Utils.Logger.debug(
+        @logger_prefix,
+        "updated schema data:\n\n#{inspect(schema_data, pretty: true)}"
+      )
 
       {:ok, Input.put_value(input, schema_data)}
     end
   end
 
-  # merge metadata from the phase `Uppy.Pipelines.Phases.MIMEType` and storage.
+  # merge metadata from the phase `Uppy.Pipelines.Phases.ObjectMetadata` and storage.
   # the file info from the phase takes priority.
   defp build_update_params(input, bucket, %{key: object, filename: filename}, options) do
     Utils.Logger.debug(@logger_prefix, "build_update_params - building update params")
 
-    case Input.find_private(input, Uppy.Pipelines.Phases.MIMEType) do
+    case Phases.ObjectMetadata.find_private(input) do
       {:ok, file_info} ->
-        Utils.Logger.debug(@logger_prefix, "build_update_params - state `Uppy.Pipelines.Phases.MIMEType` not found")
+        Utils.Logger.debug(@logger_prefix, "build_update_params - object metadata state found")
 
         with {:ok, metadata} <- Storages.head_object(bucket, object, options) do
-          {:ok, %{
-            filename: filename(filename, file_info.extension),
-            e_tag: metadata.e_tag,
-            content_type: file_info.content_type,
-            content_length: metadata.content_length,
-            last_modified: metadata.last_modified
-          },}
+          {:ok,
+           %{
+             filename: filename(filename, file_info.extension),
+             e_tag: metadata.e_tag,
+             content_type: file_info.content_type,
+             content_length: metadata.content_length,
+             last_modified: metadata.last_modified
+           }}
         end
 
       {:error, _} ->
-        Utils.Logger.debug(@logger_prefix, "build_update_params - state `Uppy.Pipelines.Phases.MIMEType` not found")
+        Utils.Logger.debug(
+          @logger_prefix,
+          "build_update_params - object metadata state not found, did you forget `Uppy.Pipelines.Phases.ObjectMetadata`?"
+        )
 
         with {:ok, metadata} <- Storages.head_object(bucket, object, options) do
-          {:ok, %{
-            filename: filename,
-            e_tag: metadata.e_tag,
-            content_type: metadata.content_type,
-            content_length: metadata.content_length,
-            last_modified: metadata.last_modified
-          }}
+          {:ok,
+           %{
+             filename: filename,
+             e_tag: metadata.e_tag,
+             content_type: metadata.content_type,
+             content_length: metadata.content_length,
+             last_modified: metadata.last_modified
+           }}
         end
     end
   end

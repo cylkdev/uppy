@@ -15,7 +15,7 @@ defmodule Uppy.Config do
   @doc false
   @spec json_adapter :: module() | nil
   def json_adapter do
-    Application.get_env(@app, :json_adapter)
+    Application.get_env(@app, :json_adapter) || Jason
   end
 
   @doc false

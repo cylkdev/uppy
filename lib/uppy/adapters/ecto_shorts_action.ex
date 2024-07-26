@@ -26,7 +26,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     @behaviour Uppy.Adapter.Action
 
     @type adapter :: Uppy.Adapter.Action.adapter()
-    @type id ::  Uppy.Adapter.Action.id()
+    @type id :: Uppy.Adapter.Action.id()
     @type query :: Uppy.Adapter.Action.query()
     @type queryable :: Uppy.Adapter.Action.queryable()
     @type schema_data :: Uppy.Adapter.Action.schema_data()
@@ -44,10 +44,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.all/3` for documentation.
     """
     @spec all(
-      query :: query(),
-      params :: params(),
-      options :: options()
-    ) :: list(schema_data())
+            query :: query(),
+            params :: params(),
+            options :: options()
+          ) :: list(schema_data())
     def all(query, params, options) do
       EctoShorts.Actions.all(query, params, options)
     end
@@ -67,10 +67,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.create/3` for documentation.
     """
     @spec create(
-      schema :: queryable(),
-      params :: params(),
-      options :: options()
-    ) :: t_res(schema_data())
+            schema :: queryable(),
+            params :: params(),
+            options :: options()
+          ) :: t_res(schema_data())
     def create(schema, params, options) do
       EctoShorts.Actions.create(schema, params, options)
     end
@@ -86,10 +86,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.find/3` for documentation.
     """
     @spec find(
-      schema :: queryable(),
-      params :: params(),
-      options :: options()
-    ) :: t_res(schema_data())
+            schema :: queryable(),
+            params :: params(),
+            options :: options()
+          ) :: t_res(schema_data())
     def find(schema, params, options) do
       EctoShorts.Actions.find(schema, params, options)
     end
@@ -105,11 +105,11 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.update/4` for documentation.
     """
     @spec update(
-      schema :: queryable(),
-      id_or_schema_data :: id() | schema_data(),
-      params :: params(),
-      options :: options()
-    ) :: t_res(schema_data())
+            schema :: queryable(),
+            id_or_schema_data :: id() | schema_data(),
+            params :: params(),
+            options :: options()
+          ) :: t_res(schema_data())
     def update(schema, id_or_schema_data, params, options) do
       EctoShorts.Actions.update(schema, id_or_schema_data, params, options)
     end
@@ -125,9 +125,9 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.delete/2` for documentation.
     """
     @spec delete(
-      schema_data :: struct(),
-      options :: options()
-    ) :: t_res(schema_data())
+            schema_data :: struct(),
+            options :: options()
+          ) :: t_res(schema_data())
     def delete(%_{} = schema_data, options) do
       EctoShorts.Actions.delete(schema_data, options)
     end
@@ -147,10 +147,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.delete/3` for documentation.
     """
     @spec delete(
-      schema :: queryable(),
-      id :: id(),
-      options :: options()
-    ) :: t_res(schema_data())
+            schema :: queryable(),
+            id :: id(),
+            options :: options()
+          ) :: t_res(schema_data())
     def delete(schema, id, options) do
       EctoShorts.Actions.delete(schema, id, options)
     end
@@ -162,11 +162,11 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     Executes a repo transaction.
     """
     @spec transaction(
-      func :: function(),
-      options :: options()
-    ) :: t_res(schema_data())
+            func :: function(),
+            options :: options()
+          ) :: t_res(schema_data())
     def transaction(func, options)
-      when is_function(func, 1) or is_function(func, 0) do
+        when is_function(func, 1) or is_function(func, 0) do
       fn repo ->
         func
         |> execute_transaction(repo)
@@ -188,7 +188,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
         case response do
           {:error, _} = error -> repo.rollback(error)
           :error -> repo.rollback(:error)
-          res when is_tuple(res) -> (if elem(res, 0) === :error, do: repo.rollback(res), else: res)
+          res when is_tuple(res) -> if elem(res, 0) === :error, do: repo.rollback(res), else: res
           res -> res
         end
       else

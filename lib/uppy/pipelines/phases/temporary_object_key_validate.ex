@@ -19,12 +19,12 @@ defmodule Uppy.Pipelines.Phases.TemporaryObjectKeyValidate do
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-    %Uppy.Pipelines.Input{
-      value: schema_data,
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
+        %Uppy.Pipelines.Input{
+          value: schema_data,
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run key=#{inspect(schema_data.key)}")
 
     options = Keyword.merge(phase_options, runtime_options)

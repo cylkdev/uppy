@@ -1,4 +1,4 @@
-defmodule Uppy.Pipeline.Phases.HolderDataLoader do
+defmodule Uppy.Pipeline.Phases.HolderDataloader do
   @moduledoc """
   Loads the holder association of the schema data if the `holder` is nil.
   """
@@ -15,7 +15,7 @@ defmodule Uppy.Pipeline.Phases.HolderDataLoader do
 
   @behaviour Uppy.Adapter.Pipeline.Phase
 
-  @logger_prefix "Uppy.Pipeline.Phases.HolderDataLoader"
+  @logger_prefix "Uppy.Pipeline.Phases.HolderDataloader"
 
   @impl Uppy.Adapter.Pipeline.Phase
   @doc """
@@ -23,15 +23,19 @@ defmodule Uppy.Pipeline.Phases.HolderDataLoader do
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-    %Uppy.Pipelines.Input{
-      holder: nil,
-      schema: schema,
-      value: schema_data,
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
-    Utils.Logger.debug(@logger_prefix, "run schema=#{inspect(schema)}, id=#{inspect(schema_data.id)}")
+        %Uppy.Pipelines.Input{
+          holder: nil,
+          schema: schema,
+          value: schema_data,
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
+    Utils.Logger.debug(
+      @logger_prefix,
+      "run schema=#{inspect(schema)}, id=#{inspect(schema_data.id)}"
+    )
+
     Utils.Logger.debug(@logger_prefix, "loading holder")
 
     options = Keyword.merge(phase_options, runtime_options)
@@ -47,8 +51,15 @@ defmodule Uppy.Pipeline.Phases.HolderDataLoader do
   end
 
   @spec run(input(), options()) :: t_res(input())
-  def run(%Uppy.Pipelines.Input{holder: _, schema: schema, value: schema_data} = input, _phase_options) do
-    Utils.Logger.debug(@logger_prefix, "run schema=#{inspect(schema)}, id=#{inspect(schema_data.id)}")
+  def run(
+        %Uppy.Pipelines.Input{holder: _, schema: schema, value: schema_data} = input,
+        _phase_options
+      ) do
+    Utils.Logger.debug(
+      @logger_prefix,
+      "run schema=#{inspect(schema)}, id=#{inspect(schema_data.id)}"
+    )
+
     Utils.Logger.debug(@logger_prefix, "holder already loaded, skipping execution")
 
     {:ok, input}
@@ -66,10 +77,10 @@ defmodule Uppy.Pipeline.Phases.HolderDataLoader do
 
   ### Examples
 
-      iex> Uppy.Pipeline.Phases.HolderDataLoader.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
-      iex> Uppy.Pipeline.Phases.HolderDataLoader.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
-      iex> Uppy.Pipeline.Phases.HolderDataLoader.find_holder(YourSchema, %YourSchema{id: 1})
-      iex> Uppy.Pipeline.Phases.HolderDataLoader.find_holder(YourSchema, %{id: 1})
+      iex> Uppy.Pipeline.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
+      iex> Uppy.Pipeline.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
+      iex> Uppy.Pipeline.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1})
+      iex> Uppy.Pipeline.Phases.HolderDataloader.find_holder(YourSchema, %{id: 1})
   """
   @spec find_holder(schema(), schema_data(), options()) :: t_res(schema_data())
   def find_holder(schema, %_{} = schema_data, options) do
@@ -85,7 +96,11 @@ defmodule Uppy.Pipeline.Phases.HolderDataLoader do
     params = %{holder_primary_key => holder_id}
 
     Utils.Logger.debug(@logger_prefix, "fetching schema data holder")
-    Utils.Logger.debug(@logger_prefix, "schema=#{inspect(holder_schema)}, owner_key=#{inspect(holder_owner_key)}, primary_key=#{inspect(holder_primary_key)}, id=#{inspect(holder_id)}")
+
+    Utils.Logger.debug(
+      @logger_prefix,
+      "schema=#{inspect(holder_schema)}, owner_key=#{inspect(holder_owner_key)}, primary_key=#{inspect(holder_primary_key)}, id=#{inspect(holder_id)}"
+    )
 
     Actions.find(holder_schema, params, options)
   end

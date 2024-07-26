@@ -2,6 +2,7 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   @moduledoc """
   ...
   """
+  alias Uppy.Error
 
   @behaviour Uppy.Adapter.TemporaryObjectKey
 
@@ -33,8 +34,7 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   end
 
   def decode_path(path) do
-    {:error,
-     Uppy.Error.call(:forbidden, "invalid temporary object key path", %{path: path})}
+    {:error, Error.forbidden("invalid temporary object key path", %{path: path})}
   end
 
   @doc """
@@ -54,9 +54,7 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
       {:ok, path}
     else
       {:error,
-       Uppy.Error.call(
-         :forbidden,
-         "invalid temporary object key",
+       Uppy.Error.forbidden("invalid temporary object key",
          %{
            path: path,
            prefix: prefix

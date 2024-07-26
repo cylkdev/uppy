@@ -17,59 +17,59 @@ defmodule Uppy.Adapter.Action do
   Returns a list of database records.
   """
   @callback all(
-    query :: query(),
-    params :: params(),
-    options :: options()
-  ) :: list(schema_data())
+              query :: query(),
+              params :: params(),
+              options :: options()
+            ) :: list(schema_data())
 
   @doc """
   Creates a database record.
   """
   @callback create(
-    schema :: queryable(),
-    params :: params(),
-    options :: options()
-  ) :: t_res(schema_data())
+              schema :: queryable(),
+              params :: params(),
+              options :: options()
+            ) :: t_res(schema_data())
 
   @doc """
   Fetches the database record.
   """
   @callback find(
-    schema :: queryable(),
-    params :: params(),
-    options :: options()
-  ) :: t_res(schema_data())
+              schema :: queryable(),
+              params :: params(),
+              options :: options()
+            ) :: t_res(schema_data())
 
   @doc """
   Updates the database record.
   """
   @callback update(
-    schema :: queryable(),
-    id :: id(),
-    params :: params(),
-    options :: options()
-  ) :: t_res(schema_data())
+              schema :: queryable(),
+              id :: id(),
+              params :: params(),
+              options :: options()
+            ) :: t_res(schema_data())
 
   @callback update(
-    schema :: queryable(),
-    schema_data :: schema_data(),
-    params :: params,
-    options :: options()
-  ) :: t_res(schema_data())
+              schema :: queryable(),
+              schema_data :: schema_data(),
+              params :: params,
+              options :: options()
+            ) :: t_res(schema_data())
 
   @doc """
   Deletes the record from the database.
   """
   @callback delete(
-    schema :: queryable(),
-    id :: id(),
-    options :: options()
-  ) :: t_res(schema_data())
+              schema :: queryable(),
+              id :: id(),
+              options :: options()
+            ) :: t_res(schema_data())
 
   @callback delete(
-    schema_data :: struct(),
-    options :: options()
-  ) :: t_res(schema_data())
+              schema_data :: struct(),
+              options :: options()
+            ) :: t_res(schema_data())
 
   @doc """
   Executes the function inside a transaction.

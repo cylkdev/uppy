@@ -8,6 +8,7 @@ if Mix.env() === :test do
     error_module: EctoShorts.Actions.Error
 
   config :uppy, :sql_sandbox, true
+
   config :uppy, Uppy.Repo,
     username: "postgres",
     database: "uppy_test",

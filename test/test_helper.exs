@@ -2,12 +2,7 @@ ExUnit.start()
 
 Code.put_compiler_option(:warnings_as_errors, true)
 
-{:ok, _} = :application.ensure_all_started([
-  :ecto,
-  :hackney,
-  :oban,
-  :postgrex
-])
+{:ok, _} = :application.ensure_all_started([:ecto, :hackney, :oban, :postgrex])
 
 {:ok, _} = Uppy.Repo.start_link()
 

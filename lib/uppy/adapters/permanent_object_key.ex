@@ -36,18 +36,16 @@ defmodule Uppy.Adapters.PermanentObjectKey do
          }}
 
       :error ->
-        {:error,
-         Error.call(
-           :forbidden,
-           "Expected partition key to be a binary in the format `<ID>-<POSTFIX>` at position '2' in path",
-           %{
-             path: path,
-             prefix: prefix,
-             partition_key: partition_key,
-             resource_name: resource_name,
-             basename: basename
-           }
-         )}
+        {:error, Error.forbidden(
+          "Expected partition key to be a binary in the format `<ID>-<POSTFIX>` at position '2' in path",
+          %{
+            path: path,
+            prefix: prefix,
+            partition_key: partition_key,
+            resource_name: resource_name,
+            basename: basename
+          }
+        )}
     end
   end
 
@@ -60,7 +58,7 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   end
 
   def decode_path(value) do
-    {:error, Uppy.Error.call(:forbidden, "Expected a binary or list", %{value: value})}
+    {:error, Error.forbidden("Expected a binary or list", %{value: value})}
   end
 
   @doc """
@@ -128,15 +126,12 @@ defmodule Uppy.Adapters.PermanentObjectKey do
     if String.starts_with?(path, prefix) do
       {:ok, path}
     else
-      {:error,
-       Uppy.Error.call(
-         :forbidden,
-         "Expected path to start with prefix",
-         %{
-           path: path,
-           prefix: prefix
-         }
-       )}
+      {:error, Uppy.Error.forbidden("Expected path to start with prefix",
+        %{
+          path: path,
+          prefix: prefix
+        }
+      )}
     end
   end
 

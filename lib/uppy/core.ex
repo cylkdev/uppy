@@ -619,7 +619,8 @@ defmodule Uppy.Core do
 
   See the `Uppy.Pipeline` module documentation for more information on the pipeline.
   """
-  def run_pipeline(pipeline_module, %Uppy.Pipelines.Input{} = input) when is_atom(pipeline_module) do
+  def run_pipeline(pipeline_module, %Uppy.Pipelines.Input{} = input)
+      when is_atom(pipeline_module) do
     pipeline_module
     |> Pipelines.pipeline()
     |> run_pipeline(input)
@@ -632,10 +633,17 @@ defmodule Uppy.Core do
   end
 
   def run_pipeline(pipeline, params) do
-    run_pipeline(pipeline, Pipelines.Input.new!(params))
+    run_pipeline(pipeline, Pipelines.Input.create(params))
   end
 
-  def run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, %_{} = schema_data, options) do
+  def run_pipeline(
+        pipeline_or_pipeline_module,
+        bucket,
+        resource_name,
+        schema,
+        %_{} = schema_data,
+        options
+      ) do
     context = Keyword.get(options, :context, %{})
 
     {schema, nil_or_source} = ensure_schema_source(schema)
@@ -655,17 +663,24 @@ defmodule Uppy.Core do
 
   def run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, params, options) do
     with {:ok, schema_data} <- Actions.find(schema, params, options) do
-      run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, schema_data, options)
+      run_pipeline(
+        pipeline_or_pipeline_module,
+        bucket,
+        resource_name,
+        schema,
+        schema_data,
+        options
+      )
     end
   end
 
   def run_pipeline(
-    pipeline_or_pipeline_module,
-    bucket,
-    resource_name,
-    schema,
-    params_or_schema_data
-  ) do
+        pipeline_or_pipeline_module,
+        bucket,
+        resource_name,
+        schema,
+        params_or_schema_data
+      ) do
     run_pipeline(
       pipeline_or_pipeline_module,
       bucket,
@@ -711,15 +726,11 @@ defmodule Uppy.Core do
     case Actions.find(schema, params, options) do
       {:ok, schema_data} ->
         {:error,
-         Error.call(
-           :forbidden,
-           "deleting the object for an existing record is not allowed",
-           %{
-             schema: schema,
-             params: params,
-             schema_data: schema_data
-           }
-         )}
+         Error.forbidden("deleting the object for an existing record is not allowed", %{
+           schema: schema,
+           params: params,
+           schema_data: schema_data
+         })}
 
       {:error, %{code: :not_found}} ->
         :ok
@@ -1196,12 +1207,9 @@ defmodule Uppy.Core do
     if is_nil(schema_data.e_tag) do
       {:ok, schema_data}
     else
-      {:error,
-       Error.call(
-         :forbidden,
-         "Expected field `:e_tag` to be nil",
-         %{schema_data: schema_data}
-       )}
+      {:error, Error.forbidden("Expected field `:e_tag` to be nil",
+        %{schema_data: schema_data}
+      )}
     end
   end
 
@@ -1209,14 +1217,9 @@ defmodule Uppy.Core do
     if is_nil(schema_data.e_tag) === false do
       {:ok, schema_data}
     else
-      {:error,
-       Error.call(
-         :forbidden,
-         "Expected field `:e_tag` to be non-nil",
-         %{
-           schema_data: schema_data
-         }
-       )}
+      {:error, Error.forbidden("Expected field `:e_tag` to be non-nil",
+        %{schema_data: schema_data}
+      )}
     end
   end
 
@@ -1224,12 +1227,9 @@ defmodule Uppy.Core do
     if has_upload_id?(schema_data) do
       {:ok, schema_data}
     else
-      {:error,
-       Error.call(
-         :forbidden,
-         "Expected `:upload_id` to be non-nil",
-         %{schema_data: schema_data}
-       )}
+      {:error, Error.forbidden("Expected `:upload_id` to be non-nil",
+        %{schema_data: schema_data}
+      )}
     end
   end
 
@@ -1237,14 +1237,9 @@ defmodule Uppy.Core do
     if has_upload_id?(schema_data) === false do
       {:ok, schema_data}
     else
-      {:error,
-       Error.call(
-         :forbidden,
-         "Expected `:upload_id` to be nil",
-         %{
-           schema_data: schema_data
-         }
-       )}
+      {:error, Error.forbidden("Expected `:upload_id` to be nil",
+        %{schema_data: schema_data}
+      )}
     end
   end
 

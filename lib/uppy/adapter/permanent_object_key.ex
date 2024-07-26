@@ -49,7 +49,8 @@ defmodule Uppy.Adapter.PermanentObjectKey do
   private/1-organization/
   ```
   """
-  @callback prefix(id :: id(), resource_name :: resource_name(), basename :: basename()) :: prefix()
+  @callback prefix(id :: id(), resource_name :: resource_name(), basename :: basename()) ::
+              prefix()
 
   @doc """
   See `c:Uppy.Adapter.PermanentObjectKey.prefix/3` for more information.

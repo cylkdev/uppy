@@ -62,7 +62,7 @@
 #     if TemporaryObjectKey.path?( schema_data.key) do
 #       :ok
 #     else
-#       {:error, Error.call(:forbidden, "not a temporary upload", %{schema_data: schema_data})}
+#       {:error, Error.forbidden("not a temporary upload", %{schema_data: schema_data})}
 #     end
 #   end
 

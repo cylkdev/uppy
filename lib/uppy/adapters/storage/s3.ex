@@ -9,23 +9,25 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @one_minute_seconds 60
 
-    @default_chunk_size 1_024 * 1_024 # approx 1 MB
+    # approx 1 MB
+    @default_chunk_size 1_024 * 1_024
 
     def download_chunk_stream(bucket, object, options \\ []) do
       with {:ok, metadata} <- head_object(bucket, object, options) do
-        {:ok, ExAws.S3.Download.chunk_stream(
-          metadata.content_length,
-          chunk_size!(options)
-        )}
+        {:ok,
+         ExAws.S3.Download.chunk_stream(
+           metadata.content_length,
+           chunk_size!(options)
+         )}
       end
     end
 
     def get_chunk(bucket, object, start_byte, end_byte, options \\ []) do
       with {:ok, body} <-
-        bucket
-        |> ExAws.S3.get_object(object, range: "bytes=#{start_byte}-#{end_byte}")
-        |> ExAws.request(options)
-        |> deserialize_response() do
+             bucket
+             |> ExAws.S3.get_object(object, range: "bytes=#{start_byte}-#{end_byte}")
+             |> ExAws.request(options)
+             |> deserialize_response() do
         {:ok, {start_byte, body}}
       end
     end
@@ -264,10 +266,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp handle_response({:error, msg}) do
       if msg =~ "there's nothing to see here" do
-        {:error, Error.call(:not_found, "resource not found.", %{error: msg})}
+        {:error, Error.not_found("resource not found.", %{error: msg})}
       else
-        {:error,
-         Error.call(:service_unavailable, "storage service unavailable.", %{error: msg})}
+        {:error, Error.service_unavailable("storage service unavailable.", %{error: msg})}
       end
     end
 
