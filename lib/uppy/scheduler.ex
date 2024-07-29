@@ -54,7 +54,7 @@ defmodule Uppy.Scheduler do
     |> handle_response()
   end
 
-  def queue_run_pipeline(
+  def queue_process_upload(
         pipeline_module,
         bucket,
         resource_name,
@@ -64,7 +64,7 @@ defmodule Uppy.Scheduler do
         options
       ) do
     pipeline_module
-    |> adapter!(options).queue_run_pipeline(
+    |> adapter!(options).queue_process_upload(
       bucket,
       resource_name,
       schema,

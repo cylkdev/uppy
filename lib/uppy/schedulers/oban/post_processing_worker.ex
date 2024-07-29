@@ -12,11 +12,11 @@ if Uppy.Utils.application_loaded?(:oban) do
     alias Uppy.{Core, Utils}
 
     @event_prefix "uppy.post_processing_worker"
-    @event_run_pipeline "#{@event_prefix}.run_pipeline"
+    @event_process_upload "#{@event_prefix}.process_upload"
 
     def perform(%Oban.Job{
           args: %{
-            "event" => @event_run_pipeline,
+            "event" => @event_process_upload,
             "pipeline" => pipeline_module,
             "bucket" => bucket,
             "resource_name" => resource_name,
@@ -28,12 +28,12 @@ if Uppy.Utils.application_loaded?(:oban) do
       pipeline_module = Utils.string_to_existing_module!(pipeline_module)
       schema = Utils.string_to_existing_module!(schema)
 
-      Core.run_pipeline(pipeline_module, bucket, resource_name, {schema, source}, %{id: id})
+      Core.process_upload(pipeline_module, bucket, resource_name, {schema, source}, %{id: id})
     end
 
     def perform(%Oban.Job{
           args: %{
-            "event" => @event_run_pipeline,
+            "event" => @event_process_upload,
             "pipeline" => pipeline_module,
             "bucket" => bucket,
             "resource_name" => resource_name,
@@ -44,10 +44,10 @@ if Uppy.Utils.application_loaded?(:oban) do
       pipeline_module = Utils.string_to_existing_module!(pipeline_module)
       schema = Utils.string_to_existing_module!(schema)
 
-      Core.run_pipeline(pipeline_module, bucket, resource_name, schema, %{id: id})
+      Core.process_upload(pipeline_module, bucket, resource_name, schema, %{id: id})
     end
 
-    def queue_run_pipeline(
+    def queue_process_upload(
           pipeline_module,
           bucket,
           resource_name,
@@ -62,7 +62,7 @@ if Uppy.Utils.application_loaded?(:oban) do
         schema
         |> Arguments.convert_schema_to_arguments()
         |> Map.merge(%{
-          event: @event_run_pipeline,
+          event: @event_process_upload,
           pipeline: Utils.module_to_string(pipeline_module),
           bucket: bucket,
           resource_name: resource_name,

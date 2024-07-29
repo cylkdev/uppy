@@ -38,8 +38,8 @@ if Uppy.Utils.application_loaded?(:finch) do
 
       @impl true
       def start(_type, _args) do
-        opts = [strategy: :one_for_one, name: YourApp.Supervisor]
-        Supervisor.start_link(children(), opts)
+        options = [strategy: :one_for_one, name: YourApp.Supervisor]
+        Supervisor.start_link(children(), options)
       end
 
       def children do
@@ -67,8 +67,8 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec start_link() :: GenServer.on_start()
     @spec start_link(atom) :: GenServer.on_start()
     @spec start_link(atom, keyword()) :: GenServer.on_start()
-    def start_link(name \\ @default_name, opts \\ []) do
-      opts
+    def start_link(name \\ @default_name, options \\ []) do
+      options
       |> Keyword.put(:name, name)
       |> NimbleOptions.validate!(@definition)
       |> Keyword.update!(:pools, &ensure_default_pool_exists/1)
@@ -94,19 +94,19 @@ if Uppy.Utils.application_loaded?(:finch) do
       }
     end
 
-    def child_spec({name, opts}) do
+    def child_spec({name, options}) do
       %{
         id: name,
-        start: {Uppy.HTTP.Finch, :start_link, [name, opts]}
+        start: {Uppy.HTTP.Finch, :start_link, [name, options]}
       }
     end
 
-    def child_spec(opts) do
-      opts = Keyword.put_new(opts, :name, @default_name)
+    def child_spec(options) do
+      options = Keyword.put_new(options, :name, @default_name)
 
       %{
-        id: opts[:name],
-        start: {Uppy.HTTP.Finch, :start_link, [opts[:name], opts]}
+        id: options[:name],
+        start: {Uppy.HTTP.Finch, :start_link, [options[:name], options]}
       }
     end
 
@@ -433,12 +433,12 @@ if Uppy.Utils.application_loaded?(:finch) do
       response
     end
 
-    defp handle_response({:ok, %Response{status: status}} = res, _opts)
+    defp handle_response({:ok, %Response{status: status}} = res, _options)
          when status in 200..299,
          do: res
 
-    defp handle_response({:ok, %Response{status: code} = res}, opts) do
-      api_name = opts[:name]
+    defp handle_response({:ok, %Response{status: code} = res}, options) do
+      api_name = options[:name]
       details = %{response: res, http_code: code, api_name: api_name}
       error_code_map = error_code_map(api_name)
 
@@ -451,28 +451,28 @@ if Uppy.Utils.application_loaded?(:finch) do
       end
     end
 
-    defp handle_response({:error, e}, opts) when is_binary(e) or is_atom(e) do
-      message = "#{opts[:name]}: #{e}"
+    defp handle_response({:error, e}, options) when is_binary(e) or is_atom(e) do
+      message = "#{options[:name]}: #{e}"
       {:error, Error.internal_server_error(message, %{error: e})}
     end
 
-    defp handle_response({:error, %Mint.TransportError{reason: :timeout} = e}, opts) do
-      message = "#{opts[:name]}: Endpoint timeout."
+    defp handle_response({:error, %Mint.TransportError{reason: :timeout} = e}, options) do
+      message = "#{options[:name]}: Endpoint timeout."
       {:error, Error.request_timeout(message, %{error: e})}
     end
 
-    defp handle_response({:error, %Mint.TransportError{reason: :econnrefused} = e}, opts) do
-      message = "#{opts[:name]}: HTTP connection refused."
+    defp handle_response({:error, %Mint.TransportError{reason: :econnrefused} = e}, options) do
+      message = "#{options[:name]}: HTTP connection refused."
       {:error, Error.service_unavailable(message, %{error: e})}
     end
 
-    defp handle_response({:error, e}, opts) do
-      message = unknown_error_message(opts[:name])
+    defp handle_response({:error, e}, options) do
+      message = unknown_error_message(options[:name])
       {:error, Error.internal_server_error(message, %{error: e})}
     end
 
-    defp handle_response(e, opts) do
-      message = unknown_error_message(opts[:name])
+    defp handle_response(e, options) do
+      message = unknown_error_message(options[:name])
       {:error, Error.internal_server_error(message, %{error: e})}
     end
 

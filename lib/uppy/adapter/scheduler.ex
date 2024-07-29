@@ -51,7 +51,7 @@ defmodule Uppy.Adapter.Scheduler do
   @doc """
   Enqueues a job to run a pipeline.
   """
-  @callback queue_run_pipeline(
+  @callback queue_process_upload(
               pipeline_module :: module(),
               bucket :: bucket(),
               resource_name :: resource_name(),

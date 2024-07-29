@@ -1,4 +1,4 @@
-defmodule Uppy.Phase.FileInfo do
+defmodule Uppy.Phases.FileInfo do
   alias Uppy.{
     Error,
     Storage,
@@ -15,7 +15,7 @@ defmodule Uppy.Phase.FileInfo do
 
   @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Phase.FileInfo"
+  @logger_prefix "Uppy.Phases.FileInfo"
 
   # Approximately 256 bytes is needed to detect the file type.
   @two_hundred_fifty_six_bytes 256
@@ -24,17 +24,15 @@ defmodule Uppy.Phase.FileInfo do
         %Uppy.Pipeline.Input{
           bucket: bucket,
           schema: schema,
-          value: %{schema_data: schema_data} = value,
-          options: runtime_options
+          schema_data: schema_data,
+          context: context
         } = input,
-        phase_options
+        options
       ) do
-    Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
-
-    options = Keyword.merge(phase_options, runtime_options)
+    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
 
     with {:ok, metadata} <- describe_object_chunk(bucket, schema_data.key, options) do
-      {:ok, %{input | value: Map.put(value, :file_info, metadata)}}
+      {:ok, %{input | context: Map.put(context, :file_info, metadata)}}
     end
   end
 
@@ -92,6 +90,6 @@ defmodule Uppy.Phase.FileInfo do
   end
 
   defp end_byte!(options) do
-    options[:pipeline][:object_metadata][:end_byte] || @two_hundred_fifty_six_bytes
+    options[:download_chunk_end_byte] || @two_hundred_fifty_six_bytes
   end
 end

@@ -38,7 +38,7 @@ defmodule Uppy do
 
   defdelegate delete_upload(bucket, schema, params, options \\ []), to: Uppy.Core
 
-  defdelegate run_pipeline(
+  defdelegate process_upload(
                 pipeline_module_or_pipeline,
                 bucket,
                 resource_name,

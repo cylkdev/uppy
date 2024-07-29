@@ -51,10 +51,10 @@ defmodule Uppy.Support.DataCase do
 
   """
   def errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+    Ecto.Changeset.traverse_errors(changeset, fn {message, options} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->
         atom_key = String.to_existing_atom(key)
-        opts |> Keyword.get(atom_key, key) |> to_string()
+        options |> Keyword.get(atom_key, key) |> to_string()
       end)
     end)
   end

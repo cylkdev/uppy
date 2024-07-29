@@ -1,12 +1,16 @@
 defmodule Uppy.Pipeline.Input do
-  defstruct [
+  @enforce_keys [
     :bucket,
     :resource_name,
-    :options,
     :schema,
-    :source,
-    :value
+    :schema_data,
+    :source
   ]
+  defstruct @enforce_keys ++
+              [
+                context: %{},
+                holder: nil
+              ]
 
   def create(attrs), do: struct!(__MODULE__, attrs)
 end

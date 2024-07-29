@@ -1,4 +1,4 @@
-defmodule Uppy.Phases.HolderDataloader do
+defmodule Uppy.Phases.Holder do
   @moduledoc """
   Loads the holder association of the schema data if the `holder` is nil.
   """
@@ -14,7 +14,7 @@ defmodule Uppy.Phases.HolderDataloader do
 
   @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Phases.HolderDataloader"
+  @logger_prefix "Uppy.Phases.Holder"
 
   @impl Uppy.Adapter.Phase
   @doc """
@@ -24,23 +24,23 @@ defmodule Uppy.Phases.HolderDataloader do
   def run(
         %Uppy.Pipeline.Input{
           schema: schema,
-          value: %{schema_data: schema_data} = value,
-          options: runtime_options
+          schema_data: schema_data,
+          context: context
         } = input,
-        phase_options
+        options
       ) do
-    Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
+    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
 
-    options = Keyword.merge(phase_options, runtime_options)
+    if Map.get(context, :holder) === nil do
+      Utils.Logger.debug(@logger_prefix, "RUN fetching holder")
 
-    case Map.get(value, :holder) do
-      nil ->
-        with {:ok, holder} <- find_holder(schema, schema_data, options) do
-          {:ok, %{input | value: Map.put(value, :holder, holder)}}
-        end
+      with {:ok, holder} <- find_holder(schema, schema_data, options) do
+        {:ok, %{input | context: Map.put(context, :holder, holder)}}
+      end
+    else
+      Utils.Logger.debug(@logger_prefix, "RUN holder already exists")
 
-      _ ->
-        {:ok, input}
+      {:ok, input}
     end
   end
 
@@ -56,10 +56,10 @@ defmodule Uppy.Phases.HolderDataloader do
 
   ### Examples
 
-      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
-      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
-      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1})
-      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %{id: 1})
+      iex> Uppy.Phases.Holder.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
+      iex> Uppy.Phases.Holder.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
+      iex> Uppy.Phases.Holder.find_holder(YourSchema, %YourSchema{id: 1})
+      iex> Uppy.Phases.Holder.find_holder(YourSchema, %{id: 1})
   """
   @spec find_holder(schema(), schema_data(), options()) :: t_res(schema_data())
   def find_holder(schema, %_{} = schema_data, options) do
@@ -75,13 +75,6 @@ defmodule Uppy.Phases.HolderDataloader do
     holder_id = Map.fetch!(schema_data, holder_owner_key)
 
     params = %{holder_primary_key => holder_id}
-
-    Utils.Logger.debug(@logger_prefix, "fetching schema data holder")
-
-    Utils.Logger.debug(
-      @logger_prefix,
-      "schema=#{inspect(holder_schema)}, owner_key=#{inspect(holder_owner_key)}, primary_key=#{inspect(holder_primary_key)}, id=#{inspect(holder_id)}"
-    )
 
     Action.find(holder_schema, params, options)
   end

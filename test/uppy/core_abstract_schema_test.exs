@@ -38,7 +38,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
   }
 
   defmodule MockTestPipeline do
-    def pipeline do
+    def pipeline(_options) do
       [Uppy.Phases.TemporaryObjectKeyValidate]
     end
   end
@@ -293,7 +293,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
               %{
                 metadata: @storage_object_metadata,
                 schema_data: expected_schema_data,
-                jobs: %{run_pipeline: run_pipeline_job}
+                jobs: %{process_upload: process_upload_job}
               }} =
                Core.complete_multipart_upload(
                  @bucket,
@@ -312,9 +312,9 @@ defmodule Uppy.CoreAbstractSchemaTest do
                e_tag: @e_tag
              } = expected_schema_data
 
-      expected_run_pipeline_job_args = %{
+      expected_process_upload_job_args = %{
         bucket: @bucket,
-        event: "uppy.post_processing_worker.run_pipeline",
+        event: "uppy.post_processing_worker.process_upload",
         id: expected_schema_data.id,
         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
@@ -326,7 +326,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                state: "available",
                queue: "post_processing",
                worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-               args: ^expected_run_pipeline_job_args,
+               args: ^expected_process_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
                  keys: [],
@@ -334,11 +334,11 @@ defmodule Uppy.CoreAbstractSchemaTest do
                  fields: [:args, :queue, :worker],
                  states: [:available, :scheduled, :executing]
                }
-             } = run_pipeline_job
+             } = process_upload_job
 
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.PostProcessingWorker,
-        args: expected_run_pipeline_job_args,
+        args: expected_process_upload_job_args,
         queue: :post_processing
       )
 
@@ -350,24 +350,21 @@ defmodule Uppy.CoreAbstractSchemaTest do
                :ok,
                {
                  %Uppy.Pipeline.Input{
-                   options: [],
-                   value: %{
-                     schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
-                       id: ^expected_schema_data_id,
-                       user_id: ^expected_user_id,
-                       user_avatar_id: ^expected_user_avatar_id,
-                       unique_identifier: @unique_identifier,
-                       key: ^expected_temporary_key,
-                       filename: @filename,
-                       e_tag: @e_tag,
-                       upload_id: @upload_id,
-                       # metadata should be nil as file is not processed yet
-                       content_length: nil,
-                       content_type: nil,
-                       last_modified: nil,
-                       archived: false,
-                       archived_at: nil
-                     }
+                   schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                     id: ^expected_schema_data_id,
+                     user_id: ^expected_user_id,
+                     user_avatar_id: ^expected_user_avatar_id,
+                     unique_identifier: @unique_identifier,
+                     key: ^expected_temporary_key,
+                     filename: @filename,
+                     e_tag: @e_tag,
+                     upload_id: @upload_id,
+                     # metadata should be nil as file is not processed yet
+                     content_length: nil,
+                     content_type: nil,
+                     last_modified: nil,
+                     archived: false,
+                     archived_at: nil
                    },
                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
                    source: @source,
@@ -379,7 +376,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
              } =
                perform_job(
                  Uppy.Schedulers.Oban.PostProcessingWorker,
-                 expected_run_pipeline_job_args
+                 expected_process_upload_job_args
                )
     end
 
@@ -418,7 +415,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
               %{
                 metadata: @storage_object_metadata,
                 schema_data: expected_schema_data,
-                jobs: %{run_pipeline: run_pipeline_job}
+                jobs: %{process_upload: process_upload_job}
               }} =
                Core.complete_multipart_upload(
                  @bucket,
@@ -435,9 +432,9 @@ defmodule Uppy.CoreAbstractSchemaTest do
                e_tag: @e_tag
              } = expected_schema_data
 
-      expected_run_pipeline_job_args = %{
+      expected_process_upload_job_args = %{
         bucket: @bucket,
-        event: "uppy.post_processing_worker.run_pipeline",
+        event: "uppy.post_processing_worker.process_upload",
         id: expected_schema_data.id,
         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
@@ -449,7 +446,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                state: "available",
                queue: "post_processing",
                worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-               args: ^expected_run_pipeline_job_args,
+               args: ^expected_process_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
                  keys: [],
@@ -457,7 +454,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                  fields: [:args, :queue, :worker],
                  states: [:available, :scheduled, :executing]
                }
-             } = run_pipeline_job
+             } = process_upload_job
     end
 
     test "can complete already completed multipart upload", context do
@@ -485,7 +482,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
               %{
                 metadata: @storage_object_metadata,
                 schema_data: expected_schema_data,
-                jobs: %{run_pipeline: run_pipeline_job}
+                jobs: %{process_upload: process_upload_job}
               }} =
                Core.complete_multipart_upload(
                  @bucket,
@@ -502,9 +499,9 @@ defmodule Uppy.CoreAbstractSchemaTest do
                e_tag: @e_tag
              } = expected_schema_data
 
-      expected_run_pipeline_job_args = %{
+      expected_process_upload_job_args = %{
         bucket: @bucket,
-        event: "uppy.post_processing_worker.run_pipeline",
+        event: "uppy.post_processing_worker.process_upload",
         id: expected_schema_data.id,
         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
@@ -516,7 +513,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                state: "available",
                queue: "post_processing",
                worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-               args: ^expected_run_pipeline_job_args,
+               args: ^expected_process_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
                  keys: [],
@@ -524,7 +521,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                  fields: [:args, :queue, :worker],
                  states: [:available, :scheduled, :executing]
                }
-             } = run_pipeline_job
+             } = process_upload_job
     end
 
     test "returns unhandled error", context do
@@ -977,7 +974,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
     end
   end
 
-  describe "&run_pipeline/6" do
+  describe "&process_upload/6" do
     test "returns input`", context do
       expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
 
@@ -1005,28 +1002,25 @@ defmodule Uppy.CoreAbstractSchemaTest do
                   resource_name: @resource_name,
                   schema: @schema,
                   source: @source,
-                  value: %{
-                    schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
-                      id: ^expected_schema_data_id,
-                      user_id: ^expected_user_id,
-                      user_avatar_id: ^expected_user_avatar_id,
-                      unique_identifier: @unique_identifier,
-                      key: ^expected_temporary_key,
-                      filename: @filename,
-                      e_tag: nil,
-                      upload_id: nil,
-                      content_length: nil,
-                      content_type: nil,
-                      last_modified: nil,
-                      archived: false,
-                      archived_at: nil
-                    }
-                  },
-                  options: []
+                  schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                    id: ^expected_schema_data_id,
+                    user_id: ^expected_user_id,
+                    user_avatar_id: ^expected_user_avatar_id,
+                    unique_identifier: @unique_identifier,
+                    key: ^expected_temporary_key,
+                    filename: @filename,
+                    e_tag: nil,
+                    upload_id: nil,
+                    content_length: nil,
+                    content_type: nil,
+                    last_modified: nil,
+                    archived: false,
+                    archived_at: nil
+                  }
                 },
                 [Uppy.Phases.TemporaryObjectKeyValidate]
               }} =
-               Core.run_pipeline(
+               Core.process_upload(
                  pipeline,
                  @bucket,
                  @resource_name,
@@ -1344,7 +1338,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
               %{
                 metadata: @storage_object_metadata,
                 schema_data: expected_schema_data,
-                jobs: %{run_pipeline: run_pipeline_job}
+                jobs: %{process_upload: process_upload_job}
               }} =
                Core.complete_upload(
                  @bucket,
@@ -1360,9 +1354,9 @@ defmodule Uppy.CoreAbstractSchemaTest do
                key: ^expected_temporary_key
              } = expected_schema_data
 
-      expected_run_pipeline_job_args = %{
+      expected_process_upload_job_args = %{
         bucket: @bucket,
-        event: "uppy.post_processing_worker.run_pipeline",
+        event: "uppy.post_processing_worker.process_upload",
         id: expected_schema_data.id,
         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
@@ -1374,7 +1368,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                state: "available",
                queue: "post_processing",
                worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-               args: ^expected_run_pipeline_job_args,
+               args: ^expected_process_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
                  keys: [],
@@ -1382,11 +1376,11 @@ defmodule Uppy.CoreAbstractSchemaTest do
                  fields: [:args, :queue, :worker],
                  states: [:available, :scheduled, :executing]
                }
-             } = run_pipeline_job
+             } = process_upload_job
 
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.PostProcessingWorker,
-        args: expected_run_pipeline_job_args,
+        args: expected_process_upload_job_args,
         queue: :post_processing
       )
 
@@ -1398,24 +1392,21 @@ defmodule Uppy.CoreAbstractSchemaTest do
                :ok,
                {
                  %Uppy.Pipeline.Input{
-                   options: [],
-                   value: %{
-                     schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
-                       id: ^expected_schema_data_id,
-                       user_id: ^expected_user_id,
-                       user_avatar_id: ^expected_user_avatar_id,
-                       unique_identifier: @unique_identifier,
-                       key: ^expected_temporary_key,
-                       filename: @filename,
-                       e_tag: @e_tag,
-                       upload_id: nil,
-                       # metadata should be nil as file is not processed yet
-                       content_length: nil,
-                       content_type: nil,
-                       last_modified: nil,
-                       archived: false,
-                       archived_at: nil
-                     }
+                   schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                     id: ^expected_schema_data_id,
+                     user_id: ^expected_user_id,
+                     user_avatar_id: ^expected_user_avatar_id,
+                     unique_identifier: @unique_identifier,
+                     key: ^expected_temporary_key,
+                     filename: @filename,
+                     e_tag: @e_tag,
+                     upload_id: nil,
+                     # metadata should be nil as file is not processed yet
+                     content_length: nil,
+                     content_type: nil,
+                     last_modified: nil,
+                     archived: false,
+                     archived_at: nil
                    },
                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
                    source: @source,
@@ -1427,7 +1418,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
              } =
                perform_job(
                  Uppy.Schedulers.Oban.PostProcessingWorker,
-                 expected_run_pipeline_job_args
+                 expected_process_upload_job_args
                )
     end
 
@@ -1452,7 +1443,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
               %{
                 metadata: @storage_object_metadata,
                 schema_data: expected_schema_data,
-                jobs: %{run_pipeline: run_pipeline_job}
+                jobs: %{process_upload: process_upload_job}
               }} =
                Core.complete_upload(
                  @bucket,
@@ -1468,9 +1459,9 @@ defmodule Uppy.CoreAbstractSchemaTest do
                key: ^expected_temporary_key
              } = expected_schema_data
 
-      expected_run_pipeline_job_args = %{
+      expected_process_upload_job_args = %{
         bucket: @bucket,
-        event: "uppy.post_processing_worker.run_pipeline",
+        event: "uppy.post_processing_worker.process_upload",
         id: expected_schema_data.id,
         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
         resource_name: @resource_name,
@@ -1482,7 +1473,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                state: "available",
                queue: "post_processing",
                worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-               args: ^expected_run_pipeline_job_args,
+               args: ^expected_process_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
                  keys: [],
@@ -1490,7 +1481,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
                  fields: [:args, :queue, :worker],
                  states: [:available, :scheduled, :executing]
                }
-             } = run_pipeline_job
+             } = process_upload_job
     end
   end
 

@@ -1,8 +1,8 @@
-defmodule Uppy.Phases.TemporaryObjectKeyValidate do
+defmodule Uppy.Phases.PermanentObjectKeyValidate do
   @moduledoc """
   ...
   """
-  alias Uppy.{TemporaryObjectKey, Utils}
+  alias Uppy.{PermanentObjectKey, Utils}
 
   @type input :: map()
   @type options :: keyword()
@@ -11,7 +11,7 @@ defmodule Uppy.Phases.TemporaryObjectKeyValidate do
 
   @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Phases.TemporaryObjectKeyValidate"
+  @logger_prefix "Uppy.Phases.PermanentObjectKeyValidate"
 
   @impl Uppy.Adapter.Phase
   @doc """
@@ -26,7 +26,7 @@ defmodule Uppy.Phases.TemporaryObjectKeyValidate do
       ) do
     Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
 
-    with {:ok, _} <- TemporaryObjectKey.validate(schema_data.key, options) do
+    with {:ok, _} <- PermanentObjectKey.validate(schema_data.key, options) do
       {:ok, input}
     end
   end

@@ -51,7 +51,7 @@ if Uppy.Utils.application_loaded?(:oban) do
     @doc """
     ...
     """
-    def queue_run_pipeline(
+    def queue_process_upload(
           pipeline_module,
           bucket,
           resource_name,
@@ -60,7 +60,7 @@ if Uppy.Utils.application_loaded?(:oban) do
           nil_or_schedule_at_or_schedule_in,
           options
         ) do
-      PostProcessingWorker.queue_run_pipeline(
+      PostProcessingWorker.queue_process_upload(
         pipeline_module,
         bucket,
         resource_name,

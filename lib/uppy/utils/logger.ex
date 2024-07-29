@@ -4,32 +4,32 @@ defmodule Uppy.Utils.Logger do
 
   @doc false
   @spec debug(binary, binary, keyword) :: :ok
-  def debug(identifier, message, opts \\ []) do
+  def debug(identifier, message, options \\ []) do
     identifier
-    |> format_message(message, opts[:binding])
-    |> Logger.debug(opts[:metadata] || [])
+    |> format_message(message, options[:binding])
+    |> Logger.debug(options[:metadata] || [])
   end
 
   @doc false
   @spec warning(binary, binary, keyword) :: :ok
-  def warning(identifier, message, opts \\ []) do
+  def warning(identifier, message, options \\ []) do
     identifier
-    |> format_message(message, opts[:binding])
-    |> Logger.warning(opts[:metadata] || [])
+    |> format_message(message, options[:binding])
+    |> Logger.warning(options[:metadata] || [])
   end
 
   @doc false
   @spec warn(binary, binary, keyword) :: :ok
-  def warn(identifier, message, opts \\ []) do
-    warning(identifier, message, opts)
+  def warn(identifier, message, options \\ []) do
+    warning(identifier, message, options)
   end
 
   @doc false
   @spec error(binary, binary, keyword) :: :ok
-  def error(identifier, message, opts \\ []) do
+  def error(identifier, message, options \\ []) do
     identifier
-    |> format_message(message, opts[:binding])
-    |> Logger.error(opts[:metadata] || [])
+    |> format_message(message, options[:binding])
+    |> Logger.error(options[:metadata] || [])
   end
 
   defp format_message(identifier, message) do
@@ -39,7 +39,7 @@ defmodule Uppy.Utils.Logger do
   defp format_message(identifier, message, binding) do
     message =
       if binding do
-        message <> " | " <> join_binding(binding)
+        message <> " " <> join_binding(binding)
       else
         message
       end

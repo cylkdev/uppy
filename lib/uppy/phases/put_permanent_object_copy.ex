@@ -29,26 +29,36 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-        %Uppy.Pipeline.Input{
-          bucket: bucket,
-          schema: schema,
-          value: %{
-            holder: holder,
-            schema_data: schema_data
-          },
-          options: runtime_options
-        } = _input,
-        phase_options
-      ) do
-    Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
+    %Uppy.Pipeline.Input{
+      bucket: bucket,
+      schema: schema,
+      schema_data: schema_data,
+      holder: holder,
+      context: context
+    } = input,
+    options
+  ) do
+    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
 
-    options = Keyword.merge(phase_options, runtime_options)
+    if !completed?(context) do
+      Utils.Logger.debug(@logger_prefix, "RUN destination object not found")
 
-    put_permanent_object_copy(bucket, holder, schema_data, options)
+      with {:ok, destination_object} <-
+        put_permanent_object_copy(bucket, holder, schema_data, options) do
+        {:ok, %{input | context: Map.put(context, :destination_object, destination_object)}}
+      end
+    else
+      Utils.Logger.debug(@logger_prefix, "RUN skipped")
+
+      {:ok, input}
+    end
   end
 
+  defp completed?(%{destination_object: _}), do: true
+  defp completed?(_), do: false
+
   def put_permanent_object_copy(bucket, %_{} = holder, %_{} = schema_data, options) do
-    Utils.Logger.debug(@logger_prefix, "put_permanent_object_copy BEGIN", binding: binding())
+    Utils.Logger.debug(@logger_prefix, "PUT_PERMANENT_OBJECT_COPY BEGIN", binding: binding())
 
     holder_id = fetch_holder_id!(holder, options)
     resource_name = resource_name!(options)
@@ -57,14 +67,16 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
     source_object = schema_data.key
     destination_object = PermanentObjectKey.prefix(holder_id, resource_name, basename, options)
 
-    with {:ok, _} <- TemporaryObjectKey.validate(source_object, options) do
-      Storage.put_object_copy(
-        bucket,
-        destination_object,
-        bucket,
-        source_object,
-        options
-      )
+    with {:ok, _} <- TemporaryObjectKey.validate(source_object, options),
+      {:ok, _} <-
+        Storage.put_object_copy(
+          bucket,
+          destination_object,
+          bucket,
+          source_object,
+          options
+        ) do
+      {:ok, destination_object}
     end
   end
 

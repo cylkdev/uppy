@@ -297,7 +297,7 @@ defmodule Uppy.Core do
   def complete_multipart_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         %_{} = schema_data,
         update_params,
@@ -319,20 +319,20 @@ defmodule Uppy.Core do
         with {:ok, schema_data} <- Action.update(schema, schema_data, update_params, options) do
           if Keyword.get(options, :scheduler_enabled?, true) do
             with {:ok, job} <-
-                   Scheduler.queue_run_pipeline(
-                     pipeline_module,
+                   Scheduler.queue_process_upload(
+                     nil_or_pipeline_module,
                      bucket,
                      resource_name,
                      schema,
                      schema_data.id,
-                     options[:schedule][:run_pipeline],
+                     options[:schedule][:process_upload],
                      options
                    ) do
               {:ok,
                %{
                  metadata: metadata,
                  schema_data: schema_data,
-                 jobs: %{run_pipeline: job}
+                 jobs: %{process_upload: job}
                }}
             end
           else
@@ -352,7 +352,7 @@ defmodule Uppy.Core do
   def complete_multipart_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         find_params,
         update_params,
@@ -363,7 +363,7 @@ defmodule Uppy.Core do
       complete_multipart_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         schema_data,
         update_params,
@@ -376,7 +376,7 @@ defmodule Uppy.Core do
   def complete_multipart_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         find_params_or_schema_data,
         update_params,
@@ -385,7 +385,7 @@ defmodule Uppy.Core do
     complete_multipart_upload(
       bucket,
       resource_name,
-      pipeline_module,
+      nil_or_pipeline_module,
       schema,
       find_params_or_schema_data,
       update_params,
@@ -534,13 +534,15 @@ defmodule Uppy.Core do
       iex> Uppy.Core.start_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1})
       iex> Uppy.Core.start_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1})
   """
-  def start_multipart_upload(bucket, partition_id, schema, params, options)
-      when is_integer(partition_id) do
+  def start_multipart_upload(bucket, partition_id, schema, params, options) when is_integer(partition_id) do
+    Utils.Logger.debug(@logger_prefix, "start_multipart_upload BEGIN", binding: binding())
+
     start_multipart_upload(bucket, Integer.to_string(partition_id), schema, params, options)
   end
 
-  def start_multipart_upload(bucket, partition_id, schema, params, options)
-      when is_binary(partition_id) do
+  def start_multipart_upload(bucket, partition_id, schema, params, options) when is_binary(partition_id) do
+    Utils.Logger.debug(@logger_prefix, "start_multipart_upload BEGIN", binding: binding())
+
     filename = params.filename
     unique_identifier = maybe_generate_unique_identifier(params[:unique_identifier], options)
     basename = basename(unique_identifier, filename)
@@ -596,6 +598,8 @@ defmodule Uppy.Core do
   end
 
   def start_multipart_upload(bucket, partition_id, schema, params) do
+    Utils.Logger.debug(@logger_prefix, "start_multipart_upload BEGIN", binding: binding())
+
     start_multipart_upload(bucket, partition_id, schema, params, [])
   end
 
@@ -619,49 +623,61 @@ defmodule Uppy.Core do
 
   See the `Uppy.Pipeline` module documentation for more information on the pipeline.
   """
-  def run_pipeline(pipeline_module, %Uppy.Pipeline.Input{} = input)
-      when is_atom(pipeline_module) do
-    pipeline_module
-    |> Pipeline.pipeline()
-    |> run_pipeline(input)
-  end
+  def process_upload(pipeline, %Uppy.Pipeline.Input{} = input) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
 
-  def run_pipeline(pipeline, %Uppy.Pipeline.Input{} = input) do
-    with {:ok, output, executed_phases} <- Pipeline.run(input, pipeline) do
-      {:ok, {output, executed_phases}}
+    with {:ok, result, executed_phases} <- Pipeline.run(input, pipeline) do
+      {:ok, {result, executed_phases}}
     end
   end
 
-  def run_pipeline(pipeline, params) do
-    run_pipeline(pipeline, Pipeline.Input.create(params))
+  def process_upload(nil, %Uppy.Pipeline.Input{} = input, options) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
+
+    process_upload(Uppy.Pipeline.for_post_processing(options), input)
   end
 
-  def run_pipeline(
-        pipeline_or_pipeline_module,
-        bucket,
-        resource_name,
-        schema,
-        %_{} = schema_data,
-        options
-      ) do
-    {schema, nil_or_source} = ensure_schema_source(schema)
+  def process_upload(module, %Uppy.Pipeline.Input{} = input, options) when is_atom(module) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
+
+    process_upload(module.pipeline(options), input)
+  end
+
+  def process_upload(pipeline, %Uppy.Pipeline.Input{} = input, _options) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
+
+    process_upload(pipeline, input)
+  end
+
+  def process_upload(
+    pipeline_or_module,
+    bucket,
+    resource_name,
+    schema,
+    %_{} = schema_data,
+    options
+  ) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
+
+    {schema, nil_or_source} = schema_source(schema)
 
     input = %Uppy.Pipeline.Input{
       bucket: bucket,
       resource_name: resource_name,
       schema: schema,
       source: nil_or_source,
-      value: %{schema_data: schema_data},
-      options: options
+      schema_data: schema_data
     }
 
-    run_pipeline(pipeline_or_pipeline_module, input)
+    process_upload(pipeline_or_module, input, options)
   end
 
-  def run_pipeline(pipeline_or_pipeline_module, bucket, resource_name, schema, params, options) do
+  def process_upload(pipeline_or_module, bucket, resource_name, schema, params, options) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
+
     with {:ok, schema_data} <- Action.find(schema, params, options) do
-      run_pipeline(
-        pipeline_or_pipeline_module,
+      process_upload(
+        pipeline_or_module,
         bucket,
         resource_name,
         schema,
@@ -671,25 +687,27 @@ defmodule Uppy.Core do
     end
   end
 
-  def run_pipeline(
-        pipeline_or_pipeline_module,
-        bucket,
-        resource_name,
-        schema,
-        params_or_schema_data
-      ) do
-    run_pipeline(
-      pipeline_or_pipeline_module,
+  def process_upload(
+    pipeline_or_module,
+    bucket,
+    resource_name,
+    schema,
+    params
+  ) do
+    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
+
+    process_upload(
+      pipeline_or_module,
       bucket,
       resource_name,
       schema,
-      params_or_schema_data,
+      params,
       []
     )
   end
 
-  defp ensure_schema_source({schema, source}), do: {schema, source}
-  defp ensure_schema_source(schema), do: {schema, nil}
+  defp schema_source({schema, source}), do: {schema, source}
+  defp schema_source(schema), do: {schema, nil}
 
   @doc """
   Deletes the object specified by `key` from storage if the database record does not exist.
@@ -883,7 +901,7 @@ defmodule Uppy.Core do
   def complete_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         %_{} = schema_data,
         update_params,
@@ -899,20 +917,20 @@ defmodule Uppy.Core do
         with {:ok, schema_data} <- Action.update(schema, schema_data, update_params, options) do
           if Keyword.get(options, :scheduler_enabled?, true) do
             with {:ok, job} <-
-                   Scheduler.queue_run_pipeline(
-                     pipeline_module,
+                   Scheduler.queue_process_upload(
+                     nil_or_pipeline_module,
                      bucket,
                      resource_name,
                      schema,
                      schema_data.id,
-                     options[:schedule][:run_pipeline],
+                     options[:schedule][:process_upload],
                      options
                    ) do
               {:ok,
                %{
                  metadata: metadata,
                  schema_data: schema_data,
-                 jobs: %{run_pipeline: job}
+                 jobs: %{process_upload: job}
                }}
             end
           else
@@ -932,7 +950,7 @@ defmodule Uppy.Core do
   def complete_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         find_params,
         update_params,
@@ -942,7 +960,7 @@ defmodule Uppy.Core do
       complete_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         schema_data,
         update_params,
@@ -954,7 +972,7 @@ defmodule Uppy.Core do
   def complete_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         find_params_or_schema_data,
         update_params
@@ -962,7 +980,7 @@ defmodule Uppy.Core do
     complete_upload(
       bucket,
       resource_name,
-      pipeline_module,
+      nil_or_pipeline_module,
       schema,
       find_params_or_schema_data,
       update_params,
@@ -973,14 +991,14 @@ defmodule Uppy.Core do
   def complete_upload(
         bucket,
         resource_name,
-        pipeline_module,
+        nil_or_pipeline_module,
         schema,
         find_params_or_schema_data
       ) do
     complete_upload(
       bucket,
       resource_name,
-      pipeline_module,
+      nil_or_pipeline_module,
       schema,
       find_params_or_schema_data,
       %{}
