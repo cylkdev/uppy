@@ -963,7 +963,7 @@ defmodule Uppy.CoreSchemaTest do
   end
 
   describe "&process_upload/6" do
-    test "returns input`", context do
+    test "can process upload with list of phases", context do
       expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
 
       expected_schema_data =
@@ -975,13 +975,28 @@ defmodule Uppy.CoreSchemaTest do
           user_id: context.user.id
         })
 
-      pipeline = [
-        Uppy.Phases.TemporaryObjectKeyValidate
-      ]
-
       expected_schema_data_id = expected_schema_data.id
       expected_user_id = context.user.id
       expected_user_avatar_id = context.user_avatar.id
+
+      pipeline =
+        [
+          Uppy.Phases.TemporaryObjectKeyValidate,
+          Uppy.Phases.Holder,
+          Uppy.Phases.HeadTemporaryObject,
+          Uppy.Phases.FileInfo,
+          Uppy.Phases.PutPermanentThumborResult,
+          Uppy.Phases.PutPermanentObjectCopy,
+          Uppy.Phases.UpdateSchemaMetadata,
+          Uppy.Phases.PermanentObjectKeyValidate
+        ]
+
+      # The phase `Uppy.Phases.HeadTemporaryObject` retrieves the metadata
+      # from storage and adds it to the context for other phases in the
+      # pipeline.
+      StorageSandbox.set_head_object_responses([
+        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+      ])
 
       assert {:ok,
               {
@@ -1006,10 +1021,19 @@ defmodule Uppy.CoreSchemaTest do
                     archived_at: nil
                   }
                 },
-                [Uppy.Phases.TemporaryObjectKeyValidate]
+                [
+                  Uppy.Phases.TemporaryObjectKeyValidate,
+                  Uppy.Phases.Holder,
+                  Uppy.Phases.HeadTemporaryObject,
+                  Uppy.Phases.FileInfo,
+                  Uppy.Phases.PutPermanentThumborResult,
+                  Uppy.Phases.PutPermanentObjectCopy,
+                  Uppy.Phases.UpdateSchemaMetadata,
+                  Uppy.Phases.PermanentObjectKeyValidate
+                ]
               }} =
                Core.process_upload(
-                 pipeline,
+                pipeline,
                  @bucket,
                  @resource_name,
                  @schema,

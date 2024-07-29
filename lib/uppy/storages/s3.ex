@@ -7,6 +7,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @behaviour Uppy.Adapter.Storage
 
+    @default_options []
+
     @one_minute_seconds 60
 
     # approx 1 MB
@@ -23,10 +25,13 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     def get_chunk(bucket, object, start_byte, end_byte, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       with {:ok, body} <-
              bucket
              |> ExAws.S3.get_object(object, range: "bytes=#{start_byte}-#{end_byte}")
              |> ExAws.request(options)
+             |> IO.inspect()
              |> deserialize_response() do
         {:ok, {start_byte, body}}
       end
@@ -37,6 +42,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.list_objects/2`.
     """
     def list_objects(bucket, prefix \\ nil, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       options =
         if prefix in [nil, ""] do
           options
@@ -55,6 +62,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.get_object/3`.
     """
     def get_object(bucket, object, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.get_object(object, options)
       |> ExAws.request(options)
@@ -66,6 +75,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.head_object/3`.
     """
     def head_object(bucket, object, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.head_object(object, options)
       |> ExAws.request(options)
@@ -77,7 +88,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.presigned_url/4`.
     """
     def presigned_url(bucket, http_method, object, options \\ []) do
-      options = s3_accelerate(http_method, options)
+      options =
+        @default_options
+        |> Keyword.merge(options)
+        |> s3_accelerate(http_method)
 
       options = Keyword.put_new(options, :expires_in, @one_minute_seconds)
 
@@ -97,7 +111,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       end
     end
 
-    defp s3_accelerate(http_method, options) do
+    defp s3_accelerate(options, http_method) do
       if http_method in [:post, :put] do
         s3_accelerate = options[:s3_accelerate] === true
 
@@ -112,6 +126,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.list_multipart_uploads/2`.
     """
     def list_multipart_uploads(bucket, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.list_multipart_uploads(options)
       |> ExAws.request(options)
@@ -123,6 +139,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.initiate_multipart_upload/3`.
     """
     def initiate_multipart_upload(bucket, object, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.initiate_multipart_upload(object)
       |> ExAws.request(options)
@@ -134,6 +152,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.list_parts/4`.
     """
     def list_parts(bucket, object, upload_id, next_part_number_marker \\ nil, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       options =
         if next_part_number_marker do
           query_params = %{"part-number-marker" => next_part_number_marker}
@@ -153,6 +173,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.abort_multipart_upload/4`.
     """
     def abort_multipart_upload(bucket, object, upload_id, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.abort_multipart_upload(object, upload_id)
       |> ExAws.request(options)
@@ -164,6 +186,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.complete_multipart_upload/5`.
     """
     def complete_multipart_upload(bucket, object, upload_id, parts, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.complete_multipart_upload(object, upload_id, parts)
       |> ExAws.request(options)
@@ -175,6 +199,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.put_object_copy/5`.
     """
     def put_object_copy(dest_bucket, destination_object, src_bucket, source_object, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       dest_bucket
       |> ExAws.S3.put_object_copy(destination_object, src_bucket, source_object, options)
       |> ExAws.request(options)
@@ -186,6 +212,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.put_object/4`.
     """
     def put_object(bucket, object, body, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.put_object(object, body, options)
       |> ExAws.request(options)
@@ -197,6 +225,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Adapter.Storage.delete_object/3`.
     """
     def delete_object(bucket, object, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       bucket
       |> ExAws.S3.delete_object(object, options)
       |> ExAws.request(options)
@@ -231,6 +261,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     defp deserialize_response({:ok, %{body: body}}), do: {:ok, body}
+
+    # hackney error response
+    defp deserialize_response({:error, {:http_error, status_code, %{body: body, headers: headers}}}) do
+      # TODO: standardize this to return an error message
+      {:error, %{status: status, body: body, headers: headers}}
+    end
 
     defp deserialize_response({:error, _} = e), do: handle_response(e)
 
