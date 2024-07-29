@@ -1,4 +1,4 @@
-defmodule Uppy.Adapters.PermanentObjectKey do
+defmodule Uppy.PermanentObjectKeys.Default do
   @moduledoc """
   ...
   """
@@ -36,16 +36,17 @@ defmodule Uppy.Adapters.PermanentObjectKey do
          }}
 
       :error ->
-        {:error, Error.forbidden(
-          "Expected partition key to be a binary in the format `<ID>-<POSTFIX>` at position '2' in path",
-          %{
-            path: path,
-            prefix: prefix,
-            partition_key: partition_key,
-            resource_name: resource_name,
-            basename: basename
-          }
-        )}
+        {:error,
+         Error.forbidden(
+           "Expected partition key to be a binary in the format `<ID>-<POSTFIX>` at position '2' in path",
+           %{
+             path: path,
+             prefix: prefix,
+             partition_key: partition_key,
+             resource_name: resource_name,
+             basename: basename
+           }
+         )}
     end
   end
 
@@ -74,7 +75,6 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   @doc """
   Reverses the `id` and encodes the string to www form params.
   """
-  @impl Uppy.Adapter.PermanentObjectKey
   def encode_id(id) do
     id |> to_string() |> String.reverse() |> URI.encode_www_form()
   end
@@ -82,7 +82,6 @@ defmodule Uppy.Adapters.PermanentObjectKey do
   @doc """
   Decodes an encoded id string.
   """
-  @impl Uppy.Adapter.PermanentObjectKey
   def decode_id(encoded_id) do
     encoded_id |> URI.decode_www_form() |> String.reverse()
   end
@@ -126,12 +125,14 @@ defmodule Uppy.Adapters.PermanentObjectKey do
     if String.starts_with?(path, prefix) do
       {:ok, path}
     else
-      {:error, Uppy.Error.forbidden("Expected path to start with prefix",
-        %{
-          path: path,
-          prefix: prefix
-        }
-      )}
+      {:error,
+       Uppy.Error.forbidden(
+         "Expected path to start with prefix",
+         %{
+           path: path,
+           prefix: prefix
+         }
+       )}
     end
   end
 

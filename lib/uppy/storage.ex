@@ -32,7 +32,7 @@ defmodule Uppy.Storage do
     options = Keyword.merge(@default_options, options)
 
     bucket
-    |> storage_adapter!(options).download_chunk_stream(object, options)
+    |> adapter!(options).download_chunk_stream(object, options)
     |> ensure_status_tuple!()
   end
 
@@ -40,7 +40,7 @@ defmodule Uppy.Storage do
     options = Keyword.merge(@default_options, options)
 
     bucket
-    |> storage_adapter!(options).get_chunk(object, start_byte, end_byte, options)
+    |> adapter!(options).get_chunk(object, start_byte, end_byte, options)
     |> ensure_status_tuple!()
   end
 
@@ -58,7 +58,7 @@ defmodule Uppy.Storage do
       sandbox_list_objects_response(bucket, prefix, options)
     else
       bucket
-      |> storage_adapter!(options).list_objects(prefix, options)
+      |> adapter!(options).list_objects(prefix, options)
       |> ensure_status_tuple!()
     end
   end
@@ -80,7 +80,7 @@ defmodule Uppy.Storage do
       sandbox_get_object_response(bucket, object, options)
     else
       bucket
-      |> storage_adapter!(options).get_object(object, options)
+      |> adapter!(options).get_object(object, options)
       |> ensure_status_tuple!()
     end
   end
@@ -102,7 +102,7 @@ defmodule Uppy.Storage do
       sandbox_head_object_response(bucket, object, options)
     else
       bucket
-      |> storage_adapter!(options).head_object(object, options)
+      |> adapter!(options).head_object(object, options)
       |> ensure_status_tuple!()
     end
   end
@@ -194,7 +194,7 @@ defmodule Uppy.Storage do
       sandbox_presigned_url_response(bucket, http_method, object, options)
     else
       bucket
-      |> storage_adapter!(options).presigned_url(http_method, object, options)
+      |> adapter!(options).presigned_url(http_method, object, options)
       |> ensure_status_tuple!()
       |> handle_presigned_url_response()
     end
@@ -238,7 +238,7 @@ defmodule Uppy.Storage do
       sandbox_list_multipart_uploads_response(bucket, options)
     else
       bucket
-      |> storage_adapter!(options).list_multipart_uploads(options)
+      |> adapter!(options).list_multipart_uploads(options)
       |> ensure_status_tuple!()
     end
   end
@@ -260,7 +260,7 @@ defmodule Uppy.Storage do
       sandbox_initiate_multipart_upload_response(bucket, object, options)
     else
       bucket
-      |> storage_adapter!(options).initiate_multipart_upload(object, options)
+      |> adapter!(options).initiate_multipart_upload(object, options)
       |> ensure_status_tuple!()
     end
   end
@@ -284,7 +284,7 @@ defmodule Uppy.Storage do
       sandbox_list_parts_response(bucket, object, upload_id, next_part_number_marker, options)
     else
       bucket
-      |> storage_adapter!(options).list_parts(object, upload_id, next_part_number_marker, options)
+      |> adapter!(options).list_parts(object, upload_id, next_part_number_marker, options)
       |> ensure_status_tuple!()
     end
   end
@@ -307,7 +307,7 @@ defmodule Uppy.Storage do
       sandbox_abort_multipart_upload_response(bucket, object, upload_id, options)
     else
       bucket
-      |> storage_adapter!(options).abort_multipart_upload(object, upload_id, options)
+      |> adapter!(options).abort_multipart_upload(object, upload_id, options)
       |> ensure_status_tuple!()
     end
   end
@@ -331,7 +331,7 @@ defmodule Uppy.Storage do
       sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, options)
     else
       bucket
-      |> storage_adapter!(options).complete_multipart_upload(object, upload_id, parts, options)
+      |> adapter!(options).complete_multipart_upload(object, upload_id, parts, options)
       |> ensure_status_tuple!()
     end
   end
@@ -367,7 +367,7 @@ defmodule Uppy.Storage do
       )
     else
       dest_bucket
-      |> storage_adapter!(options).put_object_copy(
+      |> adapter!(options).put_object_copy(
         destination_object,
         src_bucket,
         source_object,
@@ -395,7 +395,7 @@ defmodule Uppy.Storage do
       sandbox_put_object_response(bucket, object, body, options)
     else
       bucket
-      |> storage_adapter!(options).put_object(object, body, options)
+      |> adapter!(options).put_object(object, body, options)
       |> ensure_status_tuple!()
     end
   end
@@ -417,12 +417,12 @@ defmodule Uppy.Storage do
       sandbox_delete_object_response(bucket, object, options)
     else
       bucket
-      |> storage_adapter!(options).delete_object(object, options)
+      |> adapter!(options).delete_object(object, options)
       |> ensure_status_tuple!()
     end
   end
 
-  defp storage_adapter!(options) do
+  defp adapter!(options) do
     Keyword.get(options, :storage_adapter, Config.storage_adapter()) || @default_storage_adapter
   end
 

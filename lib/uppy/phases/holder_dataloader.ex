@@ -1,4 +1,4 @@
-defmodule Uppy.Pipeline.Phase.HolderDataloader do
+defmodule Uppy.Phases.HolderDataloader do
   @moduledoc """
   Loads the holder association of the schema data if the `holder` is nil.
   """
@@ -12,23 +12,23 @@ defmodule Uppy.Pipeline.Phase.HolderDataloader do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Pipeline.Phase
+  @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Pipeline.Phase.HolderDataloader"
+  @logger_prefix "Uppy.Phases.HolderDataloader"
 
-  @impl Uppy.Adapter.Pipeline.Phase
+  @impl Uppy.Adapter.Phase
   @doc """
-  Implementation for `c:Uppy.Adapter.Pipeline.Phase.run/2`
+  Implementation for `c:Uppy.Adapter.Phase.run/2`
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-    %Uppy.Pipeline.Input{
-      schema: schema,
-      value: %{schema_data: schema_data} = value,
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
+        %Uppy.Pipeline.Input{
+          schema: schema,
+          value: %{schema_data: schema_data} = value,
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
 
     options = Keyword.merge(phase_options, runtime_options)
@@ -38,7 +38,9 @@ defmodule Uppy.Pipeline.Phase.HolderDataloader do
         with {:ok, holder} <- find_holder(schema, schema_data, options) do
           {:ok, %{input | value: Map.put(value, :holder, holder)}}
         end
-      _ -> {:ok, input}
+
+      _ ->
+        {:ok, input}
     end
   end
 
@@ -54,10 +56,10 @@ defmodule Uppy.Pipeline.Phase.HolderDataloader do
 
   ### Examples
 
-      iex> Uppy.Pipeline.Phase.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
-      iex> Uppy.Pipeline.Phase.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
-      iex> Uppy.Pipeline.Phase.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1})
-      iex> Uppy.Pipeline.Phase.HolderDataloader.find_holder(YourSchema, %{id: 1})
+      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
+      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
+      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %YourSchema{id: 1})
+      iex> Uppy.Phases.HolderDataloader.find_holder(YourSchema, %{id: 1})
   """
   @spec find_holder(schema(), schema_data(), options()) :: t_res(schema_data())
   def find_holder(schema, %_{} = schema_data, options) do

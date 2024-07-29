@@ -16,19 +16,19 @@ defmodule Uppy.Phase.UpdateSchemaMetadata do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Pipeline.Phase
+  @behaviour Uppy.Adapter.Phase
 
   @logger_prefix "Uppy.Phase.UpdateSchemaMetadata"
 
   def run(
-    %Uppy.Pipeline.Input{
-      bucket: bucket,
-      schema: schema,
-      value: %{schema_data: schema_data} = value,
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
+        %Uppy.Pipeline.Input{
+          bucket: bucket,
+          schema: schema,
+          value: %{schema_data: schema_data} = value,
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
 
     options = Keyword.merge(phase_options, runtime_options)
@@ -42,8 +42,13 @@ defmodule Uppy.Phase.UpdateSchemaMetadata do
     update_metadata(bucket, schema, schema_data, update_params, options)
   end
 
-
-  def update_metadata(bucket, schema, %_{filename: filename, key: object} = schema_data, update_params, options) do
+  def update_metadata(
+        bucket,
+        schema,
+        %_{filename: filename, key: object} = schema_data,
+        update_params,
+        options
+      ) do
     Utils.Logger.debug(@logger_prefix, "update_metadata BEGIN", binding: binding())
 
     filename =

@@ -224,9 +224,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.service_unavailable("HTTP connection pool existed with reason:: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.service_unavailable(
+           "HTTP connection pool existed with reason:: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -258,9 +260,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.service_unavailable("HTTP connection pool existed with reason:: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.service_unavailable(
+           "HTTP connection pool existed with reason:: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -292,10 +296,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.service_unavailable(
-          "HTTP connection pool existed with reason:: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.service_unavailable(
+           "HTTP connection pool existed with reason:: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -327,9 +332,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.service_unavailable("HTTP connection pool existed with reason:: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.service_unavailable(
+           "HTTP connection pool existed with reason:: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -361,9 +368,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.service_unavailable("HTTP connection pool existed with reason:: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.service_unavailable(
+           "HTTP connection pool existed with reason:: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -395,10 +404,11 @@ if Uppy.Utils.application_loaded?(:finch) do
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error, Error.service_unavailable(
-          "HTTP connection pool existed with reason:: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.service_unavailable(
+           "HTTP connection pool existed with reason:: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     defp run_and_measure(fnc, headers, method, options) do

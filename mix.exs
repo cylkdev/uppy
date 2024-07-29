@@ -42,25 +42,19 @@ defmodule Uppy.MixProject do
       {:ecto, "~> 3.11"},
       {:postgrex, ">= 0.0.0", optional: true},
       {:ecto_sql, "~> 3.11", optional: true},
-
       {:finch, "~> 0.18.0", optional: true},
-
       {:error_message, "~> 0.3.0", optional: true},
       {:ecto_shorts, path: "../ecto_shorts", optional: true},
-
       {:ex_aws, "~> 2.1", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
       {:hackney, "~> 1.9", optional: true},
       {:sweet_xml, "~> 0.6", optional: true},
-
       {:oban, "~> 2.17", optional: true},
       {:quantum, "~> 3.5", optional: true},
-
       {:mimerl, "~> 1.3", optional: true},
       {:ex_image_info, "~> 0.2.4", optional: true},
       {:file_type, "~> 0.1.0", optional: true},
       {:thumbor, git: "https://github.com/RequisDev/thumbor.git", branch: "main", optional: true},
-
       {:sandbox_registry, "~> 0.1", optional: true},
       {:factory_ex, "~> 0.3.4", only: [:dev, :test], optional: true},
       {:faker, "~> 0.18", only: [:dev, :test], optional: true},

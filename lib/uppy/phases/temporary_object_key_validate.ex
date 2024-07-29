@@ -1,4 +1,4 @@
-defmodule Uppy.Pipeline.Phase.TemporaryObjectKeyValidate do
+defmodule Uppy.Phases.TemporaryObjectKeyValidate do
   @moduledoc """
   Validates the `key` on the `schema_data` is a temporary object key.
   """
@@ -9,22 +9,22 @@ defmodule Uppy.Pipeline.Phase.TemporaryObjectKeyValidate do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Pipeline.Phase
+  @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Pipeline.Phase.TemporaryObjectKeyValidate"
+  @logger_prefix "Uppy.Phases.TemporaryObjectKeyValidate"
 
-  @impl Uppy.Adapter.Pipeline.Phase
+  @impl Uppy.Adapter.Phase
   @doc """
-  Implementation for `c:Uppy.Adapter.Pipeline.Phase.run/2`
+  Implementation for `c:Uppy.Adapter.Phase.run/2`
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-    %Uppy.Pipeline.Input{
-      value: %{schema_data: schema_data},
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
+        %Uppy.Pipeline.Input{
+          value: %{schema_data: schema_data},
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
 
     options = Keyword.merge(phase_options, runtime_options)

@@ -59,7 +59,7 @@ defmodule Uppy.HTTP do
   def head(url, headers, options) do
     fn ->
       url
-      |> http_adapter!(options).head(headers, http_options!(options))
+      |> adapter!(options).head(headers, http_options!(options))
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -77,7 +77,7 @@ defmodule Uppy.HTTP do
   def get(url, headers, options) do
     fn ->
       url
-      |> http_adapter!(options).get(headers, http_options!(options))
+      |> adapter!(options).get(headers, http_options!(options))
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -95,7 +95,7 @@ defmodule Uppy.HTTP do
   def delete(url, headers, options) do
     fn ->
       url
-      |> http_adapter!(options).delete(headers, http_options!(options))
+      |> adapter!(options).delete(headers, http_options!(options))
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -115,7 +115,7 @@ defmodule Uppy.HTTP do
 
     fn ->
       url
-      |> http_adapter!(options).post(body, headers, http_options!(options))
+      |> adapter!(options).post(body, headers, http_options!(options))
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -135,7 +135,7 @@ defmodule Uppy.HTTP do
 
     fn ->
       url
-      |> http_adapter!(options).patch(body, headers, http_options!(options))
+      |> adapter!(options).patch(body, headers, http_options!(options))
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -155,7 +155,7 @@ defmodule Uppy.HTTP do
 
     fn ->
       url
-      |> http_adapter!(options).put(body, headers, http_options!(options))
+      |> adapter!(options).put(body, headers, http_options!(options))
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -187,7 +187,7 @@ defmodule Uppy.HTTP do
 
       func when is_function(func, 2) ->
         with term when not is_integer(term) or (is_integer(term) and term <= 0) <-
-          func.(attempt, options) do
+               func.(attempt, options) do
           raise "Expected the function passed to the option `:exponential_backoff` to return a positive integer, got: #{inspect(term)}"
         end
 
@@ -208,7 +208,10 @@ defmodule Uppy.HTTP do
           if attempt < max_retries do
             backoff = exponential_backoff(attempt, options)
 
-            Utils.Logger.debug(@logger_prefix, "sleeping for #{inspect(backoff)} ms (#{attempt + 1} / #{max_retries})")
+            Utils.Logger.debug(
+              @logger_prefix,
+              "sleeping for #{inspect(backoff)} ms (#{attempt + 1} / #{max_retries})"
+            )
 
             :timer.sleep(backoff)
 
@@ -278,6 +281,7 @@ defmodule Uppy.HTTP do
 
   defp handle_response({:ok, %{status: _, headers: _, body: _}} = ok), do: ok
   defp handle_response({:error, _} = error), do: error
+
   defp handle_response(term) do
     raise """
     Expected one of:
@@ -291,7 +295,8 @@ defmodule Uppy.HTTP do
   end
 
   defp http_options!(options), do: Keyword.get(options, :http_options, [])
-  defp http_adapter!(options) do
+
+  defp adapter!(options) do
     Keyword.get(options, :http_adapter, Config.http_adapter()) || @default_http_adapter
   end
 end

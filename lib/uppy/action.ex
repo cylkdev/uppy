@@ -4,30 +4,30 @@ defmodule Uppy.Action do
   """
   alias Uppy.Config
 
-  @default_actions_adapter Uppy.EctoShortAction
+  @default_action_adapter Uppy.EctoShortAction
 
   def create(schema, params, options) do
-    actions_adapter!(options).create(schema, params, options)
+    adapter!(options).create(schema, params, options)
   end
 
   def find(schema, params, options) do
-    actions_adapter!(options).find(schema, params, options)
+    adapter!(options).find(schema, params, options)
   end
 
   def update(schema, %_{} = schema_data, params, options) do
-    actions_adapter!(options).update(schema, schema_data, params, options)
+    adapter!(options).update(schema, schema_data, params, options)
   end
 
   def update(schema, id, params, options) do
-    actions_adapter!(options).update(schema, id, params, options)
+    adapter!(options).update(schema, id, params, options)
   end
 
   def delete(schema, id, options) do
-    actions_adapter!(options).delete(schema, id, options)
+    adapter!(options).delete(schema, id, options)
   end
 
   def delete(schema_data, options) do
-    actions_adapter!(options).delete(schema_data, options)
+    adapter!(options).delete(schema_data, options)
   end
 
   def delete(schema_data) do
@@ -35,10 +35,10 @@ defmodule Uppy.Action do
   end
 
   def transaction(func, options) do
-    actions_adapter!(options).transaction(func, options)
+    adapter!(options).transaction(func, options)
   end
 
-  defp actions_adapter!(options) do
-    Keyword.get(options, :actions_adapter, Config.actions_adapter()) || @default_actions_adapter
+  defp adapter!(options) do
+    Keyword.get(options, :action_adapter, Config.action_adapter()) || @default_action_adapter
   end
 end

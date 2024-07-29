@@ -1,4 +1,4 @@
-defmodule Uppy.Adapters.TemporaryObjectKey do
+defmodule Uppy.TemporaryObjectKeys.Default do
   @moduledoc """
   ...
   """
@@ -54,7 +54,8 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
       {:ok, path}
     else
       {:error,
-       Uppy.Error.forbidden("invalid temporary object key",
+       Uppy.Error.forbidden(
+         "invalid temporary object key",
          %{
            path: path,
            prefix: prefix
@@ -66,7 +67,6 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   @doc """
   Reverses the `id` and encodes the string to www form params.
   """
-  @impl Uppy.Adapter.TemporaryObjectKey
   def encode_id(id) do
     id |> to_string() |> String.reverse() |> URI.encode_www_form()
   end
@@ -74,7 +74,6 @@ defmodule Uppy.Adapters.TemporaryObjectKey do
   @doc """
   Decodes an encoded id string.
   """
-  @impl Uppy.Adapter.TemporaryObjectKey
   def decode_id(encoded_id) do
     encoded_id |> URI.decode_www_form() |> String.reverse()
   end

@@ -39,7 +39,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
 
   defmodule MockTestPipeline do
     def pipeline do
-      [Uppy.Phase.TemporaryObjectKeyValidate]
+      [Uppy.Phases.TemporaryObjectKeyValidate]
     end
   end
 
@@ -351,29 +351,30 @@ defmodule Uppy.CoreAbstractSchemaTest do
                {
                  %Uppy.Pipeline.Input{
                    options: [],
-                   context: %{},
-                   value: %Uppy.Support.PG.Objects.UserAvatarObject{
-                     id: ^expected_schema_data_id,
-                     user_id: ^expected_user_id,
-                     user_avatar_id: ^expected_user_avatar_id,
-                     unique_identifier: @unique_identifier,
-                     key: ^expected_temporary_key,
-                     filename: @filename,
-                     e_tag: @e_tag,
-                     upload_id: @upload_id,
-                     # metadata should be nil as file is not processed yet
-                     content_length: nil,
-                     content_type: nil,
-                     last_modified: nil,
-                     archived: false,
-                     archived_at: nil
+                   value: %{
+                     schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                       id: ^expected_schema_data_id,
+                       user_id: ^expected_user_id,
+                       user_avatar_id: ^expected_user_avatar_id,
+                       unique_identifier: @unique_identifier,
+                       key: ^expected_temporary_key,
+                       filename: @filename,
+                       e_tag: @e_tag,
+                       upload_id: @upload_id,
+                       # metadata should be nil as file is not processed yet
+                       content_length: nil,
+                       content_type: nil,
+                       last_modified: nil,
+                       archived: false,
+                       archived_at: nil
+                     }
                    },
                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
                    source: @source,
                    resource_name: "user-avatars",
                    bucket: @bucket
                  },
-                 [Uppy.Phase.TemporaryObjectKeyValidate]
+                 [Uppy.Phases.TemporaryObjectKeyValidate]
                }
              } =
                perform_job(
@@ -990,7 +991,7 @@ defmodule Uppy.CoreAbstractSchemaTest do
         })
 
       pipeline = [
-        Uppy.Phase.TemporaryObjectKeyValidate
+        Uppy.Phases.TemporaryObjectKeyValidate
       ]
 
       expected_schema_data_id = expected_schema_data.id
@@ -1004,25 +1005,26 @@ defmodule Uppy.CoreAbstractSchemaTest do
                   resource_name: @resource_name,
                   schema: @schema,
                   source: @source,
-                  value: %Uppy.Support.PG.Objects.UserAvatarObject{
-                    id: ^expected_schema_data_id,
-                    user_id: ^expected_user_id,
-                    user_avatar_id: ^expected_user_avatar_id,
-                    unique_identifier: @unique_identifier,
-                    key: ^expected_temporary_key,
-                    filename: @filename,
-                    e_tag: nil,
-                    upload_id: nil,
-                    content_length: nil,
-                    content_type: nil,
-                    last_modified: nil,
-                    archived: false,
-                    archived_at: nil
+                  value: %{
+                    schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                      id: ^expected_schema_data_id,
+                      user_id: ^expected_user_id,
+                      user_avatar_id: ^expected_user_avatar_id,
+                      unique_identifier: @unique_identifier,
+                      key: ^expected_temporary_key,
+                      filename: @filename,
+                      e_tag: nil,
+                      upload_id: nil,
+                      content_length: nil,
+                      content_type: nil,
+                      last_modified: nil,
+                      archived: false,
+                      archived_at: nil
+                    }
                   },
-                  context: %{},
                   options: []
                 },
-                [Uppy.Phase.TemporaryObjectKeyValidate]
+                [Uppy.Phases.TemporaryObjectKeyValidate]
               }} =
                Core.run_pipeline(
                  pipeline,
@@ -1397,29 +1399,30 @@ defmodule Uppy.CoreAbstractSchemaTest do
                {
                  %Uppy.Pipeline.Input{
                    options: [],
-                   context: %{},
-                   value: %Uppy.Support.PG.Objects.UserAvatarObject{
-                     id: ^expected_schema_data_id,
-                     user_id: ^expected_user_id,
-                     user_avatar_id: ^expected_user_avatar_id,
-                     unique_identifier: @unique_identifier,
-                     key: ^expected_temporary_key,
-                     filename: @filename,
-                     e_tag: @e_tag,
-                     upload_id: nil,
-                     # metadata should be nil as file is not processed yet
-                     content_length: nil,
-                     content_type: nil,
-                     last_modified: nil,
-                     archived: false,
-                     archived_at: nil
+                   value: %{
+                     schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
+                       id: ^expected_schema_data_id,
+                       user_id: ^expected_user_id,
+                       user_avatar_id: ^expected_user_avatar_id,
+                       unique_identifier: @unique_identifier,
+                       key: ^expected_temporary_key,
+                       filename: @filename,
+                       e_tag: @e_tag,
+                       upload_id: nil,
+                       # metadata should be nil as file is not processed yet
+                       content_length: nil,
+                       content_type: nil,
+                       last_modified: nil,
+                       archived: false,
+                       archived_at: nil
+                     }
                    },
                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
                    source: @source,
                    resource_name: "user-avatars",
                    bucket: @bucket
                  },
-                 [Uppy.Phase.TemporaryObjectKeyValidate]
+                 [Uppy.Phases.TemporaryObjectKeyValidate]
                }
              } =
                perform_job(

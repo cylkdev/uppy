@@ -16,20 +16,6 @@ defmodule Uppy.Adapter.TemporaryObjectKey do
   @callback validate(path :: path()) :: {:ok, term()} | {:error, term()}
 
   @doc """
-  Returns a string.
-
-  This function is used to serialize object keys going into storage.
-  """
-  @callback encode_id(id :: id()) :: encoded_id()
-
-  @doc """
-  Returns a string.
-
-  This function is used to de-serialize object keys in storage.
-  """
-  @callback decode_id(encoded_id :: encoded_id()) :: decoded_id()
-
-  @doc """
   Returns the prefix of the object path as a string.
 
   The returned string must be a valid path that includes the `id`, `resource_name`, and `basename`

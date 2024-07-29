@@ -1,4 +1,4 @@
-defmodule Uppy.Adapter.Pipeline.PhaseTest do
+defmodule Uppy.Adapter.PhaseTest do
   use ExUnit.Case, async: true
-  doctest Uppy.Adapter.Pipeline.Phase
+  doctest Uppy.Adapter.Phase
 end

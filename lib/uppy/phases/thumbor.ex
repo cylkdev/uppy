@@ -1,5 +1,4 @@
-defmodule Uppy.Pipeline.Phase.Thumbor do
-
+defmodule Uppy.Phases.Thumbor do
   alias Uppy.{
     Config,
     PermanentObjectKey,
@@ -16,9 +15,9 @@ defmodule Uppy.Pipeline.Phase.Thumbor do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Pipeline.Phase
+  @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Pipeline.Phase.Thumbor"
+  @logger_prefix "Uppy.Phases.Thumbor"
 
   @config Application.compile_env(Config.app(), __MODULE__, [])
   @default_adapter @config[:adapter] || Thumbor
@@ -26,17 +25,17 @@ defmodule Uppy.Pipeline.Phase.Thumbor do
   @default_resource_name "uploads"
 
   def run(
-    %Uppy.Pipeline.Input{
-      bucket: bucket,
-      schema: schema,
-      value: %{
-        holder: holder,
-        schema_data: schema_data
-      },
-      options: runtime_options
-    } = _input,
-    phase_options
-  ) do
+        %Uppy.Pipeline.Input{
+          bucket: bucket,
+          schema: schema,
+          value: %{
+            holder: holder,
+            schema_data: schema_data
+          },
+          options: runtime_options
+        } = _input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
 
     options = Keyword.merge(phase_options, runtime_options)
@@ -92,13 +91,13 @@ defmodule Uppy.Pipeline.Phase.Thumbor do
     params = options[:pipeline][:thumbor][:parameters] || %{}
 
     with {:ok, _} <-
-      thumbor_adapter!(options).put_result(
-        bucket,
-        source_object,
-        params,
-        destination_object,
-        options
-      ) do
+           thumbor_adapter!(options).put_result(
+             bucket,
+             source_object,
+             params,
+             destination_object,
+             options
+           ) do
       Storage.head_object(bucket, destination_object, options)
     end
   end

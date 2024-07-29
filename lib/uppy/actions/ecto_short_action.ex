@@ -35,8 +35,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
 
     @type t_res(t) :: Uppy.Adapter.Action.t_res(t)
 
-    @default_options [repo: Uppy.Repo]
-
     @impl Uppy.Adapter.Action
     @doc """
     Implementation for `c:Uppy.Adapter.Action.all/3`.
@@ -50,14 +48,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
           ) :: list(schema_data())
     def all(query, params, options) do
       EctoShorts.Actions.all(query, params, options)
-    end
-
-    def all(query, params) do
-      all(query, params, @default_options)
-    end
-
-    def all(query) do
-      all(query, %{})
     end
 
     @impl Uppy.Adapter.Action
@@ -75,10 +65,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
       EctoShorts.Actions.create(schema, params, options)
     end
 
-    def create(schema, params) do
-      create(schema, params, @default_options)
-    end
-
     @impl Uppy.Adapter.Action
     @doc """
     Implementation for `c:Uppy.Adapter.Action.find/3`.
@@ -92,10 +78,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
           ) :: t_res(schema_data())
     def find(schema, params, options) do
       EctoShorts.Actions.find(schema, params, options)
-    end
-
-    def find(schema, params) do
-      find(schema, params, @default_options)
     end
 
     @impl Uppy.Adapter.Action
@@ -114,10 +96,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
       EctoShorts.Actions.update(schema, id_or_schema_data, params, options)
     end
 
-    def update(schema, id_or_schema_data, params) do
-      update(schema, id_or_schema_data, params, @default_options)
-    end
-
     @impl Uppy.Adapter.Action
     @doc """
     Implementation for `c:Uppy.Adapter.Action.delete/2`.
@@ -130,14 +108,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
           ) :: t_res(schema_data())
     def delete(%_{} = schema_data, options) do
       EctoShorts.Actions.delete(schema_data, options)
-    end
-
-    def delete(schema, id) do
-      delete(schema, id, @default_options)
-    end
-
-    def delete(%_{} = schema_data) do
-      delete(schema_data, @default_options)
     end
 
     @impl Uppy.Adapter.Action
@@ -174,10 +144,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
       end
       |> repo!(options).transaction(options)
       |> handle_transaction_response()
-    end
-
-    def transaction(func) do
-      transaction(func, @default_options)
     end
 
     defp execute_transaction(func, repo) when is_function(func, 1), do: func.(repo)
@@ -220,9 +186,9 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     end
   end
 else
-  if Uppy.Config.actions_adapter() === Uppy.Adapter.Action do
+  if Uppy.Config.action_adapter() === Uppy.Adapter.Action do
     raise """
-    The config `:actions_adapter` is set to `Uppy.Adapter.Action` and
+    The config `:action_adapter` is set to `Uppy.Adapter.Action` and
     a required dependency is missing.
 
     To fix this error you can do one of the following:
@@ -238,11 +204,11 @@ else
       end
       ```
 
-    - Set the config `:actions_adapter` to a different module:
+    - Set the config `:action_adapter` to a different module:
 
       ```
       # config.exs
-      config :uppy, :actions_adapter, YourApp.ActionsModule
+      config :uppy, :action_adapter, YourApp.ActionsModule
       ```
     """
   end

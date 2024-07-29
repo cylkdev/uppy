@@ -25,9 +25,9 @@ defmodule Uppy.Config do
   end
 
   @doc false
-  @spec actions_adapter :: module() | nil
-  def actions_adapter do
-    Application.get_env(@app, :actions_adapter)
+  @spec action_adapter :: module() | nil
+  def action_adapter do
+    Application.get_env(@app, :action_adapter)
   end
 
   @doc false

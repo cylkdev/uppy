@@ -11,7 +11,7 @@ defmodule Uppy.Scheduler do
         options
       ) do
     bucket
-    |> scheduler_adapter!(options).queue_delete_object_if_upload_not_found(
+    |> adapter!(options).queue_delete_object_if_upload_not_found(
       schema,
       key,
       schedule_at_or_schedule_in,
@@ -28,7 +28,7 @@ defmodule Uppy.Scheduler do
         options
       ) do
     bucket
-    |> scheduler_adapter!(options).queue_abort_multipart_upload(
+    |> adapter!(options).queue_abort_multipart_upload(
       schema,
       id,
       schedule_at_or_schedule_in,
@@ -45,7 +45,7 @@ defmodule Uppy.Scheduler do
         options
       ) do
     bucket
-    |> scheduler_adapter!(options).queue_abort_upload(
+    |> adapter!(options).queue_abort_upload(
       schema,
       id,
       schedule_at_or_schedule_in,
@@ -64,7 +64,7 @@ defmodule Uppy.Scheduler do
         options
       ) do
     pipeline_module
-    |> scheduler_adapter!(options).queue_run_pipeline(
+    |> adapter!(options).queue_run_pipeline(
       bucket,
       resource_name,
       schema,
@@ -75,7 +75,7 @@ defmodule Uppy.Scheduler do
     |> handle_response()
   end
 
-  defp scheduler_adapter!(options) do
+  defp adapter!(options) do
     Keyword.get(options, :scheduler_adapter, Config.scheduler_adapter()) ||
       @default_scheduler_adapter
   end

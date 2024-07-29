@@ -76,7 +76,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -100,7 +100,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -125,7 +125,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -282,7 +282,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
@@ -421,7 +421,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
@@ -518,7 +518,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
@@ -696,7 +696,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
@@ -743,7 +743,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -768,7 +768,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -793,7 +793,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -863,7 +863,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
@@ -995,7 +995,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
@@ -1070,7 +1070,7 @@ defmodule Uppy.Core do
 
   ### Options
 
-      * `:actions_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
@@ -1204,9 +1204,11 @@ defmodule Uppy.Core do
     if is_nil(schema_data.e_tag) do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden("Expected field `:e_tag` to be nil",
-        %{schema_data: schema_data}
-      )}
+      {:error,
+       Error.forbidden(
+         "Expected field `:e_tag` to be nil",
+         %{schema_data: schema_data}
+       )}
     end
   end
 
@@ -1214,9 +1216,11 @@ defmodule Uppy.Core do
     if is_nil(schema_data.e_tag) === false do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden("Expected field `:e_tag` to be non-nil",
-        %{schema_data: schema_data}
-      )}
+      {:error,
+       Error.forbidden(
+         "Expected field `:e_tag` to be non-nil",
+         %{schema_data: schema_data}
+       )}
     end
   end
 
@@ -1224,9 +1228,11 @@ defmodule Uppy.Core do
     if has_upload_id?(schema_data) do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden("Expected `:upload_id` to be non-nil",
-        %{schema_data: schema_data}
-      )}
+      {:error,
+       Error.forbidden(
+         "Expected `:upload_id` to be non-nil",
+         %{schema_data: schema_data}
+       )}
     end
   end
 
@@ -1234,9 +1240,11 @@ defmodule Uppy.Core do
     if has_upload_id?(schema_data) === false do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden("Expected `:upload_id` to be nil",
-        %{schema_data: schema_data}
-      )}
+      {:error,
+       Error.forbidden(
+         "Expected `:upload_id` to be nil",
+         %{schema_data: schema_data}
+       )}
     end
   end
 

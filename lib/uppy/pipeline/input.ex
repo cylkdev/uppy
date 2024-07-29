@@ -1,5 +1,4 @@
 defmodule Uppy.Pipeline.Input do
-
   defstruct [
     :bucket,
     :resource_name,
@@ -9,7 +8,5 @@ defmodule Uppy.Pipeline.Input do
     :value
   ]
 
-  def create(attrs) do
-    struct!(__MODULE__, attrs)
-  end
+  def create(attrs), do: struct!(__MODULE__, attrs)
 end

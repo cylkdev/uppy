@@ -8,11 +8,11 @@ defmodule Uppy.Error do
   @type message :: binary()
   @type details :: map() | nil
   @type error_message :: %{
-    optional(any()) => any(),
-    code: code(),
-    message: message(),
-    details: details()
-  }
+          optional(any()) => any(),
+          code: code(),
+          message: message(),
+          details: details()
+        }
 
   @doc """
   Returns a error message map.

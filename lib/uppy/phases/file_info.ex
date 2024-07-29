@@ -13,7 +13,7 @@ defmodule Uppy.Phase.FileInfo do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Pipeline.Phase
+  @behaviour Uppy.Adapter.Phase
 
   @logger_prefix "Uppy.Phase.FileInfo"
 
@@ -21,14 +21,14 @@ defmodule Uppy.Phase.FileInfo do
   @two_hundred_fifty_six_bytes 256
 
   def run(
-    %Uppy.Pipeline.Input{
-      bucket: bucket,
-      schema: schema,
-      value: %{schema_data: schema_data} = value,
-      options: runtime_options
-    } = input,
-    phase_options
-  ) do
+        %Uppy.Pipeline.Input{
+          bucket: bucket,
+          schema: schema,
+          value: %{schema_data: schema_data} = value,
+          options: runtime_options
+        } = input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
 
     options = Keyword.merge(phase_options, runtime_options)
@@ -55,7 +55,7 @@ defmodule Uppy.Phase.FileInfo do
     end_byte = end_byte!(options)
 
     with {:ok, {_start_byte, body}} <-
-      Storage.get_chunk(bucket, object, 0, end_byte, options) do
+           Storage.get_chunk(bucket, object, 0, end_byte, options) do
       {:ok, body}
     end
   end

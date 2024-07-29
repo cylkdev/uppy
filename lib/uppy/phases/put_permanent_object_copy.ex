@@ -1,4 +1,4 @@
-defmodule Uppy.Pipeline.Phase.PutPermanentObjectCopy do
+defmodule Uppy.Phases.PutPermanentObjectCopy do
   @moduledoc """
   Copies the object to permanent object path.
   """
@@ -17,29 +17,29 @@ defmodule Uppy.Pipeline.Phase.PutPermanentObjectCopy do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Pipeline.Phase
+  @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Pipeline.Phase.PutPermanentObjectCopy"
+  @logger_prefix "Uppy.Phases.PutPermanentObjectCopy"
 
   @default_resource_name "uploads"
 
-  @impl Uppy.Adapter.Pipeline.Phase
+  @impl Uppy.Adapter.Phase
   @doc """
-  Implementation for `c:Uppy.Adapter.Pipeline.Phase.run/2`
+  Implementation for `c:Uppy.Adapter.Phase.run/2`
   """
   @spec run(input(), options()) :: t_res(input())
   def run(
-    %Uppy.Pipeline.Input{
-      bucket: bucket,
-      schema: schema,
-      value: %{
-        holder: holder,
-        schema_data: schema_data
-      },
-      options: runtime_options
-    } = _input,
-    phase_options
-  ) do
+        %Uppy.Pipeline.Input{
+          bucket: bucket,
+          schema: schema,
+          value: %{
+            holder: holder,
+            schema_data: schema_data
+          },
+          options: runtime_options
+        } = _input,
+        phase_options
+      ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
 
     options = Keyword.merge(phase_options, runtime_options)
