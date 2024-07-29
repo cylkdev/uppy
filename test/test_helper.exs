@@ -20,4 +20,4 @@ Code.put_compiler_option(:warnings_as_errors, true)
 
 {:ok, _} = Uppy.Support.StorageSandbox.start_link()
 
-{:ok, _} = Uppy.Adapters.HTTP.Finch.start_link()
+{:ok, _} = Uppy.HTTP.Finch.start_link()

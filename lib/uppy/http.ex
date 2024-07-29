@@ -46,7 +46,7 @@ defmodule Uppy.HTTP do
   @one_hundred 100
   @five_minutes 300_000
 
-  @default_http_adapter Uppy.Adapters.HTTP.Finch
+  @default_http_adapter Uppy.HTTP.Finch
 
   @doc """
   Executes a HTTP HEAD request.

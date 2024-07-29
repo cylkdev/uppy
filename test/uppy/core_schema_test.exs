@@ -2,9 +2,9 @@ defmodule Uppy.CoreSchemaTest do
   use Uppy.Support.DataCase, async: true
 
   alias Uppy.{
-    Actions,
+    Action,
     Core,
-    TemporaryObjectKeys
+    TemporaryObjectKey
   }
 
   alias Uppy.Support.{
@@ -37,7 +37,7 @@ defmodule Uppy.CoreSchemaTest do
 
   defmodule MockTestPipeline do
     def pipeline do
-      [Uppy.Pipelines.Phases.TemporaryObjectKeyValidate]
+      [Uppy.Phase.TemporaryObjectKeyValidate]
     end
   end
 
@@ -322,7 +322,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "post_processing",
-               worker: "Uppy.Adapters.Scheduler.Oban.PostProcessingWorker",
+               worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
                args: ^expected_run_pipeline_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -334,7 +334,7 @@ defmodule Uppy.CoreSchemaTest do
              } = run_pipeline_job
 
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.PostProcessingWorker,
+        worker: Uppy.Schedulers.Oban.PostProcessingWorker,
         args: expected_run_pipeline_job_args,
         queue: :post_processing
       )
@@ -346,7 +346,7 @@ defmodule Uppy.CoreSchemaTest do
       assert {
                :ok,
                {
-                 %Uppy.Pipelines.Input{
+                 %Uppy.Pipeline.Input{
                    options: [],
                    context: %{},
                    value: %Uppy.Support.PG.Objects.UserAvatarObject{
@@ -370,11 +370,11 @@ defmodule Uppy.CoreSchemaTest do
                    resource_name: "user-avatars",
                    bucket: @bucket
                  },
-                 [Uppy.Pipelines.Phases.TemporaryObjectKeyValidate]
+                 [Uppy.Phase.TemporaryObjectKeyValidate]
                }
              } =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.PostProcessingWorker,
+                 Uppy.Schedulers.Oban.PostProcessingWorker,
                  expected_run_pipeline_job_args
                )
     end
@@ -443,7 +443,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "post_processing",
-               worker: "Uppy.Adapters.Scheduler.Oban.PostProcessingWorker",
+               worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
                args: ^expected_run_pipeline_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -509,7 +509,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "post_processing",
-               worker: "Uppy.Adapters.Scheduler.Oban.PostProcessingWorker",
+               worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
                args: ^expected_run_pipeline_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -609,7 +609,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: ^expected_delete_object_if_upload_not_found_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -623,7 +623,7 @@ defmodule Uppy.CoreSchemaTest do
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
         args: expected_delete_object_if_upload_not_found_job_args,
         queue: :garbage_collection
       )
@@ -639,7 +639,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert :ok =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
                  expected_delete_object_if_upload_not_found_job_args
                )
     end
@@ -691,7 +691,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: ^expected_delete_object_if_upload_not_found_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -766,7 +766,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert ^expected_temporary_key = temporary_key
 
-      assert TemporaryObjectKeys.validate(temporary_key)
+      assert TemporaryObjectKey.validate(temporary_key)
 
       assert ^basename = "#{unique_identifier}-#{expected_schema_data.filename}"
 
@@ -796,7 +796,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "abort_upload",
-               worker: "Uppy.Adapters.Scheduler.Oban.AbortUploadWorker",
+               worker: "Uppy.Schedulers.Oban.AbortUploadWorker",
                args: ^expected_abort_multipart_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -818,7 +818,7 @@ defmodule Uppy.CoreSchemaTest do
       }
 
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.AbortUploadWorker,
+        worker: Uppy.Schedulers.Oban.AbortUploadWorker,
         args: expected_abort_multipart_upload_job_args,
         queue: :abort_upload
       )
@@ -848,7 +848,7 @@ defmodule Uppy.CoreSchemaTest do
                 jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
               }} =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.AbortUploadWorker,
+                 Uppy.Schedulers.Oban.AbortUploadWorker,
                  expected_abort_multipart_upload_job_args
                )
 
@@ -870,7 +870,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: ^expected_delete_object_if_upload_not_found_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -884,7 +884,7 @@ defmodule Uppy.CoreSchemaTest do
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
         args: expected_delete_object_if_upload_not_found_job_args,
         queue: :garbage_collection
       )
@@ -900,7 +900,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert :ok =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
                  expected_delete_object_if_upload_not_found_job_args
                )
     end
@@ -945,7 +945,7 @@ defmodule Uppy.CoreSchemaTest do
       assert ^expected_temporary_key =
                "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
 
-      assert TemporaryObjectKeys.validate(expected_temporary_key)
+      assert TemporaryObjectKey.validate(expected_temporary_key)
 
       assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
 
@@ -978,7 +978,7 @@ defmodule Uppy.CoreSchemaTest do
         })
 
       pipeline = [
-        Uppy.Pipelines.Phases.TemporaryObjectKeyValidate
+        Uppy.Phase.TemporaryObjectKeyValidate
       ]
 
       expected_schema_data_id = expected_schema_data.id
@@ -987,7 +987,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:ok,
               {
-                %Uppy.Pipelines.Input{
+                %Uppy.Pipeline.Input{
                   bucket: @bucket,
                   resource_name: @resource_name,
                   schema: @schema,
@@ -1010,7 +1010,7 @@ defmodule Uppy.CoreSchemaTest do
                   context: %{},
                   options: []
                 },
-                [Uppy.Pipelines.Phases.TemporaryObjectKeyValidate]
+                [Uppy.Phase.TemporaryObjectKeyValidate]
               }} =
                Core.run_pipeline(
                  pipeline,
@@ -1033,7 +1033,7 @@ defmodule Uppy.CoreSchemaTest do
           user_id: context.user.id
         })
 
-      assert {:ok, _} = Actions.delete(expected_schema_data)
+      assert {:ok, _} = Action.delete(expected_schema_data)
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
@@ -1228,7 +1228,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: %{
                  key: ^expected_permanent_key,
                  schema: "Uppy.Support.PG.Objects.UserAvatarObject",
@@ -1271,7 +1271,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: ^expected_delete_object_if_upload_not_found_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -1285,7 +1285,7 @@ defmodule Uppy.CoreSchemaTest do
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
         args: expected_delete_object_if_upload_not_found_job_args,
         queue: :garbage_collection
       )
@@ -1301,7 +1301,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert :ok =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
                  expected_delete_object_if_upload_not_found_job_args
                )
     end
@@ -1357,7 +1357,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "post_processing",
-               worker: "Uppy.Adapters.Scheduler.Oban.PostProcessingWorker",
+               worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
                args: ^expected_run_pipeline_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -1369,7 +1369,7 @@ defmodule Uppy.CoreSchemaTest do
              } = run_pipeline_job
 
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.PostProcessingWorker,
+        worker: Uppy.Schedulers.Oban.PostProcessingWorker,
         args: expected_run_pipeline_job_args,
         queue: :post_processing
       )
@@ -1381,7 +1381,7 @@ defmodule Uppy.CoreSchemaTest do
       assert {
                :ok,
                {
-                 %Uppy.Pipelines.Input{
+                 %Uppy.Pipeline.Input{
                    options: [],
                    context: %{},
                    value: %Uppy.Support.PG.Objects.UserAvatarObject{
@@ -1405,11 +1405,11 @@ defmodule Uppy.CoreSchemaTest do
                    resource_name: "user-avatars",
                    bucket: @bucket
                  },
-                 [Uppy.Pipelines.Phases.TemporaryObjectKeyValidate]
+                 [Uppy.Phase.TemporaryObjectKeyValidate]
                }
              } =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.PostProcessingWorker,
+                 Uppy.Schedulers.Oban.PostProcessingWorker,
                  expected_run_pipeline_job_args
                )
     end
@@ -1463,7 +1463,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "post_processing",
-               worker: "Uppy.Adapters.Scheduler.Oban.PostProcessingWorker",
+               worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
                args: ^expected_run_pipeline_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -1514,7 +1514,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: ^expected_delete_object_if_upload_not_found_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -1528,7 +1528,7 @@ defmodule Uppy.CoreSchemaTest do
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
         args: expected_delete_object_if_upload_not_found_job_args,
         queue: :garbage_collection
       )
@@ -1544,7 +1544,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert :ok =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
                  expected_delete_object_if_upload_not_found_job_args
                )
     end
@@ -1577,7 +1577,7 @@ defmodule Uppy.CoreSchemaTest do
       assert ^expected_temporary_key =
                "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
 
-      assert TemporaryObjectKeys.validate(expected_temporary_key)
+      assert TemporaryObjectKey.validate(expected_temporary_key)
 
       assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
 
@@ -1602,7 +1602,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "abort_upload",
-               worker: "Uppy.Adapters.Scheduler.Oban.AbortUploadWorker",
+               worker: "Uppy.Schedulers.Oban.AbortUploadWorker",
                args: ^expected_abort_upload_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -1624,7 +1624,7 @@ defmodule Uppy.CoreSchemaTest do
       }
 
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.AbortUploadWorker,
+        worker: Uppy.Schedulers.Oban.AbortUploadWorker,
         args: expected_abort_upload_job_args,
         queue: :abort_upload
       )
@@ -1635,7 +1635,7 @@ defmodule Uppy.CoreSchemaTest do
                 jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
               }} =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.AbortUploadWorker,
+                 Uppy.Schedulers.Oban.AbortUploadWorker,
                  expected_abort_upload_job_args
                )
 
@@ -1657,7 +1657,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Oban.Job{
                state: "available",
                queue: "garbage_collection",
-               worker: "Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker",
+               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
                args: ^expected_delete_object_if_upload_not_found_job_args,
                unique: %{
                  timestamp: :inserted_at,
@@ -1671,7 +1671,7 @@ defmodule Uppy.CoreSchemaTest do
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
-        worker: Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
         args: expected_delete_object_if_upload_not_found_job_args,
         queue: :garbage_collection
       )
@@ -1687,7 +1687,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert :ok =
                perform_job(
-                 Uppy.Adapters.Scheduler.Oban.GarbageCollectorWorker,
+                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
                  expected_delete_object_if_upload_not_found_job_args
                )
     end
@@ -1741,7 +1741,7 @@ defmodule Uppy.CoreSchemaTest do
       assert ^expected_temporary_key =
                "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
 
-      assert TemporaryObjectKeys.validate(expected_temporary_key)
+      assert TemporaryObjectKey.validate(expected_temporary_key)
 
       assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
 
