@@ -263,9 +263,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     defp deserialize_response({:ok, %{body: body}}), do: {:ok, body}
 
     # hackney error response
-    defp deserialize_response({:error, {:http_error, status_code, %{body: body, headers: headers}}}) do
+    defp deserialize_response({:error, {:http_error, _status_code, response}}) do
       # TODO: standardize this to return an error message
-      {:error, %{status: status, body: body, headers: headers}}
+      {:error, response}
     end
 
     defp deserialize_response({:error, _} = e), do: handle_response(e)
