@@ -223,13 +223,8 @@ defmodule Uppy.HTTP do
 
       term ->
         raise """
-        Expected one of:
+        Option `:max_retries` must be `false`, `0`, or `pos_integer()`, got:
 
-        `false`
-        `0`
-        `pos_integer()`
-
-        got:
         #{inspect(term)}
         """
     end
@@ -280,14 +275,13 @@ defmodule Uppy.HTTP do
   end
 
   defp handle_response({:ok, %{status: _, headers: _, body: _}} = ok), do: ok
-  defp handle_response({:error, _} = error), do: error
-
+  defp handle_response({:error, %{code: _, message: _, details: _}} = error), do: error
   defp handle_response(term) do
     raise """
     Expected one of:
 
-    `{:ok, %{status: status(), headers: headers(), body: body()}}`
-    `{:error, term()}`
+    `{:ok, %{status: term(), headers: term(), body: term()}}`
+    `{:error, %{code: term(), message: term(), details: term()}}`
 
     got:
     #{inspect(term, pretty: true)}

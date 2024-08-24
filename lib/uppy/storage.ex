@@ -15,7 +15,6 @@ defmodule Uppy.Storage do
   @type part_number :: Uppy.Adapter.Storage.part_number()
   @type upload_id :: Uppy.Adapter.Storage.upload_id()
   @type marker :: Uppy.Adapter.Storage.marker()
-  @type nil_or_marker :: Uppy.Adapter.Storage.nil_or_marker()
   @type part :: Uppy.Adapter.Storage.part()
   @type parts :: Uppy.Adapter.Storage.parts()
 
@@ -33,7 +32,7 @@ defmodule Uppy.Storage do
 
     bucket
     |> adapter!(options).download_chunk_stream(object, options)
-    |> ensure_status_tuple!()
+    |> handle_response()
   end
 
   def get_chunk(bucket, object, start_byte, end_byte, options) do
@@ -41,7 +40,7 @@ defmodule Uppy.Storage do
 
     bucket
     |> adapter!(options).get_chunk(object, start_byte, end_byte, options)
-    |> ensure_status_tuple!()
+    |> handle_response()
   end
 
   @spec list_objects(
@@ -59,7 +58,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).list_objects(prefix, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -81,7 +80,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).get_object(object, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -103,7 +102,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).head_object(object, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -195,7 +194,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).presigned_url(http_method, object, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
       |> handle_presigned_url_response()
     end
   end
@@ -239,7 +238,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).list_multipart_uploads(options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -261,7 +260,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).initiate_multipart_upload(object, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -272,7 +271,7 @@ defmodule Uppy.Storage do
           bucket :: bucket(),
           object :: object(),
           upload_id :: upload_id(),
-          next_part_number_marker :: nil_or_marker(),
+          next_part_number_marker :: marker() | nil,
           options :: options()
         ) :: t_res()
   def list_parts(bucket, object, upload_id, next_part_number_marker, options) do
@@ -285,7 +284,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).list_parts(object, upload_id, next_part_number_marker, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -308,7 +307,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).abort_multipart_upload(object, upload_id, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -332,7 +331,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).complete_multipart_upload(object, upload_id, parts, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -373,7 +372,7 @@ defmodule Uppy.Storage do
         source_object,
         options
       )
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -396,7 +395,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).put_object(object, body, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -418,7 +417,7 @@ defmodule Uppy.Storage do
     else
       bucket
       |> adapter!(options).delete_object(object, options)
-      |> ensure_status_tuple!()
+      |> handle_response()
     end
   end
 
@@ -426,15 +425,15 @@ defmodule Uppy.Storage do
     Keyword.get(options, :storage_adapter, Config.storage_adapter()) || @default_storage_adapter
   end
 
-  defp ensure_status_tuple!({:ok, _} = ok), do: ok
-  defp ensure_status_tuple!({:error, _} = error), do: error
+  defp handle_response({:ok, _} = ok), do: ok
+  defp handle_response({:error, %{code: _, message: _, details: _}} = error), do: error
 
-  defp ensure_status_tuple!(term) do
+  defp handle_response(term) do
     raise """
     Expected one of:
 
-    {:ok, term()}
-    {:error, term()}
+    `{:ok, term()}`
+    `{:error, %{code: term(), message: term(), details: term()}}`
 
     got:
 

@@ -1,4 +1,4 @@
-defmodule Uppy.Phases.Holder do
+defmodule Uppy.Phases.FileHolder do
   @moduledoc """
   Loads the holder association of the schema data if the `holder` is nil.
   """
@@ -14,7 +14,7 @@ defmodule Uppy.Phases.Holder do
 
   @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Phases.Holder"
+  @logger_prefix "Uppy.Phases.FileHolder"
 
   @impl Uppy.Adapter.Phase
   @doc """
@@ -56,10 +56,10 @@ defmodule Uppy.Phases.Holder do
 
   ### Examples
 
-      iex> Uppy.Phases.Holder.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
-      iex> Uppy.Phases.Holder.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
-      iex> Uppy.Phases.Holder.find_holder(YourSchema, %YourSchema{id: 1})
-      iex> Uppy.Phases.Holder.find_holder(YourSchema, %{id: 1})
+      iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
+      iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
+      iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %YourSchema{id: 1})
+      iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %{id: 1})
   """
   @spec find_holder(schema(), schema_data(), options()) :: t_res(schema_data())
   def find_holder(schema, %_{} = schema_data, options) do

@@ -8,7 +8,7 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.Oban.{Arguments, Global}
+    alias Uppy.Schedulers.Oban.Global
     alias Uppy.{Core, Utils}
 
     @event_prefix "uppy.abort_upload_worker"
@@ -74,7 +74,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       changeset =
         schema
-        |> Arguments.convert_schema_to_arguments()
+        |> Global.convert_schema_to_arguments()
         |> Map.merge(%{
           event: @event_abort_multipart_upload,
           bucket: bucket,
@@ -90,7 +90,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       changeset =
         schema
-        |> Arguments.convert_schema_to_arguments()
+        |> Global.convert_schema_to_arguments()
         |> Map.merge(%{
           event: @event_abort_upload,
           bucket: bucket,

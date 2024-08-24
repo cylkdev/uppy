@@ -8,7 +8,7 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.Oban.{Arguments, Global}
+    alias Uppy.Schedulers.Oban.Global
     alias Uppy.{Core, Utils}
 
     @event_prefix "uppy.post_processing_worker"
@@ -60,7 +60,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       changeset =
         schema
-        |> Arguments.convert_schema_to_arguments()
+        |> Global.convert_schema_to_arguments()
         |> Map.merge(%{
           event: @event_process_upload,
           pipeline: Utils.module_to_string(pipeline_module),

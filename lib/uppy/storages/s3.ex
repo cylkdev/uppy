@@ -7,7 +7,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @behaviour Uppy.Adapter.Storage
 
-    @default_options []
+    @default_options [
+      http_module: Uppy.HTTP.Finch
+    ]
 
     @one_minute_seconds 60
 
@@ -15,6 +17,8 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @default_chunk_size 1_024 * 1_024
 
     def download_chunk_stream(bucket, object, options \\ []) do
+      options = Keyword.merge(@default_options, options)
+
       with {:ok, metadata} <- head_object(bucket, object, options) do
         {:ok,
          ExAws.S3.Download.chunk_stream(
@@ -31,7 +35,6 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
              bucket
              |> ExAws.S3.get_object(object, range: "bytes=#{start_byte}-#{end_byte}")
              |> ExAws.request(options)
-             |> IO.inspect()
              |> deserialize_response() do
         {:ok, {start_byte, body}}
       end
@@ -46,7 +49,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
       options =
         if prefix in [nil, ""] do
-          options
+          Keyword.delete(options, :prefix)
         else
           Keyword.put(options, :prefix, prefix)
         end
@@ -262,12 +265,6 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp deserialize_response({:ok, %{body: body}}), do: {:ok, body}
 
-    # hackney error response
-    defp deserialize_response({:error, {:http_error, _status_code, response}}) do
-      # TODO: standardize this to return an error message
-      {:error, response}
-    end
-
     defp deserialize_response({:error, _} = e), do: handle_response(e)
 
     defp deserialize_headers({:ok, %{headers: headers}}) when is_list(headers) do
@@ -300,7 +297,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp handle_response({:ok, _} = res), do: res
 
-    defp handle_response({:error, msg}) do
+    defp handle_response({:error, msg}) when is_binary(msg) do
       if msg =~ "there's nothing to see here" do
         {:error, Error.not_found("resource not found.", %{error: msg})}
       else

@@ -8,7 +8,7 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.Oban.{Arguments, Global}
+    alias Uppy.Schedulers.Oban.Global
     alias Uppy.{Core, Utils}
 
     @event_prefix "uppy.garbage_collector_worker"
@@ -52,7 +52,7 @@ if Uppy.Utils.application_loaded?(:oban) do
 
       changeset =
         schema
-        |> Arguments.convert_schema_to_arguments()
+        |> Global.convert_schema_to_arguments()
         |> Map.merge(%{
           event: @event_delete_object_if_upload_not_found,
           bucket: bucket,

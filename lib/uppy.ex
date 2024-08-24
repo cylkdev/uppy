@@ -3,6 +3,9 @@ defmodule Uppy do
   Documentation for `Uppy`.
   """
 
+  @type adapter :: module()
+  @type options :: keyword()
+
   # @type adapter :: module()
   # @type schema :: module()
 
