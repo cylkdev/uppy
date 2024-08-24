@@ -1,7 +1,7 @@
 defmodule Uppy.Phases.PutPermanentThumborResult do
   alias Uppy.{
     Config,
-    PermanentObjectKey,
+    PathBuilder,
     Utils
   }
 
@@ -20,7 +20,7 @@ defmodule Uppy.Phases.PutPermanentThumborResult do
   @config Application.compile_env(Config.app(), __MODULE__, [])
   @default_adapter @config[:adapter] || Thumbor
 
-  @default_resource_name "uploads"
+  @default_resource "uploads"
 
   @default_max_image_size 1_024
 
@@ -72,11 +72,20 @@ defmodule Uppy.Phases.PutPermanentThumborResult do
     Utils.Logger.debug(@logger_prefix, "PUT_PERMANENT_THUMBOR_RESULT BEGIN", binding: binding())
 
     holder_id = fetch_holder_id!(holder, options)
-    resource_name = resource_name!(options)
+    resource = resource!(options)
     basename = Uppy.Core.basename(schema_data)
 
     source_object = schema_data.key
-    destination_object = PermanentObjectKey.prefix(holder_id, resource_name, basename, options)
+
+    destination_object =
+      PathBuilder.permanent_path(
+        %{
+          id: holder_id,
+          resource: resource,
+          basename: basename
+        },
+        options
+      )
 
     with {:ok, _} <-
       put_result(bucket, source_object, destination_object, options) do
@@ -84,9 +93,9 @@ defmodule Uppy.Phases.PutPermanentThumborResult do
     end
   end
 
-  defp resource_name!(options) do
-    with nil <- Keyword.get(options, :resource_name, @default_resource_name) do
-      raise "option `:resource_name` cannot be `nil` for phase #{__MODULE__}"
+  defp resource!(options) do
+    with nil <- Keyword.get(options, :resource, @default_resource) do
+      raise "option `:resource` cannot be `nil` for phase #{__MODULE__}"
     end
   end
 

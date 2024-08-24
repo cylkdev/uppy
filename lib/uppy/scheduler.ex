@@ -57,7 +57,7 @@ defmodule Uppy.Scheduler do
   def queue_process_upload(
         pipeline_module,
         bucket,
-        resource_name,
+        resource,
         schema,
         id,
         nil_or_schedule_at_or_schedule_in,
@@ -66,7 +66,7 @@ defmodule Uppy.Scheduler do
     pipeline_module
     |> adapter!(options).queue_process_upload(
       bucket,
-      resource_name,
+      resource,
       schema,
       id,
       nil_or_schedule_at_or_schedule_in,

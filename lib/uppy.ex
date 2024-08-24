@@ -44,7 +44,7 @@ defmodule Uppy do
   defdelegate process_upload(
                 pipeline_module_or_pipeline,
                 bucket,
-                resource_name,
+                resource,
                 schema,
                 params_or_schema_data,
                 options \\ []
@@ -68,7 +68,7 @@ defmodule Uppy do
 
   defdelegate complete_multipart_upload(
                 bucket,
-                resource_name,
+                resource,
                 pipeline_module,
                 schema,
                 find_params,
@@ -93,7 +93,7 @@ defmodule Uppy do
 
   defdelegate complete_upload(
                 bucket,
-                resource_name,
+                resource,
                 pipeline_module,
                 schema,
                 find_params,

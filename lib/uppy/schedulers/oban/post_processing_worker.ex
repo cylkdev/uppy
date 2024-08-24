@@ -19,7 +19,7 @@ if Uppy.Utils.application_loaded?(:oban) do
             "event" => @event_process_upload,
             "pipeline" => pipeline_module,
             "bucket" => bucket,
-            "resource_name" => resource_name,
+            "resource" => resource,
             "schema" => schema,
             "source" => source,
             "id" => id
@@ -28,7 +28,7 @@ if Uppy.Utils.application_loaded?(:oban) do
       pipeline_module = Utils.string_to_existing_module!(pipeline_module)
       schema = Utils.string_to_existing_module!(schema)
 
-      Core.process_upload(pipeline_module, bucket, resource_name, {schema, source}, %{id: id})
+      Core.process_upload(pipeline_module, bucket, resource, {schema, source}, %{id: id})
     end
 
     def perform(%Oban.Job{
@@ -36,7 +36,7 @@ if Uppy.Utils.application_loaded?(:oban) do
             "event" => @event_process_upload,
             "pipeline" => pipeline_module,
             "bucket" => bucket,
-            "resource_name" => resource_name,
+            "resource" => resource,
             "schema" => schema,
             "id" => id
           }
@@ -44,13 +44,13 @@ if Uppy.Utils.application_loaded?(:oban) do
       pipeline_module = Utils.string_to_existing_module!(pipeline_module)
       schema = Utils.string_to_existing_module!(schema)
 
-      Core.process_upload(pipeline_module, bucket, resource_name, schema, %{id: id})
+      Core.process_upload(pipeline_module, bucket, resource, schema, %{id: id})
     end
 
     def queue_process_upload(
           pipeline_module,
           bucket,
-          resource_name,
+          resource,
           schema,
           id,
           nil_or_schedule_at_or_schedule_in,
@@ -65,7 +65,7 @@ if Uppy.Utils.application_loaded?(:oban) do
           event: @event_process_upload,
           pipeline: Utils.module_to_string(pipeline_module),
           bucket: bucket,
-          resource_name: resource_name,
+          resource: resource,
           id: id
         })
         |> new()

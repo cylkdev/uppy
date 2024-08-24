@@ -29,15 +29,12 @@ defmodule Uppy.Core do
   alias Uppy.{
     Action,
     Error,
-    PermanentObjectKey,
+    PathBuilder,
     Pipeline,
     Scheduler,
     Storage,
-    TemporaryObjectKey,
     Utils
   }
-
-  @logger_prefix "Uppy.Core"
 
   @default_hash_size 32
   @one_hour_seconds 3_600
@@ -197,11 +194,11 @@ defmodule Uppy.Core do
   end
 
   def find_parts(
-        bucket,
-        schema,
-        params_or_schema_data,
-        nil_or_next_part_number_marker
-      ) do
+    bucket,
+    schema,
+    params_or_schema_data,
+    nil_or_next_part_number_marker
+  ) do
     find_parts(
       bucket,
       schema,
@@ -212,10 +209,10 @@ defmodule Uppy.Core do
   end
 
   def find_parts(
-        bucket,
-        schema,
-        params_or_schema_data
-      ) do
+    bucket,
+    schema,
+    params_or_schema_data
+  ) do
     find_parts(
       bucket,
       schema,
@@ -296,7 +293,7 @@ defmodule Uppy.Core do
   """
   def complete_multipart_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         %_{} = schema_data,
@@ -322,7 +319,7 @@ defmodule Uppy.Core do
                    Scheduler.queue_process_upload(
                      nil_or_pipeline_module,
                      bucket,
-                     resource_name,
+                     resource,
                      schema,
                      schema_data.id,
                      options[:schedule][:process_upload],
@@ -351,7 +348,7 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         find_params,
@@ -362,7 +359,7 @@ defmodule Uppy.Core do
     with {:ok, schema_data} <- Action.find(schema, find_params, options) do
       complete_multipart_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         schema_data,
@@ -375,7 +372,7 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         find_params_or_schema_data,
@@ -384,7 +381,7 @@ defmodule Uppy.Core do
       ) do
     complete_multipart_upload(
       bucket,
-      resource_name,
+      resource,
       nil_or_pipeline_module,
       schema,
       find_params_or_schema_data,
@@ -535,19 +532,22 @@ defmodule Uppy.Core do
       iex> Uppy.Core.start_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1})
   """
   def start_multipart_upload(bucket, partition_id, schema, params, options) when is_integer(partition_id) do
-    Utils.Logger.debug(@logger_prefix, "start_multipart_upload BEGIN", binding: binding())
-
     start_multipart_upload(bucket, Integer.to_string(partition_id), schema, params, options)
   end
 
   def start_multipart_upload(bucket, partition_id, schema, params, options) when is_binary(partition_id) do
-    Utils.Logger.debug(@logger_prefix, "start_multipart_upload BEGIN", binding: binding())
-
     filename = params.filename
     unique_identifier = maybe_generate_unique_identifier(params[:unique_identifier], options)
     basename = basename(unique_identifier, filename)
 
-    key = TemporaryObjectKey.prefix(partition_id, basename, options)
+    key =
+      PathBuilder.temporary_path(
+        %{
+          id: partition_id,
+          basename: basename
+        },
+        options
+      )
 
     with {:ok, multipart_upload} <-
            Storage.initiate_multipart_upload(bucket, key, options) do
@@ -598,8 +598,6 @@ defmodule Uppy.Core do
   end
 
   def start_multipart_upload(bucket, partition_id, schema, params) do
-    Utils.Logger.debug(@logger_prefix, "start_multipart_upload BEGIN", binding: binding())
-
     start_multipart_upload(bucket, partition_id, schema, params, [])
   end
 
@@ -613,7 +611,7 @@ defmodule Uppy.Core do
 
       * `bucket` - The name of the bucket.
 
-      * `resource_name` - The name of the resource being uploaded to the bucket as a string, for eg. "avatars".
+      * `resource` - The name of the resource being uploaded to the bucket as a string, for eg. "avatars".
 
       * `schema` - The `Ecto.Schema` module.
 
@@ -624,46 +622,36 @@ defmodule Uppy.Core do
   See the `Uppy.Pipeline` module documentation for more information on the pipeline.
   """
   def process_upload(pipeline, %Uppy.Pipeline.Input{} = input) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
     with {:ok, result, executed_phases} <- Pipeline.run(input, pipeline) do
       {:ok, {result, executed_phases}}
     end
   end
 
   def process_upload(nil, %Uppy.Pipeline.Input{} = input, options) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
     process_upload(Uppy.Pipeline.for_post_processing(options), input)
   end
 
   def process_upload(module, %Uppy.Pipeline.Input{} = input, options) when is_atom(module) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
     process_upload(module.pipeline(options), input)
   end
 
   def process_upload(pipeline, %Uppy.Pipeline.Input{} = input, _options) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
     process_upload(pipeline, input)
   end
 
   def process_upload(
     pipeline_or_module,
     bucket,
-    resource_name,
+    resource,
     schema,
     %_{} = schema_data,
     options
   ) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
     {schema, nil_or_source} = schema_source(schema)
 
     input = %Uppy.Pipeline.Input{
       bucket: bucket,
-      resource_name: resource_name,
+      resource: resource,
       schema: schema,
       source: nil_or_source,
       schema_data: schema_data
@@ -672,14 +660,12 @@ defmodule Uppy.Core do
     process_upload(pipeline_or_module, input, options)
   end
 
-  def process_upload(pipeline_or_module, bucket, resource_name, schema, params, options) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
+  def process_upload(pipeline_or_module, bucket, resource, schema, params, options) do
     with {:ok, schema_data} <- Action.find(schema, params, options) do
       process_upload(
         pipeline_or_module,
         bucket,
-        resource_name,
+        resource,
         schema,
         schema_data,
         options
@@ -690,16 +676,14 @@ defmodule Uppy.Core do
   def process_upload(
     pipeline_or_module,
     bucket,
-    resource_name,
+    resource,
     schema,
     params
   ) do
-    Utils.Logger.debug(@logger_prefix, "PROCESS_UPLOAD BEGIN", binding: binding())
-
     process_upload(
       pipeline_or_module,
       bucket,
-      resource_name,
+      resource,
       schema,
       params,
       []
@@ -900,7 +884,7 @@ defmodule Uppy.Core do
   """
   def complete_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         %_{} = schema_data,
@@ -920,7 +904,7 @@ defmodule Uppy.Core do
                    Scheduler.queue_process_upload(
                      nil_or_pipeline_module,
                      bucket,
-                     resource_name,
+                     resource,
                      schema,
                      schema_data.id,
                      options[:schedule][:process_upload],
@@ -949,7 +933,7 @@ defmodule Uppy.Core do
 
   def complete_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         find_params,
@@ -959,7 +943,7 @@ defmodule Uppy.Core do
     with {:ok, schema_data} <- Action.find(schema, find_params, options) do
       complete_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         schema_data,
@@ -971,7 +955,7 @@ defmodule Uppy.Core do
 
   def complete_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         find_params_or_schema_data,
@@ -979,7 +963,7 @@ defmodule Uppy.Core do
       ) do
     complete_upload(
       bucket,
-      resource_name,
+      resource,
       nil_or_pipeline_module,
       schema,
       find_params_or_schema_data,
@@ -990,14 +974,14 @@ defmodule Uppy.Core do
 
   def complete_upload(
         bucket,
-        resource_name,
+        resource,
         nil_or_pipeline_module,
         schema,
         find_params_or_schema_data
       ) do
     complete_upload(
       bucket,
-      resource_name,
+      resource,
       nil_or_pipeline_module,
       schema,
       find_params_or_schema_data,
@@ -1113,7 +1097,14 @@ defmodule Uppy.Core do
     unique_identifier = maybe_generate_unique_identifier(params[:unique_identifier], options)
     basename = basename(unique_identifier, filename)
 
-    key = TemporaryObjectKey.prefix(partition_id, basename, options)
+    key =
+      PathBuilder.temporary_path(
+        %{
+          id: partition_id,
+          basename: basename
+        },
+        options
+      )
 
     params =
       Map.merge(params, %{
@@ -1170,50 +1161,20 @@ defmodule Uppy.Core do
 
   defp validate_permanent_object(schema_data, options) do
     if Keyword.get(options, :validate?, true) do
-      Utils.Logger.debug(
-        @logger_prefix,
-        "validating permanent object key #{inspect(schema_data.key)}"
-      )
-
-      with {:ok, path} <- PermanentObjectKey.validate(schema_data.key, options) do
-        Utils.Logger.debug(
-          @logger_prefix,
-          "validated permanent object key #{inspect(schema_data.key)}, got: #{inspect(path)}"
-        )
-
+      with :ok <- PathBuilder.validate_permanent_path(schema_data.key, options) do
         {:ok, schema_data}
       end
     else
-      Utils.Logger.debug(
-        @logger_prefix,
-        "skipping validation for permanent object key #{inspect(schema_data.key)}"
-      )
-
       {:ok, schema_data}
     end
   end
 
   defp validate_temporary_object(schema_data, options) do
     if Keyword.get(options, :validate?, true) do
-      Utils.Logger.debug(
-        @logger_prefix,
-        "validating temporary object key #{inspect(schema_data.key)}"
-      )
-
-      with {:ok, path} <- TemporaryObjectKey.validate(schema_data.key, options) do
-        Utils.Logger.debug(
-          @logger_prefix,
-          "validated temporary object key #{inspect(schema_data.key)}, got: #{inspect(path)}"
-        )
-
+      with :ok <- PathBuilder.validate_temporary_path(schema_data.key, options) do
         {:ok, schema_data}
       end
     else
-      Utils.Logger.debug(
-        @logger_prefix,
-        "skipping validation for temporary object key #{inspect(schema_data.key)}"
-      )
-
       {:ok, schema_data}
     end
   end

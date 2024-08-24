@@ -5,7 +5,7 @@ defmodule Uppy.Adapter.Scheduler do
 
   @type id :: non_neg_integer() | binary()
   @type bucket :: binary()
-  @type resource_name :: binary()
+  @type resource :: binary()
   @type queryable :: Ecto.Queryable.t()
   @type key :: binary()
   @type options :: keyword()
@@ -54,7 +54,7 @@ defmodule Uppy.Adapter.Scheduler do
   @callback queue_process_upload(
               pipeline_module :: module(),
               bucket :: bucket(),
-              resource_name :: resource_name(),
+              resource :: resource(),
               schema :: queryable(),
               id :: id(),
               nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil,

@@ -3,9 +3,8 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   Copies the object to permanent object path.
   """
   alias Uppy.{
+    PathBuilder,
     Storage,
-    PermanentObjectKey,
-    TemporaryObjectKey,
     Utils
   }
 
@@ -21,7 +20,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
 
   @logger_prefix "Uppy.Phases.PutPermanentObjectCopy"
 
-  @default_resource_name "uploads"
+  @default_resource "uploads"
 
   @impl Uppy.Adapter.Phase
   @doc """
@@ -61,13 +60,22 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
     Utils.Logger.debug(@logger_prefix, "PUT_PERMANENT_OBJECT_COPY BEGIN", binding: binding())
 
     holder_id = fetch_holder_id!(holder, options)
-    resource_name = resource_name!(options)
+    resource = resource!(options)
     basename = Uppy.Core.basename(schema_data)
 
     source_object = schema_data.key
-    destination_object = PermanentObjectKey.prefix(holder_id, resource_name, basename, options)
 
-    with {:ok, _} <- TemporaryObjectKey.validate(source_object, options),
+    destination_object =
+      PathBuilder.permanent_path(
+        %{
+          id: holder_id,
+          resource: resource,
+          basename: basename
+        },
+        options
+      )
+
+    with :ok <- PathBuilder.validate_temporary_path(source_object, options),
       {:ok, _} <-
         Storage.put_object_copy(
           bucket,
@@ -80,9 +88,9 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
     end
   end
 
-  defp resource_name!(options) do
-    with nil <- Keyword.get(options, :resource_name, @default_resource_name) do
-      raise "option `:resource_name` cannot be `nil` for phase #{__MODULE__}"
+  defp resource!(options) do
+    with nil <- Keyword.get(options, :resource, @default_resource) do
+      raise "option `:resource` cannot be `nil` for phase #{__MODULE__}"
     end
   end
 

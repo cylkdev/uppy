@@ -54,7 +54,7 @@ if Uppy.Utils.application_loaded?(:oban) do
     def queue_process_upload(
           pipeline_module,
           bucket,
-          resource_name,
+          resource,
           schema,
           id,
           nil_or_schedule_at_or_schedule_in,
@@ -63,7 +63,7 @@ if Uppy.Utils.application_loaded?(:oban) do
       PostProcessingWorker.queue_process_upload(
         pipeline_module,
         bucket,
-        resource_name,
+        resource,
         schema,
         id,
         nil_or_schedule_at_or_schedule_in,

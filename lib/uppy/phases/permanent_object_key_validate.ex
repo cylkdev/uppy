@@ -2,7 +2,7 @@ defmodule Uppy.Phases.PermanentObjectKeyValidate do
   @moduledoc """
   ...
   """
-  alias Uppy.{PermanentObjectKey, Utils}
+  alias Uppy.PathBuilder
 
   @type input :: map()
   @type options :: keyword()
@@ -11,22 +11,18 @@ defmodule Uppy.Phases.PermanentObjectKeyValidate do
 
   @behaviour Uppy.Adapter.Phase
 
-  @logger_prefix "Uppy.Phases.PermanentObjectKeyValidate"
-
-  @impl Uppy.Adapter.Phase
   @doc """
   Implementation for `c:Uppy.Adapter.Phase.run/2`
   """
+  @impl true
   @spec run(input(), options()) :: t_res(input())
   def run(
-        %Uppy.Pipeline.Input{
-          schema_data: schema_data
-        } = input,
-        options
-      ) do
-    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
-
-    with {:ok, _} <- PermanentObjectKey.validate(schema_data.key, options) do
+    %Uppy.Pipeline.Input{
+      schema_data: schema_data
+    } = input,
+    options
+  ) do
+    with :ok <- PathBuilder.validate_permanent_path(schema_data.key, options) do
       {:ok, input}
     end
   end

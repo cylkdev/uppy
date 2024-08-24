@@ -17,7 +17,7 @@
 #   @source "user_avatar_objects"
 #   @schema_source_tuple {@schema, @source}
 
-#   @resource_name "user-avatars"
+#   @resource "user-avatars"
 
 #   @bucket "test_bucket"
 #   @filename "test_filename.txt"
@@ -297,7 +297,7 @@
 #               }} =
 #                Core.complete_multipart_upload(
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  MockTestPipeline,
 #                  @schema_source_tuple,
 #                  expected_schema_data,
@@ -317,7 +317,7 @@
 #         event: "uppy.post_processing_worker.process_upload",
 #         id: expected_schema_data.id,
 #         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
-#         resource_name: @resource_name,
+#         resource: @resource,
 #         schema: inspect(@schema),
 #         source: @source
 #       }
@@ -368,7 +368,7 @@
 #                    },
 #                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
 #                    source: @source,
-#                    resource_name: "user-avatars",
+#                    resource: "user-avatars",
 #                    bucket: @bucket
 #                  },
 #                  [Uppy.Phases.TemporaryObjectKeyValidate]
@@ -419,7 +419,7 @@
 #               }} =
 #                Core.complete_multipart_upload(
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  MockTestPipeline,
 #                  @schema_source_tuple,
 #                  %{id: expected_schema_data.id},
@@ -437,7 +437,7 @@
 #         event: "uppy.post_processing_worker.process_upload",
 #         id: expected_schema_data.id,
 #         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
-#         resource_name: @resource_name,
+#         resource: @resource,
 #         schema: inspect(@schema),
 #         source: @source
 #       }
@@ -486,7 +486,7 @@
 #               }} =
 #                Core.complete_multipart_upload(
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  MockTestPipeline,
 #                  @schema_source_tuple,
 #                  %{id: expected_schema_data.id},
@@ -504,7 +504,7 @@
 #         event: "uppy.post_processing_worker.process_upload",
 #         id: expected_schema_data.id,
 #         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
-#         resource_name: @resource_name,
+#         resource: @resource,
 #         schema: inspect(@schema),
 #         source: @source
 #       }
@@ -544,7 +544,7 @@
 #       assert {:error, %{code: :internal_server_error}} =
 #                Core.complete_multipart_upload(
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  MockTestPipeline,
 #                  @schema_source_tuple,
 #                  %{id: expected_schema_data.id},
@@ -999,7 +999,7 @@
 #               {
 #                 %Uppy.Pipeline.Input{
 #                   bucket: @bucket,
-#                   resource_name: @resource_name,
+#                   resource: @resource,
 #                   schema: @schema,
 #                   source: @source,
 #                   schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
@@ -1023,7 +1023,7 @@
 #                Core.process_upload(
 #                  pipeline,
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  @schema_source_tuple,
 #                  expected_schema_data
 #                )
@@ -1342,7 +1342,7 @@
 #               }} =
 #                Core.complete_upload(
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  MockTestPipeline,
 #                  @schema_source_tuple,
 #                  expected_schema_data
@@ -1359,7 +1359,7 @@
 #         event: "uppy.post_processing_worker.process_upload",
 #         id: expected_schema_data.id,
 #         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
-#         resource_name: @resource_name,
+#         resource: @resource,
 #         schema: inspect(@schema),
 #         source: @source
 #       }
@@ -1410,7 +1410,7 @@
 #                    },
 #                    schema: Uppy.Support.PG.Objects.UserAvatarObject,
 #                    source: @source,
-#                    resource_name: "user-avatars",
+#                    resource: "user-avatars",
 #                    bucket: @bucket
 #                  },
 #                  [Uppy.Phases.TemporaryObjectKeyValidate]
@@ -1447,7 +1447,7 @@
 #               }} =
 #                Core.complete_upload(
 #                  @bucket,
-#                  @resource_name,
+#                  @resource,
 #                  MockTestPipeline,
 #                  @schema_source_tuple,
 #                  %{id: expected_schema_data.id}
@@ -1464,7 +1464,7 @@
 #         event: "uppy.post_processing_worker.process_upload",
 #         id: expected_schema_data.id,
 #         pipeline: "Uppy.CoreAbstractSchemaTest.MockTestPipeline",
-#         resource_name: @resource_name,
+#         resource: @resource,
 #         schema: inspect(@schema),
 #         source: @source
 #       }

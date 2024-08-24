@@ -1,7 +1,7 @@
 defmodule Uppy.Pipeline.Input do
   @enforce_keys [
     :bucket,
-    :resource_name,
+    :resource,
     :schema,
     :schema_data,
     :source
