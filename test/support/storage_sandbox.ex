@@ -18,17 +18,17 @@ defmodule Uppy.Support.StorageSandbox do
           | :put_object_copy
           | :put_object
           | :delete_object
-  @type bucket :: String.t()
-  @type prefix :: String.t()
-  @type object :: String.t()
+  @type bucket :: binary()
+  @type prefix :: binary()
+  @type object :: binary()
   @type body :: term()
   @type options :: keyword
   @type http_method ::
           :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
-  @type upload_id :: String.t()
+  @type upload_id :: binary()
   @type part_number :: non_neg_integer()
   @type parts :: list(map())
-  @type nil_or_marker :: String.t() | nil
+  @type nil_or_marker :: binary() | nil
 
   @spec start_link :: {:error, any} | {:ok, pid}
   def start_link do
@@ -409,7 +409,7 @@ defmodule Uppy.Support.StorageSandbox do
   end}])
   ```
   """
-  @spec set_list_objects_responses([{String.t(), fun}]) :: :ok
+  @spec set_list_objects_responses([{binary(), fun}]) :: :ok
   def set_list_objects_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:list_objects, bucket}, func} end)
@@ -422,7 +422,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_get_object_responses([{String.t(), fun}]) :: :ok
+  @spec set_get_object_responses([{binary(), fun}]) :: :ok
   def set_get_object_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:get_object, bucket}, func} end)
@@ -435,7 +435,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_head_object_responses([{String.t(), fun}]) :: :ok
+  @spec set_head_object_responses([{binary(), fun}]) :: :ok
   def set_head_object_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:head_object, bucket}, func} end)
@@ -448,7 +448,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_presigned_url_responses([{String.t(), fun}]) :: :ok
+  @spec set_presigned_url_responses([{binary(), fun}]) :: :ok
   def set_presigned_url_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:presigned_url, bucket}, func} end)
@@ -461,7 +461,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_list_multipart_uploads_responses([{String.t(), fun}]) :: :ok
+  @spec set_list_multipart_uploads_responses([{binary(), fun}]) :: :ok
   def set_list_multipart_uploads_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:list_multipart_uploads, bucket}, func} end)
@@ -474,7 +474,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_initiate_multipart_upload_responses([{String.t(), fun}]) :: :ok
+  @spec set_initiate_multipart_upload_responses([{binary(), fun}]) :: :ok
   def set_initiate_multipart_upload_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:initiate_multipart_upload, bucket}, func} end)
@@ -487,7 +487,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_list_parts_responses([{String.t(), fun}]) :: :ok
+  @spec set_list_parts_responses([{binary(), fun}]) :: :ok
   def set_list_parts_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:list_parts, bucket}, func} end)
@@ -500,7 +500,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_abort_multipart_upload_responses([{String.t(), fun}]) :: :ok
+  @spec set_abort_multipart_upload_responses([{binary(), fun}]) :: :ok
   def set_abort_multipart_upload_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:abort_multipart_upload, bucket}, func} end)
@@ -513,7 +513,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_complete_multipart_upload_responses([{String.t(), fun}]) :: :ok
+  @spec set_complete_multipart_upload_responses([{binary(), fun}]) :: :ok
   def set_complete_multipart_upload_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:complete_multipart_upload, bucket}, func} end)
@@ -526,7 +526,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_put_object_copy_responses([{String.t(), fun}]) :: :ok
+  @spec set_put_object_copy_responses([{binary(), fun}]) :: :ok
   def set_put_object_copy_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:put_object_copy, bucket}, func} end)
@@ -539,7 +539,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_put_object_responses([{String.t(), fun}]) :: :ok
+  @spec set_put_object_responses([{binary(), fun}]) :: :ok
   def set_put_object_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:put_object, bucket}, func} end)
@@ -552,7 +552,7 @@ defmodule Uppy.Support.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_delete_object_responses([{String.t(), fun}]) :: :ok
+  @spec set_delete_object_responses([{binary(), fun}]) :: :ok
   def set_delete_object_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:delete_object, bucket}, func} end)

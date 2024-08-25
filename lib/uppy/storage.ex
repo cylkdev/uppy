@@ -208,7 +208,7 @@ defmodule Uppy.Storage do
     raise """
     Expected one of:
 
-    {:ok, %{url: String.t(), expires_at: DateTime.t()}}
+    {:ok, %{url: binary(), expires_at: DateTime.t()}}
     {:error, term()}
 
     got:

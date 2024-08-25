@@ -1,15 +1,13 @@
-defmodule Uppy.HTTPTest do
+defmodule Uppy.HTTP.FinchTest do
   use ExUnit.Case, async: true
 
   describe "head/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.head("http://localhost/response-headers?content_type=image/png")
-
-      assert "" = body
+      assert {:ok, response} = Uppy.HTTP.Finch.head("http://localhost/response-headers?content_type=image/png")
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: _response_body,
+        body: response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -24,26 +22,18 @@ defmodule Uppy.HTTPTest do
           private: %{}
         }
       } = response
+
+      assert "" = response_body
     end
   end
 
   describe "get/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.get("http://localhost/get")
-
-      assert %{
-        args: %{},
-        origin: "192.168.65.1",
-        url: "http://localhost/get",
-        headers: %{
-          Host: "localhost",
-          "User-Agent": "mint/1.6.2"
-        }
-      } = body
+      assert {:ok, response} = Uppy.HTTP.Finch.get("http://localhost/get")
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: _response_body,
+        body: response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -58,26 +48,18 @@ defmodule Uppy.HTTPTest do
           private: %{}
         }
       } = response
+
+      assert "" = response_body
     end
   end
 
   describe "delete/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.delete("http://localhost/delete")
-
-      assert %{
-        args: %{},
-        origin: "192.168.65.1",
-        url: "http://localhost/delete",
-        headers: %{
-          Host: "localhost",
-          "User-Agent": "mint/1.6.2"
-        }
-      } = body
+      assert {:ok, response} = Uppy.HTTP.Finch.delete("http://localhost/delete")
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: _response_body,
+        body: response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -92,26 +74,18 @@ defmodule Uppy.HTTPTest do
           private: %{}
         }
       } = response
+
+      assert "" = response_body
     end
   end
 
   describe "post/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.post("http://localhost/post", [], %{likes: 10})
-
-      assert %{
-        args: %{},
-        origin: "192.168.65.1",
-        url: "http://localhost/post",
-        headers: %{
-          Host: "localhost",
-          "User-Agent": "mint/1.6.2"
-        }
-      } = body
+      assert {:ok, response} = Uppy.HTTP.Finch.post("http://localhost/post", [], %{likes: 10})
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: _response_body,
+        body: response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -126,26 +100,18 @@ defmodule Uppy.HTTPTest do
           private: %{}
         }
       } = response
+
+      assert "" = response_body
     end
   end
 
   describe "patch/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.patch("http://localhost/patch", [], %{likes: 10})
-
-      assert %{
-        args: %{},
-        origin: "192.168.65.1",
-        url: "http://localhost/patch",
-        headers: %{
-          Host: "localhost",
-          "User-Agent": "mint/1.6.2"
-        }
-      } = body
+      assert {:ok, response} = Uppy.HTTP.Finch.patch("http://localhost/patch", [], %{likes: 10})
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: _response_body,
+        body: response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -160,26 +126,18 @@ defmodule Uppy.HTTPTest do
           private: %{}
         }
       } = response
+
+      assert "" = response_body
     end
   end
 
   describe "put/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.put("http://localhost/put", [], %{likes: 10})
-
-      assert %{
-        args: %{},
-        origin: "192.168.65.1",
-        url: "http://localhost/put",
-        headers: %{
-          Host: "localhost",
-          "User-Agent": "mint/1.6.2"
-        }
-      } = body
+      assert {:ok, response} = Uppy.HTTP.Finch.put("http://localhost/put", [], %{likes: 10})
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: _response_body,
+        body: response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -194,6 +152,8 @@ defmodule Uppy.HTTPTest do
           private: %{}
         }
       } = response
+
+      assert "" = response_body
     end
   end
 end

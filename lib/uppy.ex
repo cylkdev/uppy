@@ -25,13 +25,13 @@ defmodule Uppy do
   #         | :trace
   #         | :patch
 
-  # @type bucket :: String.t()
-  # @type prefix :: String.t()
-  # @type object :: String.t()
+  # @type bucket :: binary()
+  # @type prefix :: binary()
+  # @type object :: binary()
 
-  # @type e_tag :: String.t()
-  # @type upload_id :: String.t()
-  # @type marker :: String.t()
+  # @type e_tag :: binary()
+  # @type upload_id :: binary()
+  # @type marker :: binary()
   # @type nil_or_marker :: marker() | nil
   # @type part_number :: non_neg_integer()
   # @type part :: {part_number(), e_tag()}

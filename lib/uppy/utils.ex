@@ -3,6 +3,11 @@ defmodule Uppy.Utils do
 
   @doc """
   Returns true if dependency has been loaded
+
+  ### Examples
+
+      iex> Uppy.Utils.application_loaded?(:ecto)
+      true
   """
   @spec application_loaded?(atom) :: true | false
   def application_loaded?(dep) do
@@ -10,14 +15,27 @@ defmodule Uppy.Utils do
   end
 
   @doc """
+  Returns true if all modules are loaded
+
+  ### Examples
+
+      iex> Uppy.Utils.ensure_all_loaded?([Enum])
+      true
+  """
+  @spec ensure_all_loaded?(list()) :: boolean()
+  def ensure_all_loaded?(modules) do
+    Enum.all?(modules, &Code.ensure_loaded?/1)
+  end
+
+  @doc """
   Converts all string keys to atoms
 
   ### Example
 
-      iex> SharedUtils.Enum.atomize_keys(%{"test" => 5, hello: 4})
+      iex> Uppy.Utils.atomize_keys(%{"test" => 5, hello: 4})
       %{test: 5, hello: 4}
 
-      iex> SharedUtils.Enum.atomize_keys([%{"a" => 5}, %{b: 2}])
+      iex> Uppy.Utils.atomize_keys([%{"a" => 5}, %{b: 2}])
       [%{a: 5}, %{b: 2}]
   """
   @spec atomize_keys(Enum.t()) :: Enum.t()
@@ -37,7 +55,7 @@ defmodule Uppy.Utils do
 
   ### Example
 
-      iex> SharedUtils.Enum.deep_transform(%{"test" => %{"item" => 2, "d" => 3}}, fn {k, v} ->
+      iex> Uppy.Utils.deep_transform(%{"test" => %{"item" => 2, "d" => 3}}, fn {k, v} ->
       ...>   if k === "d" do
       ...>     :delete
       ...>   else
@@ -65,28 +83,51 @@ defmodule Uppy.Utils do
 
   @web_safe_filename_regex ~r|^[[:alnum:]\!\-\_\.\*\'\(\)]+$|u
 
-  @doc """
+  @doc ~S"""
   Returns a regex that validates a filename is compliant with DNS,
   web-safe characters, XML parsers, and other APIs.
 
   Read more: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
+
+  ### Examples
+
+      iex> Uppy.Utils.web_safe_filename_regex()
+      ~r|^[[:alnum:]\!\-\_\.\*\'\(\)]+$|u
   """
   @spec web_safe_filename_regex :: Regex.t()
   def web_safe_filename_regex, do: @web_safe_filename_regex
 
-  @spec ensure_all_loaded?(list()) :: boolean()
-  def ensure_all_loaded?(modules) do
-    Enum.all?(modules, &Code.ensure_loaded?/1)
-  end
+  @doc """
+  Converts a string to an existing module.
 
-  @spec string_to_existing_module!(String.t()) :: atom()
+  ### Example
+
+      iex> Uppy.Utils.string_to_existing_module!("Enum")
+      Enum
+  """
+  @spec string_to_existing_module!(binary()) :: atom()
   def string_to_existing_module!(string) do
     String.to_existing_atom("Elixir.#{string}")
   end
 
-  @spec module_to_string(module()) :: String.t()
+  @doc """
+  Converts a string to an existing module.
+
+  ### Example
+
+      iex> Uppy.Utils.module_to_string(Enum)
+      "Enum"
+  """
+  @spec module_to_string(module()) :: binary()
   def module_to_string(module), do: String.replace("#{module}", "Elixir.", "")
 
+  @doc """
+  Returns a url-safe base64 encoded string.
+
+  ### Example
+
+      iex> Uppy.Utils.generate_unique_identifier(1)
+  """
   @spec generate_unique_identifier(non_neg_integer()) :: binary()
   def generate_unique_identifier(size) do
     size
@@ -94,6 +135,14 @@ defmodule Uppy.Utils do
     |> url_safe_encode64()
   end
 
+  @doc """
+  Returns a url-safe base64 encoded string.
+
+  ### Example
+
+      iex> Uppy.Utils.url_safe_encode64("/example?key=value")
+      "L2V4YW1wbGUa2V5PXZhbHVl"
+  """
   @spec url_safe_encode64(binary()) :: binary()
   def url_safe_encode64(plaintext) do
     plaintext
@@ -103,14 +152,19 @@ defmodule Uppy.Utils do
 
   @doc """
   Parses datetime in http headers that follow the Internet Message Format RFC7231.
+
+  ### Examples
+
+      iex> Uppy.Utils.date_time_from_rfc7231!("Sat, 16 Sep 2023 04:13:38 Etc/UTC")
+      ~U[2023-09-16 04:13:38Z]
   """
-  @spec date_time_from_rfc7231!(String.t()) :: DateTime.t()
-  def date_time_from_rfc7231!(string) do
-    [day, month, year, time, timezone] =
-      string
-      |> String.split(",")
-      |> List.last()
-      |> String.split(" ", trim: true)
+  @spec date_time_from_rfc7231!(binary(), binary(), atom()) :: DateTime.t()
+  def date_time_from_rfc7231!(
+    string,
+    to_timezone \\ "Etc/UTC",
+    time_zone_database \\ Calendar.get_time_zone_database()
+  ) do
+    [day, month, year, time, timezone] = split_rfc7231!(string)
 
     [hour, minute, second] = String.split(time, ":")
 
@@ -126,8 +180,21 @@ defmodule Uppy.Utils do
     time = Time.new!(hour, minute, second)
 
     date
-    |> DateTime.new!(time, timezone)
-    |> DateTime.shift_zone!("Etc/UTC")
+    |> DateTime.new!(time, timezone, time_zone_database)
+    |> DateTime.shift_zone!(to_timezone)
+  end
+
+  defp split_rfc7231!(string) do
+    result =
+      string
+      |> String.split(",")
+      |> List.last()
+      |> String.split(" ", trim: true)
+
+    case result do
+      [day, month, year, time, timezone] -> [day, month, year, time, timezone]
+      _ -> raise "Expected a valid rfc7231 string, got: #{inspect(string)}"
+    end
   end
 
   defp month_to_integer("Jan" <> _), do: 1
