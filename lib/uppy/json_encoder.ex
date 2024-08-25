@@ -1,34 +1,30 @@
-defmodule Uppy.Encoder do
-  @default_json_adapter Jason
-
+defmodule Uppy.JSONEncoder do
   @moduledoc """
-  Encode / Decode JSON
-
-  ## Options
-
-      * `json_adapter` - JSON adapter module. Defaults to #{@default_json_adapter}
+  Encode and Decode JSON
   """
   alias Uppy.Config
 
-  @doc """
+  @default_json_adapter Jason
+
+  @doc ~S"""
   Decodes JSON string.
 
   ### Examples
 
-      iex> Uppy.Encoder.decode_json("{\"likes\":10}")
+      iex> Uppy.JSONEncoder.decode_json("{\"likes\":10}")
       {:ok, %{"likes" => 10}}
   """
-  @spec decode_json(term(), keyword()) :: binary()
+  @spec decode_json(term(), keyword()) :: {:ok, map()} | {:error, term()}
   def decode_json(term, options \\ []) do
     json_adapter!(options).decode(term)
   end
 
-  @doc """
+  @doc ~S"""
   Decodes JSON string.
 
   ### Examples
 
-      iex> Uppy.Encoder.decode_json!("{\"likes\":10}")
+      iex> Uppy.JSONEncoder.decode_json!("{\"likes\":10}")
       %{"likes" => 10}
   """
   @spec decode_json!(term(), keyword()) :: binary()
@@ -36,25 +32,25 @@ defmodule Uppy.Encoder do
     json_adapter!(options).decode!(term)
   end
 
-  @doc """
+  @doc ~S"""
   Encodes to JSON string.
 
   ### Examples
 
-      iex> Uppy.Encoder.encode_json(%{likes: 10})
+      iex> Uppy.JSONEncoder.encode_json(%{likes: 10})
       {:ok, "{\"likes\":10}"}
   """
-  @spec encode_json(term(), keyword()) :: binary()
+  @spec encode_json(term(), keyword()) :: {:ok, binary()} | {:error, term()}
   def encode_json(term, options \\ []) do
     json_adapter!(options).encode(term)
   end
 
-  @doc """
+  @doc ~S"""
   Encodes to JSON string.
 
   ### Examples
 
-      iex> Uppy.Encoder.encode_json!(%{likes: 10})
+      iex> Uppy.JSONEncoder.encode_json!(%{likes: 10})
       "{\"likes\":10}"
   """
   @spec encode_json!(term(), keyword()) :: binary()

@@ -16,35 +16,35 @@ defmodule Uppy.Adapter.HTTP do
           headers: headers()
         }
 
-  @type t_http_response :: {:ok, http_response()} | {:error, any()}
+  @type t_response :: {:ok, http_response()} | {:error, any()}
 
   @doc """
   Executes a HTTP HEAD request.
   """
-  @callback head(url(), headers(), options()) :: t_http_response()
+  @callback head(url(), headers(), options()) :: t_response()
 
   @doc """
   Executes a HTTP GET request.
   """
-  @callback get(url(), headers(), options()) :: t_http_response()
+  @callback get(url(), headers(), options()) :: t_response()
 
   @doc """
   Executes a HTTP DELETE request.
   """
-  @callback delete(url(), headers(), options()) :: t_http_response()
+  @callback delete(url(), headers(), options()) :: t_response()
 
   @doc """
   Executes a HTTP POST request.
   """
-  @callback post(url(), headers(), body(), options()) :: t_http_response()
+  @callback post(url(), headers(), body(), options()) :: t_response()
 
   @doc """
   Executes a HTTP PATCH request.
   """
-  @callback patch(url(), headers(), body(), options()) :: t_http_response()
+  @callback patch(url(), headers(), body(), options()) :: t_response()
 
   @doc """
   Executes a HTTP PUT request.
   """
-  @callback put(url(), headers(), body(), options()) :: t_http_response()
+  @callback put(url(), headers(), body(), options()) :: t_response()
 end
