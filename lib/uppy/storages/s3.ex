@@ -8,36 +8,37 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @behaviour Uppy.Adapter.Storage
 
     @default_options [
-      http_module: Uppy.HTTP.Finch
+      http_client: Uppy.Storages.S3.HTTP
     ]
 
     @one_minute_seconds 60
 
-    # approx 1 MB
-    @default_chunk_size 1_024 * 1_024
-
-    def download_chunk_stream(bucket, object, options \\ []) do
+    def download_chunk_stream(bucket, object, chunk_size, options \\ []) do
       options = Keyword.merge(@default_options, options)
 
       with {:ok, metadata} <- head_object(bucket, object, options) do
-        {:ok,
-         ExAws.S3.Download.chunk_stream(
-           metadata.content_length,
-           chunk_size!(options)
-         )}
+        {:ok, ExAws.S3.Download.chunk_stream(metadata.content_length, chunk_size)}
       end
     end
 
     def get_chunk(bucket, object, start_byte, end_byte, options \\ []) do
       options = Keyword.merge(@default_options, options)
 
+      request_options = Keyword.put(options, :range, "bytes=#{start_byte}-#{end_byte}")
+
       with {:ok, body} <-
-             bucket
-             |> ExAws.S3.get_object(object, range: "bytes=#{start_byte}-#{end_byte}")
-             |> ExAws.request(options)
-             |> deserialize_response() do
+        bucket
+        |> ExAws.S3.get_object(object, request_options)
+        |> ExAws.request(options)
+        |> deserialize_response() do
         {:ok, {start_byte, body}}
       end
+    end
+
+    def get_chunk!(bucket, object, start_byte, end_byte, options \\ []) do
+      {:ok, chunk} = get_chunk(bucket, object, start_byte, end_byte, options)
+
+      chunk
     end
 
     @impl true
@@ -101,10 +102,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       expires_in = options[:expires_in]
 
       with {:ok, url} <-
-             :s3
-             |> ExAws.Config.new(options)
-             |> ExAws.S3.presigned_url(http_method, bucket, object, options)
-             |> handle_response() do
+          :s3
+          |> ExAws.Config.new(options)
+          |> ExAws.S3.presigned_url(http_method, bucket, object, options)
+          |> handle_response() do
         {:ok,
          %{
            key: object,
@@ -160,6 +161,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       options =
         if next_part_number_marker do
           query_params = %{"part-number-marker" => next_part_number_marker}
+
           Keyword.update(options, :query_params, query_params, &Map.merge(&1, query_params))
         else
           options
@@ -234,10 +236,6 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       |> ExAws.S3.delete_object(object, options)
       |> ExAws.request(options)
       |> handle_response()
-    end
-
-    defp chunk_size!(options) do
-      Keyword.get(options, :chunk_size, @default_chunk_size)
     end
 
     defp deserialize_response({:ok, %{body: %{contents: contents}}}) do

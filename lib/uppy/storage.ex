@@ -27,11 +27,11 @@ defmodule Uppy.Storage do
     ]
   ]
 
-  def download_chunk_stream(bucket, object, options) do
+  def download_chunk_stream(bucket, object, chunk_size, options) do
     options = Keyword.merge(@default_options, options)
 
     bucket
-    |> adapter!(options).download_chunk_stream(object, options)
+    |> adapter!(options).download_chunk_stream(object, chunk_size, options)
     |> handle_response()
   end
 
@@ -422,7 +422,7 @@ defmodule Uppy.Storage do
   end
 
   defp adapter!(options) do
-    Keyword.get(options, :storage_adapter, Config.storage_adapter()) || @default_storage_adapter
+    options[:storage_adapter] || Config.storage_adapter() || @default_storage_adapter
   end
 
   defp handle_response({:ok, _} = ok), do: ok

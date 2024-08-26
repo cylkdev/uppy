@@ -155,14 +155,14 @@ defmodule Uppy.Utils do
 
   ### Examples
 
-      iex> Uppy.Utils.date_time_from_rfc7231!("Sat, 16 Sep 2023 04:13:38 Etc/UTC")
+      iex> Uppy.Utils.date_time_from_rfc7231!("Sat, 16 Sep 2023 04:13:38 GMT")
       ~U[2023-09-16 04:13:38Z]
   """
   @spec date_time_from_rfc7231!(binary(), binary(), atom()) :: DateTime.t()
   def date_time_from_rfc7231!(
     string,
     to_timezone \\ "Etc/UTC",
-    time_zone_database \\ Calendar.get_time_zone_database()
+    time_zone_database \\ Tzdata.TimeZoneDatabase
   ) do
     [day, month, year, time, timezone] = split_rfc7231!(string)
 
