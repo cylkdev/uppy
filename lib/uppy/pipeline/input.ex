@@ -1,4 +1,6 @@
 defmodule Uppy.Pipeline.Input do
+  @moduledoc false
+
   @enforce_keys [
     :bucket,
     :resource,
@@ -6,11 +8,9 @@ defmodule Uppy.Pipeline.Input do
     :schema_data,
     :source
   ]
-  defstruct @enforce_keys ++
-              [
-                context: %{},
-                holder: nil
-              ]
 
-  def create(attrs), do: struct!(__MODULE__, attrs)
+  defstruct @enforce_keys ++ [
+    :holder,
+    context: %{}
+  ]
 end

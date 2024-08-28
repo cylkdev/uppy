@@ -37,27 +37,27 @@ defmodule Uppy.Pipeline do
 
       iex> Uppy.Pipeline.for_post_processing()
       [
-        {Uppy.Phases.TemporaryObjectKeyValidate, []},
-        {Uppy.Phases.FileHolder, []},
+        {Uppy.Phases.ValidateObjectTemporaryPath, []},
         {Uppy.Phases.HeadTemporaryObject, []},
+        {Uppy.Phases.FileHolder, []},
         {Uppy.Phases.FileInfo, []},
-        {Uppy.Phases.PutPermanentThumborResult, []},
+        {Uppy.Phases.PutImageProcessorResult, []},
         {Uppy.Phases.PutPermanentObjectCopy, []},
         {Uppy.Phases.UpdateSchemaMetadata, []},
-        {Uppy.Phases.PermanentObjectKeyValidate, []}
+        {Uppy.Phases.ValidateObjectPermanentPath, []}
       ]
   """
   @spec for_post_processing(options :: options()) :: phases()
   def for_post_processing(opts \\ []) do
     [
-      {Uppy.Phases.TemporaryObjectKeyValidate, opts},
-      {Uppy.Phases.FileHolder, opts},
+      {Uppy.Phases.ValidateObjectTemporaryPath, opts},
       {Uppy.Phases.HeadTemporaryObject, opts},
+      {Uppy.Phases.FileHolder, opts},
       {Uppy.Phases.FileInfo, opts},
-      {Uppy.Phases.PutPermanentThumborResult, opts},
+      {Uppy.Phases.PutImageProcessorResult, opts},
       {Uppy.Phases.PutPermanentObjectCopy, opts},
-      {Uppy.Phases.UpdateSchemaMetadata, opts},
-      {Uppy.Phases.PermanentObjectKeyValidate, opts}
+      {Uppy.Phases.ValidateObjectPermanentPath, opts},
+      {Uppy.Phases.UpdateSchemaMetadata, opts}
     ]
   end
 

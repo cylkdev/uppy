@@ -2,10 +2,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   @moduledoc """
   ...
   """
-  alias Uppy.{
-    Action,
-    Utils
-  }
+  alias Uppy.{Action, Utils}
 
   @type input :: map()
   @type schema :: Ecto.Queryable.t()
@@ -20,22 +17,25 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   @logger_prefix "Uppy.Phases.UpdateSchemaMetadata"
 
   def run(
-        %Uppy.Pipeline.Input{
-          bucket: bucket,
-          schema: schema,
-          schema_data: schema_data,
-          context: %{
-            file_info: file_info,
-            metadata: metadata
-          }
-        } = input,
-        options
-      ) do
-    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
+    %Uppy.Pipeline.Input{
+      schema: schema,
+      schema_data: schema_data,
+      context: context
+    } = input,
+    options
+  ) do
+    Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    with {:ok, schema_data} <-
-      update_metadata(schema, schema_data, file_info, metadata, options) do
-      {:ok, %{input | schema_data: schema_data}}
+    file_info = context.file_info
+    metadata = context.metadata
+
+    if destination_object_exists?(context) do
+      with {:ok, schema_data} <-
+        update_metadata(schema, schema_data, file_info, metadata, options) do
+        {:ok, %{input | schema_data: schema_data}}
+      end
+    else
+      raise "destination object does not exist, did you add a phase to copy the object?"
     end
   end
 
@@ -55,6 +55,11 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   end
 
   defp filename(path, extension) do
-    String.replace(Path.basename(path), Path.extname(path), "") <> extension
+    basename = String.replace(Path.basename(path), Path.extname(path), "")
+
+    "#{basename}.#{extension}"
   end
+
+  defp destination_object_exists?(%{destination_object: _}), do: true
+  defp destination_object_exists?(_), do: false
 end

@@ -2,10 +2,7 @@ defmodule Uppy.Phases.HeadTemporaryObject do
   @moduledoc """
   ...
   """
-  alias Uppy.{
-    Storage,
-    Utils
-  }
+  alias Uppy.{Storage, Utils}
 
   @type input :: map()
   @type schema :: Ecto.Queryable.t()
@@ -20,15 +17,14 @@ defmodule Uppy.Phases.HeadTemporaryObject do
   @logger_prefix "Uppy.Phases.HeadTemporaryObject"
 
   def run(
-        %Uppy.Pipeline.Input{
-          bucket: bucket,
-          schema: schema,
-          schema_data: schema_data,
-          context: context
-        } = input,
-        options
-      ) do
-    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
+    %Uppy.Pipeline.Input{
+      bucket: bucket,
+      schema_data: schema_data,
+      context: context
+    } = input,
+    options
+  ) do
+    Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
     with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, options) do
       {:ok, %{input | context: Map.put(context, :metadata, metadata)}}

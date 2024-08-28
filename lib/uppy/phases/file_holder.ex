@@ -21,27 +21,27 @@ defmodule Uppy.Phases.FileHolder do
   Implementation for `c:Uppy.Adapter.Phase.run/2`
   """
   @spec run(input(), options()) :: t_res(input())
+  def run(input, options \\ [])
+
   def run(
-        %Uppy.Pipeline.Input{
-          schema: schema,
-          schema_data: schema_data,
-          context: context
-        } = input,
-        options
-      ) do
-    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
+    %Uppy.Pipeline.Input{
+      schema: schema,
+      schema_data: schema_data,
+      holder: nil
+    } = input,
+    options
+  ) do
+    Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    if Map.get(context, :holder) === nil do
-      Utils.Logger.debug(@logger_prefix, "RUN fetching holder")
-
-      with {:ok, holder} <- find_holder(schema, schema_data, options) do
-        {:ok, %{input | context: Map.put(context, :holder, holder)}}
-      end
-    else
-      Utils.Logger.debug(@logger_prefix, "RUN holder already exists")
-
-      {:ok, input}
+    with {:ok, holder} <- find_holder(schema, schema_data, options) do
+      {:ok, %{input | holder: holder}}
     end
+  end
+
+  def run(%Uppy.Pipeline.Input{} = input, _options) do
+    Utils.Logger.debug(@logger_prefix, "run BEGIN")
+
+    {:ok, input}
   end
 
   @doc """
@@ -49,22 +49,24 @@ defmodule Uppy.Phases.FileHolder do
 
   ## Options
 
-      * `:holder_association_source` - The name of the field for the holder association. This should be an
-        association that the `schema` belongs to.
+      * `:holder_association_source` - The name of the field for the holder association.
+        This should be an association that the `schema` belongs to.
 
-      * `:holder_primary_key_source` The name of the primary key field on the holder schema data, for eg. `:id`.
+      * `:holder_primary_key_source` The name of the primary key field on the holder
+        schema data, for eg. `:id`.
 
   ### Examples
 
       iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %YourSchema{id: 1}, holder_primary_key_source: :id)
+
       iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %YourSchema{id: 1}, holder_association_source: :user)
+
       iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %YourSchema{id: 1})
+
       iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %{id: 1})
   """
   @spec find_holder(schema(), schema_data(), options()) :: t_res(schema_data())
   def find_holder(schema, %_{} = schema_data, options) do
-    Utils.Logger.debug(@logger_prefix, "find_holder BEGIN", binding: binding())
-
     assoc_source = Keyword.get(options, :holder_association_source, :user)
     ecto_assoc = fetch_ecto_association!(schema, assoc_source)
 
@@ -81,8 +83,6 @@ defmodule Uppy.Phases.FileHolder do
 
   @spec find_holder(schema(), params(), options()) :: t_res(schema_data())
   def find_holder(schema, params, options) do
-    Utils.Logger.debug(@logger_prefix, "find_holder BEGIN", binding: binding())
-
     with {:ok, schema_data} <- Action.find(schema, params, options) do
       find_holder(schema, schema_data, options)
     end
@@ -90,8 +90,6 @@ defmodule Uppy.Phases.FileHolder do
 
   @spec find_holder(schema(), params() | schema_data()) :: t_res(schema_data())
   def find_holder(schema, params_or_schema_data) do
-    Utils.Logger.debug(@logger_prefix, "find_holder BEGIN", binding: binding())
-
     find_holder(schema, params_or_schema_data, [])
   end
 

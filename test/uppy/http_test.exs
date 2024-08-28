@@ -1,6 +1,8 @@
 defmodule Uppy.HTTPTest do
   use ExUnit.Case, async: true
 
+  @moduletag :external
+
   describe "head/3: " do
     test "returns expected response" do
       assert {:ok, {body, response}} = Uppy.HTTP.head("http://localhost/response-headers?content_type=image/png")
@@ -97,7 +99,7 @@ defmodule Uppy.HTTPTest do
 
   describe "post/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.post("http://localhost/post", [], %{likes: 10})
+      assert {:ok, {body, response}} = Uppy.HTTP.post("http://localhost/post", %{likes: 10})
 
       assert %{
         args: %{},
@@ -131,7 +133,7 @@ defmodule Uppy.HTTPTest do
 
   describe "patch/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.patch("http://localhost/patch", [], %{likes: 10})
+      assert {:ok, {body, response}} = Uppy.HTTP.patch("http://localhost/patch", %{likes: 10})
 
       assert %{
         args: %{},
@@ -165,7 +167,7 @@ defmodule Uppy.HTTPTest do
 
   describe "put/3: " do
     test "returns expected response" do
-      assert {:ok, {body, response}} = Uppy.HTTP.put("http://localhost/put", [], %{likes: 10})
+      assert {:ok, {body, response}} = Uppy.HTTP.put("http://localhost/put", %{likes: 10})
 
       assert %{
         args: %{},

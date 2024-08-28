@@ -45,9 +45,11 @@ defmodule Uppy.HTTP do
   @type status :: Uppy.Adapter.HTTP.status()
   @type t_response :: Uppy.Adapter.HTTP.t_response()
 
+  @logger_prefix "Uppy.HTTP"
+
   @default_max_retries 10
   @one_hundred 100
-  @five_minutes_milliseconds 300_000
+  @two_minutes_ms 120_000
 
   @default_http_adapter Uppy.HTTP.Finch
 
@@ -60,9 +62,11 @@ defmodule Uppy.HTTP do
   """
   @spec head(url(), headers(), options()) :: t_response()
   def head(url, headers \\ [], options \\ []) do
+    http_options = Keyword.get(options, :http_options, [])
+
     fn ->
       url
-      |> adapter!(options).head(headers, http_options!(options))
+      |> adapter!(options).head(headers, http_options)
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -78,9 +82,11 @@ defmodule Uppy.HTTP do
   """
   @spec get(url(), headers(), options()) :: t_response()
   def get(url, headers \\ [], options \\ []) do
+    http_options = Keyword.get(options, :http_options, [])
+
     fn ->
       url
-      |> adapter!(options).get(headers, http_options!(options))
+      |> adapter!(options).get(headers, http_options)
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -96,9 +102,11 @@ defmodule Uppy.HTTP do
   """
   @spec delete(url(), headers(), options()) :: t_response()
   def delete(url, headers \\ [], options \\ []) do
+    http_options = Keyword.get(options, :http_options, [])
+
     fn ->
       url
-      |> adapter!(options).delete(headers, http_options!(options))
+      |> adapter!(options).delete(headers, http_options)
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -112,13 +120,15 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.post("http://url.com", "body")
   """
-  @spec post(url(), headers(), body(), options()) :: t_response()
-  def post(url, headers \\ [], body, options \\ []) do
+  @spec post(url(), body(), headers(), options()) :: t_response()
+  def post(url, body, headers \\ [], options \\ []) do
+    http_options = Keyword.get(options, :http_options, [])
+
     body = encode_json!(body, options)
 
     fn ->
       url
-      |> adapter!(options).post(body, headers, http_options!(options))
+      |> adapter!(options).post(body, headers, http_options)
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -132,13 +142,15 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.patch("http://url.com", "body")
   """
-  @spec patch(url(), headers(), body(), options()) :: t_response()
-  def patch(url, headers \\ [], body, options \\ []) do
+  @spec patch(url(), body(), headers(), options()) :: t_response()
+  def patch(url, body, headers \\ [], options \\ []) do
+    http_options = Keyword.get(options, :http_options, [])
+
     body = encode_json!(body, options)
 
     fn ->
       url
-      |> adapter!(options).patch(body, headers, http_options!(options))
+      |> adapter!(options).patch(body, headers, http_options)
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -152,13 +164,15 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.put("http://url.com", "body")
   """
-  @spec put(url(), headers(), body(), options()) :: t_response()
-  def put(url, headers \\ [], body, options \\ []) do
+  @spec put(url(), body(), headers(), options()) :: t_response()
+  def put(url, body, headers \\ [], options \\ []) do
+    http_options = Keyword.get(options, :http_options, [])
+
     body = encode_json!(body, options)
 
     fn ->
       url
-      |> adapter!(options).put(body, headers, http_options!(options))
+      |> adapter!(options).put(body, headers, http_options)
       |> handle_response()
     end
     |> maybe_retry(options)
@@ -168,7 +182,7 @@ defmodule Uppy.HTTP do
   defp exponential_backoff(attempt, options) do
     case options[:exponential_backoff_function] do
       nil ->
-        max = options[:exponential_backoff_max] || @five_minutes_milliseconds
+        max = options[:exponential_backoff_max] || @two_minutes_ms
         delay = options[:exponential_backoff_delay] || @one_hundred
         jitter = options[:exponential_backoff_jitter] || :rand.uniform_real()
 
@@ -205,6 +219,15 @@ defmodule Uppy.HTTP do
       max_retries when is_integer(max_retries) and max_retries > 0 ->
         with {:error, _} = error <- func.() do
           if attempt < max_retries do
+            Uppy.Utils.Logger.warn(
+              @logger_prefix,
+              """
+              [#{inspect(attempt + 1)}/#{inspect(max_retries)}] Request failed, got error:
+
+              #{inspect(error, pretty: true)}
+              """
+            )
+
             backoff = exponential_backoff(attempt, options)
 
             :timer.sleep(backoff)
@@ -281,10 +304,6 @@ defmodule Uppy.HTTP do
 
     #{inspect(term, pretty: true)}
     """
-  end
-
-  defp http_options!(options) do
-    Keyword.get(options, :http_options, [])
   end
 
   defp adapter!(options) do

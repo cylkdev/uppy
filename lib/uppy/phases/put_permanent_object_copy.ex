@@ -30,36 +30,29 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   def run(
     %Uppy.Pipeline.Input{
       bucket: bucket,
-      schema: schema,
       schema_data: schema_data,
       holder: holder,
       context: context
     } = input,
     options
   ) do
-    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
+    Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    if !completed?(context) do
-      Utils.Logger.debug(@logger_prefix, "RUN destination object not found")
-
+    if phase_completed?(context) do
+      {:ok, input}
+    else
       with {:ok, destination_object} <-
         put_permanent_object_copy(bucket, holder, schema_data, options) do
         {:ok, %{input | context: Map.put(context, :destination_object, destination_object)}}
       end
-    else
-      Utils.Logger.debug(@logger_prefix, "RUN skipped")
-
-      {:ok, input}
     end
   end
 
-  defp completed?(%{destination_object: _}), do: true
-  defp completed?(_), do: false
+  defp phase_completed?(%{destination_object: _}), do: true
+  defp phase_completed?(_), do: false
 
   def put_permanent_object_copy(bucket, %_{} = holder, %_{} = schema_data, options) do
-    Utils.Logger.debug(@logger_prefix, "PUT_PERMANENT_OBJECT_COPY BEGIN", binding: binding())
-
-    holder_id = fetch_holder_id!(holder, options)
+    holder_id = Uppy.Holder.fetch_id!(holder, options)
     resource = resource!(options)
     basename = Uppy.Core.basename(schema_data)
 
@@ -91,25 +84,6 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   defp resource!(options) do
     with nil <- Keyword.get(options, :resource, @default_resource) do
       raise "option `:resource` cannot be `nil` for phase #{__MODULE__}"
-    end
-  end
-
-  defp fetch_holder_id!(%_{} = holder, options) do
-    source = holder_partition_source!(options)
-
-    with nil <- Map.get(holder, source) do
-      raise """
-      The value of holder partition source #{inspect(source)} cannot be nil
-
-      holder:
-      #{inspect(holder, pretty: true)}
-      """
-    end
-  end
-
-  defp holder_partition_source!(options) do
-    with nil <- Keyword.get(options, :holder_partition_source, :organization) do
-      raise "option `:holder_partition_source` cannot be `nil` for phase #{__MODULE__}"
     end
   end
 end

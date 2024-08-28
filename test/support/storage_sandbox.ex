@@ -1,4 +1,6 @@
 defmodule Uppy.Support.StorageSandbox do
+  @moduledoc false
+
   @sleep 10
   @state "state"
   @disabled "disabled_pids"
@@ -23,16 +25,88 @@ defmodule Uppy.Support.StorageSandbox do
   @type object :: binary()
   @type body :: term()
   @type options :: keyword
-  @type http_method ::
-          :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
+  @type http_method :: :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
   @type upload_id :: binary()
   @type part_number :: non_neg_integer()
   @type parts :: list(map())
-  @type nil_or_marker :: binary() | nil
+  @type marker :: binary()
+  @type start_byte :: non_neg_integer()
+  @type end_byte :: non_neg_integer()
+  @type chunk_size :: non_neg_integer()
 
   @spec start_link :: {:error, any} | {:ok, pid}
   def start_link do
     Registry.start_link(keys: @keys, name: @registry)
+  end
+
+  @spec download_chunk_stream_response(bucket, object, chunk_size, options) :: any
+  def download_chunk_stream_response(bucket, object, chunk_size, options) do
+    func = find!(:download_chunk_stream, bucket)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, chunk_size)
+
+      3 ->
+        func.(object, chunk_size, options)
+
+      _ ->
+        raise """
+        This function's signature is not supported:
+
+        #{inspect(func)}
+
+        Please provide a function that takes between zero to two args:
+
+        fn -> ... end
+        fn (object) -> ... end
+        fn (object, chunk_size) -> ... end
+        fn (object, chunk_size, options) -> ... end
+        """
+    end
+  end
+
+  @spec get_chunk_response(bucket, object, start_byte, end_byte, options) :: any
+  def get_chunk_response(bucket, object, start_byte, end_byte, options) do
+    func = find!(:get_chunk, bucket)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, start_byte)
+
+      3 ->
+        func.(object, start_byte, end_byte)
+
+      4 ->
+        func.(object, start_byte, end_byte, options)
+
+      _ ->
+        raise """
+        This function's signature is not supported:
+
+        #{inspect(func)}
+
+        Please provide a function that takes between zero to two args:
+
+        fn -> ... end
+        fn (object) -> ... end
+        fn (object, start_byte) -> ... end
+        fn (object, start_byte, end_byte) -> ... end
+        fn (object, start_byte, end_byte, options) -> ... end
+        """
+    end
   end
 
   @spec list_objects_response(bucket, prefix, options) :: any
@@ -194,7 +268,7 @@ defmodule Uppy.Support.StorageSandbox do
     end
   end
 
-  @spec list_parts_response(bucket, object, upload_id, nil_or_marker, options) :: any
+  @spec list_parts_response(bucket, object, upload_id, marker | nil, options) :: any
   def list_parts_response(bucket, object, upload_id, next_part_number_marker, options) do
     func = find!(:list_parts, bucket)
 
@@ -413,6 +487,32 @@ defmodule Uppy.Support.StorageSandbox do
   def set_list_objects_responses(tuples) do
     tuples
     |> Map.new(fn {bucket, func} -> {{:list_objects, bucket}, func} end)
+    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
+    |> then(fn
+      :ok -> :ok
+      {:error, :registry_not_started} -> raise_not_started!()
+    end)
+
+    Process.sleep(@sleep)
+  end
+
+  @spec set_download_stream_responses([{binary(), fun}]) :: :ok
+  def set_download_stream_responses(tuples) do
+    tuples
+    |> Map.new(fn {bucket, func} -> {{:download_stream, bucket}, func} end)
+    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
+    |> then(fn
+      :ok -> :ok
+      {:error, :registry_not_started} -> raise_not_started!()
+    end)
+
+    Process.sleep(@sleep)
+  end
+
+  @spec set_get_chunk_responses([{binary(), fun}]) :: :ok
+  def set_get_chunk_responses(tuples) do
+    tuples
+    |> Map.new(fn {bucket, func} -> {{:get_chunk, bucket}, func} end)
     |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
     |> then(fn
       :ok -> :ok

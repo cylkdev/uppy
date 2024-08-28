@@ -1,6 +1,6 @@
 if Uppy.Utils.application_loaded?(:finch) do
   defmodule Uppy.HTTP.Finch do
-    @default_name :uppy_adapters_http_finch
+    @default_name :uppy_http_finch
     @default_pool_config [size: 10]
     @default_options [
       name: @default_name,
@@ -353,6 +353,7 @@ if Uppy.Utils.application_loaded?(:finch) do
       Utils.Logger.debug(@logger_prefix, "GET url=#{inspect(url)}")
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
+
       http_get = options[:http][:get] || (&make_get_request/3)
 
       fn ->

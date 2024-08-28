@@ -63,7 +63,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
 
   defp maybe_reverse(id, opts) do
     if Keyword.get(opts, :reverse_ids?, true) do
-      String.reverse(id)
+      id |> to_string() |> String.reverse()
     else
       id
     end
@@ -134,7 +134,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   @impl true
   @spec validate_permanent_path(path :: binary(), opts :: keyword()) :: :ok | {:error, term()}
   def validate_permanent_path(path, opts \\ []) do
-    with {:ok, _} <- decode_permanent_path(path, opts) do
+    with {:ok, _} <- decode_permanent_path(path, opts) |> IO.inspect() do
       :ok
     end
   end

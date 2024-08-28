@@ -241,11 +241,14 @@ defmodule Uppy.Core do
       iex> Uppy.Core.presigned_part("bucket", "unique_id", YourSchema, %{id: 1}, 1)
   """
   def presigned_part(bucket, _schema, %_{} = schema_data, part_number, options) do
+    http_method = upload_http_method(options)
+
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
          {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, presigned_part} <-
            Storage.presigned_part_upload(
              bucket,
+             http_method,
              schema_data.key,
              schema_data.upload_id,
              part_number,
@@ -1113,7 +1116,9 @@ defmodule Uppy.Core do
         key: key
       })
 
-    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, key, options) do
+    http_method = upload_http_method(options)
+
+    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, http_method, key, options) do
       operation = fn ->
         with {:ok, schema_data} <- Action.create(schema, params, options) do
           if Keyword.get(options, :scheduler_enabled?, true) do
@@ -1154,6 +1159,10 @@ defmodule Uppy.Core do
 
   def start_upload(bucket, partition_id, schema, params) do
     start_upload(bucket, partition_id, schema, params, [])
+  end
+
+  defp upload_http_method(options) do
+    options[:upload_http_method] || :post
   end
 
   defp maybe_generate_unique_identifier(nil, options), do: generate_unique_identifier(options)

@@ -20,7 +20,7 @@ defmodule Uppy.Error do
   ### Examples
 
       iex> Uppy.Error.bad_request("message", %{})
-      %{code: :bad_request, message: "message", details: %{}}
+      %ErrorMessage{code: :bad_request, message: "message", details: %{}}
   """
   @spec bad_request(message(), details()) :: error_message()
   def bad_request(message, details \\ nil) do
@@ -33,7 +33,7 @@ defmodule Uppy.Error do
   ### Examples
 
       iex> Uppy.Error.forbidden("message", %{})
-      %{code: :forbidden, message: "message", details: %{}}
+      %ErrorMessage{code: :forbidden, message: "message", details: %{}}
   """
   @spec forbidden(message(), details()) :: error_message()
   def forbidden(message, details \\ nil) do
@@ -46,7 +46,7 @@ defmodule Uppy.Error do
   ### Examples
 
       iex> Uppy.Error.internal_server_error("message", %{})
-      %{code: :internal_server_error, message: "message", details: %{}}
+      %ErrorMessage{code: :internal_server_error, message: "message", details: %{}}
   """
   @spec internal_server_error(message(), details()) :: error_message()
   def internal_server_error(message, details \\ nil) do
@@ -59,7 +59,7 @@ defmodule Uppy.Error do
   ### Examples
 
       iex> Uppy.Error.not_found("message", %{})
-      %{code: :not_found, message: "message", details: %{}}
+      %ErrorMessage{code: :not_found, message: "message", details: %{}}
   """
   @spec not_found(message(), details()) :: error_message()
   def not_found(message, details \\ nil) do
@@ -72,7 +72,7 @@ defmodule Uppy.Error do
   ### Examples
 
       iex> Uppy.Error.request_timeout("message", %{})
-      %{code: :request_timeout, message: "message", details: %{}}
+      %ErrorMessage{code: :request_timeout, message: "message", details: %{}}
   """
   @spec request_timeout(message(), details()) :: error_message()
   def request_timeout(message, details \\ nil) do
@@ -85,7 +85,7 @@ defmodule Uppy.Error do
   ### Examples
 
       iex> Uppy.Error.service_unavailable("message", %{})
-      %{code: :service_unavailable, message: "message", details: %{}}
+      %ErrorMessage{code: :service_unavailable, message: "message", details: %{}}
   """
   @spec service_unavailable(message(), details()) :: error_message()
   def service_unavailable(message, details \\ nil) do
@@ -100,8 +100,8 @@ defmodule Uppy.Error do
 
   ### Examples
 
-      iex> Error.call(:not_found, "resource not found", %{})
-      %{code: :not_found, message: "resource not found", details: %{}}
+      iex> Uppy.Error.call(:not_found, "resource not found", %{})
+      %ErrorMessage{code: :not_found, message: "resource not found", details: %{}}
   """
   @spec call(code(), message(), details()) :: error_message()
   def call(code, message, details \\ nil) do

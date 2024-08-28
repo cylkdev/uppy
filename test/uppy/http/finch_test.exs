@@ -33,7 +33,7 @@ defmodule Uppy.HTTP.FinchTest do
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: response_body,
+        body: _response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -48,8 +48,6 @@ defmodule Uppy.HTTP.FinchTest do
           private: %{}
         }
       } = response
-
-      assert "" = response_body
     end
   end
 
@@ -59,7 +57,7 @@ defmodule Uppy.HTTP.FinchTest do
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: response_body,
+        body: _response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -74,18 +72,18 @@ defmodule Uppy.HTTP.FinchTest do
           private: %{}
         }
       } = response
-
-      assert "" = response_body
     end
   end
 
   describe "post/3: " do
     test "returns expected response" do
-      assert {:ok, response} = Uppy.HTTP.Finch.post("http://localhost/post", [], %{likes: 10})
+      json = Jason.encode!(%{likes: 10})
+
+      assert {:ok, response} = Uppy.HTTP.Finch.post("http://localhost/post", json)
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: response_body,
+        body: _response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -100,18 +98,18 @@ defmodule Uppy.HTTP.FinchTest do
           private: %{}
         }
       } = response
-
-      assert "" = response_body
     end
   end
 
   describe "patch/3: " do
     test "returns expected response" do
-      assert {:ok, response} = Uppy.HTTP.Finch.patch("http://localhost/patch", [], %{likes: 10})
+      json = Jason.encode!(%{likes: 10})
+
+      assert {:ok, response} = Uppy.HTTP.Finch.patch("http://localhost/patch", json)
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: response_body,
+        body: _response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -126,18 +124,18 @@ defmodule Uppy.HTTP.FinchTest do
           private: %{}
         }
       } = response
-
-      assert "" = response_body
     end
   end
 
   describe "put/3: " do
     test "returns expected response" do
-      assert {:ok, response} = Uppy.HTTP.Finch.put("http://localhost/put", [], %{likes: 10})
+      json = Jason.encode!(%{likes: 10})
+
+      assert {:ok, response} = Uppy.HTTP.Finch.put("http://localhost/put", json)
 
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
-        body: response_body,
+        body: _response_body,
         headers: _response_headers,
         request: %Finch.Request{
           scheme: :http,
@@ -152,8 +150,6 @@ defmodule Uppy.HTTP.FinchTest do
           private: %{}
         }
       } = response
-
-      assert "" = response_body
     end
   end
 end

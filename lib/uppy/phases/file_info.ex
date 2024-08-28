@@ -20,19 +20,23 @@ defmodule Uppy.Phases.FileInfo do
   # Approximately 256 bytes is needed to detect the file type.
   @two_hundred_fifty_six_bytes 256
 
-  def run(
-        %Uppy.Pipeline.Input{
-          bucket: bucket,
-          schema: schema,
-          schema_data: schema_data,
-          context: context
-        } = input,
-        options
-      ) do
-    Utils.Logger.debug(@logger_prefix, "RUN BEGIN", binding: binding())
+  @doc false
+  @spec default_end_byte :: pos_integer()
+  def default_end_byte, do: @two_hundred_fifty_six_bytes
 
-    with {:ok, metadata} <- describe_object_chunk(bucket, schema_data.key, options) do
-      {:ok, %{input | context: Map.put(context, :file_info, metadata)}}
+  def run(
+    %Uppy.Pipeline.Input{
+      bucket: bucket,
+      schema_data: schema_data,
+      context: context
+    } = input,
+    options
+  ) do
+    Utils.Logger.debug(@logger_prefix, "run BEGIN", binding: binding())
+
+    with {:ok, file_info} <-
+      describe_object_chunk(bucket, schema_data.key, options) do
+      {:ok, %{input | context: Map.put(context, :file_info, file_info)}}
     end
   end
 
@@ -40,27 +44,21 @@ defmodule Uppy.Phases.FileInfo do
   Returns the `mimetype`, `extension`, and `basename` detected from the file binary data.
   """
   def describe_object_chunk(bucket, object, options \\ []) do
-    Utils.Logger.debug(@logger_prefix, "describe_object_chunk BEGIN", binding: binding())
-
     with {:ok, binary} <- download_chunk(bucket, object, options) do
       from_binary(binary)
     end
   end
 
   def download_chunk(bucket, object, options \\ []) do
-    Utils.Logger.debug(@logger_prefix, "download_chunk BEGIN", binding: binding())
-
     end_byte = end_byte!(options)
 
     with {:ok, {_start_byte, body}} <-
-           Storage.get_chunk(bucket, object, 0, end_byte, options) do
+      Storage.get_chunk(bucket, object, 0, end_byte, options) do
       {:ok, body}
     end
   end
 
   def from_binary(binary) do
-    Utils.Logger.debug(@logger_prefix, "from_binary BEGIN")
-
     with {:ok, file_info} <- file_info(binary) do
       case image_info(binary) do
         nil -> {:ok, file_info}

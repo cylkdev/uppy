@@ -39,7 +39,7 @@
 
 #   defmodule MockTestPipeline do
 #     def pipeline(_options) do
-#       [Uppy.Phases.TemporaryObjectKeyValidate]
+#       [Uppy.Phases.ValidateObjectTemporaryPath]
 #     end
 #   end
 
@@ -371,7 +371,7 @@
 #                    resource: "user-avatars",
 #                    bucket: @bucket
 #                  },
-#                  [Uppy.Phases.TemporaryObjectKeyValidate]
+#                  [Uppy.Phases.ValidateObjectTemporaryPath]
 #                }
 #              } =
 #                perform_job(
@@ -988,7 +988,7 @@
 #         })
 
 #       pipeline = [
-#         Uppy.Phases.TemporaryObjectKeyValidate
+#         Uppy.Phases.ValidateObjectTemporaryPath
 #       ]
 
 #       expected_schema_data_id = expected_schema_data.id
@@ -1018,7 +1018,7 @@
 #                     archived_at: nil
 #                   }
 #                 },
-#                 [Uppy.Phases.TemporaryObjectKeyValidate]
+#                 [Uppy.Phases.ValidateObjectTemporaryPath]
 #               }} =
 #                Core.process_upload(
 #                  pipeline,
@@ -1413,7 +1413,7 @@
 #                    resource: "user-avatars",
 #                    bucket: @bucket
 #                  },
-#                  [Uppy.Phases.TemporaryObjectKeyValidate]
+#                  [Uppy.Phases.ValidateObjectTemporaryPath]
 #                }
 #              } =
 #                perform_job(
