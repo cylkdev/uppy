@@ -39,10 +39,16 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
     if phase_completed?(context) do
+      Utils.Logger.debug(@logger_prefix, "run - skipping execution")
+
       {:ok, input}
     else
+      Utils.Logger.debug(@logger_prefix, "run - copying image")
+
       with {:ok, destination_object} <-
         put_permanent_object_copy(bucket, holder, schema_data, options) do
+        Utils.Logger.debug(@logger_prefix, "run - copied image to #{inspect(destination_object)}")
+
         {:ok, %{input | context: Map.put(context, :destination_object, destination_object)}}
       end
     end

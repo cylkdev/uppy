@@ -48,17 +48,13 @@ defmodule Uppy.Pipeline do
       ]
   """
   @spec for_post_processing(options :: options()) :: phases()
-  def for_post_processing(opts \\ []) do
-    [
-      {Uppy.Phases.ValidateObjectTemporaryPath, opts},
-      {Uppy.Phases.HeadTemporaryObject, opts},
-      {Uppy.Phases.FileHolder, opts},
-      {Uppy.Phases.FileInfo, opts},
-      {Uppy.Phases.PutImageProcessorResult, opts},
-      {Uppy.Phases.PutPermanentObjectCopy, opts},
-      {Uppy.Phases.ValidateObjectPermanentPath, opts},
-      {Uppy.Phases.UpdateSchemaMetadata, opts}
-    ]
+  defdelegate for_post_processing(opts \\ []),
+    to: Uppy.Pipelines.PostProcessingPipeline,
+    as: :phases
+
+  @spec phases(adapter :: module(), opts :: options()) :: list()
+  def phases(adapter, opts) do
+    adapter.phases(opts)
   end
 
   @doc """
@@ -156,23 +152,24 @@ defmodule Uppy.Pipeline do
   def replace(pipeline, phase, replacement) do
     Enum.map(pipeline, fn candidate ->
       case match_phase?(phase, candidate) do
-        true ->
-          case phase_invocation(candidate) do
-            {_, []} ->
-              replacement
-
-            {_, options} ->
-              if is_atom(replacement) do
-                {replacement, options}
-              else
-                replacement
-              end
-          end
-
-        false ->
-          candidate
+        true -> do_replace(candidate, replacement)
+        false -> candidate
       end
     end)
+  end
+
+  defp do_replace(candidate, replacement) do
+    case phase_invocation(candidate) do
+      {_, []} ->
+        replacement
+
+      {_, options} ->
+        if is_atom(replacement) do
+          {replacement, options}
+        else
+          replacement
+        end
+    end
   end
 
   defp phase_invocation({phase, options}) when is_list(options) do
@@ -199,7 +196,9 @@ defmodule Uppy.Pipeline do
   def upto(pipeline, phase) do
     beginning = before(pipeline, phase)
 
-    item = get_in(pipeline, [Access.at(length(beginning))])
+    index = beginning |> length() |> Access.at()
+
+    item = get_in(pipeline, [index])
 
     beginning ++ [item]
   end

@@ -1,4 +1,8 @@
 defmodule Uppy.Phases.FileInfo do
+  @moduledoc """
+  ...
+  """
+
   alias Uppy.{
     Error,
     Storage,

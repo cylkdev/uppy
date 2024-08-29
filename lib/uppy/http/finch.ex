@@ -206,7 +206,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec patch(binary, map | binary, headers) :: t_res
     @spec patch(binary, map | binary, headers, keyword()) :: t_res
     def patch(url, body, headers \\ [], options \\ []) do
-      Utils.Logger.debug(@logger_prefix, "PATCH url=#{inspect(url)}")
+      Utils.Logger.debug(@logger_prefix, "PATCH", binding: binding())
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
       http_patch = options[:http][:patch] || (&make_patch_request/4)
@@ -242,7 +242,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec post(binary, map | binary, headers) :: t_res
     @spec post(binary, map | binary, headers, keyword()) :: t_res
     def post(url, body, headers \\ [], options \\ []) do
-      Utils.Logger.debug(@logger_prefix, "POST url=#{inspect(url)}")
+      Utils.Logger.debug(@logger_prefix, "POST", binding: binding())
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
       http_post = options[:http][:post] || (&make_post_request/4)
@@ -278,7 +278,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec put(binary, map | binary, headers) :: t_res
     @spec put(binary, map | binary, headers, keyword()) :: t_res
     def put(url, body, headers \\ [], options \\ []) do
-      Utils.Logger.debug(@logger_prefix, "PUT url=#{inspect(url)}")
+      Utils.Logger.debug(@logger_prefix, "PUT", binding: binding())
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
       http_put = options[:http][:put] || (&make_put_request/4)
@@ -314,7 +314,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec head(binary, headers) :: t_res
     @spec head(binary, headers, keyword()) :: t_res
     def head(url, headers \\ [], options \\ []) do
-      Utils.Logger.debug(@logger_prefix, "HEAD url=#{inspect(url)}")
+      Utils.Logger.debug(@logger_prefix, "HEAD", binding: binding())
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
       http_head = options[:http][:head] || (&make_head_request/3)
@@ -350,7 +350,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec get(binary, headers) :: t_res
     @spec get(binary, headers, keyword()) :: t_res
     def get(url, headers \\ [], options \\ []) do
-      Utils.Logger.debug(@logger_prefix, "GET url=#{inspect(url)}")
+      Utils.Logger.debug(@logger_prefix, "GET", binding: binding())
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
 
@@ -387,7 +387,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec delete(binary, headers) :: t_res
     @spec delete(binary, headers, keyword()) :: t_res
     def delete(url, headers \\ [], options \\ []) do
-      Utils.Logger.debug(@logger_prefix, "DELETE url=#{inspect(url)}")
+      Utils.Logger.debug(@logger_prefix, "DELETE", binding: binding())
 
       options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
       http_delete = options[:http][:delete] || (&make_delete_request/3)

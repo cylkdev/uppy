@@ -1,29 +1,40 @@
 defmodule Uppy.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/RequisDev/uppy"
+  @version "0.1.0"
+
   def project do
     [
       app: :uppy,
-      version: "0.1.0",
-      elixir: "~> 1.14",
+      version: @version,
+      elixir: "~> 1.0",
       elixirc_paths: elixirc_paths(Mix.env()),
-      start_permanent: Mix.env() === :prod,
-      aliases: aliases(),
+      start_permanent: Mix.env() == :prod,
       deps: deps(),
+      description: "Declarative comparisons and changes",
+      docs: docs(),
+      package: package(),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
-        coveralls: :test,
-        coverage: :test,
         dialyzer: :test,
+        coveralls: :test,
         "coveralls.lcov": :test,
         "coveralls.json": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test
       ],
       dialyzer: [
-        plt_add_apps: [:ex_unit, :mix],
+        plt_add_apps: [
+          :ex_unit,
+          :decimal,
+          :mix
+        ],
         list_unused_filters: true,
-        plt_local_path: ".check/local_plt",
-        plt_core_path: ".check/core_plt"
+        plt_local_path: "dialyzer",
+        plt_core_path: "dialyzer",
+        flags: [:unmatched_returns]
       ]
     ]
   end
@@ -75,18 +86,28 @@ defmodule Uppy.MixProject do
   defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  if Mix.env() in [:dev, :test] do
-    defp aliases do
-      [
-        setup: ["deps.get", "ecto.setup"],
-        "ecto.setup": ["ecto.create", "ecto.migrate", "ecto.seed"],
-        "ecto.reset": ["ecto.drop", "ecto.setup"],
-        "ecto.seed": ["run priv/repo/seeds.exs"]
-      ]
-    end
-  else
-    defp aliases do
-      []
-    end
+  defp package do
+    [
+      maintainers: ["Kurt Hogarth"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/cylkdev/substitute_x"},
+      files: ~w(mix.exs README.md CHANGELOG.md lib)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      source_url: "https://github.com/cylkdev/substitute_x",
+      extras: [
+        "CHANGELOG.md": [],
+        "LICENSE.txt": [title: "License"],
+        "README.md": [title: "Readme"]
+      ],
+      source_url: @source_url,
+      source_ref: @version,
+      api_reference: false,
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
+    ]
   end
 end

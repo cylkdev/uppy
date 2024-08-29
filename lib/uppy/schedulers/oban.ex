@@ -1,9 +1,13 @@
 if Uppy.Utils.application_loaded?(:oban) do
   defmodule Uppy.Schedulers.Oban do
+    @moduledoc """
+    ...
+    """
+
     alias Uppy.Schedulers.Oban.{
+      AbortUploadWorker,
       GarbageCollectorWorker,
-      PostProcessingWorker,
-      AbortUploadWorker
+      PostProcessingWorker
     }
 
     def queue_delete_object_if_upload_not_found(

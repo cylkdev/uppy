@@ -154,7 +154,6 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
         case response do
           {:error, _} = error -> repo.rollback(error)
           :error -> repo.rollback(:error)
-          res when is_tuple(res) -> if elem(res, 0) === :error, do: repo.rollback(res), else: res
           res -> res
         end
       else

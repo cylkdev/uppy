@@ -1,8 +1,21 @@
 defmodule Uppy.PathBuilder do
+  @moduledoc """
+  ...
+  """
 
   @type permanent_path_descriptor :: Uppy.Adapter.PathBuilder.permanent_path_descriptor()
 
   @default_path_builder Uppy.PathBuilders.UploadPathBuilder
+
+  @spec encode_id(id :: binary(), opts :: keyword()) :: binary()
+  def encode_id(id, opts \\ []) do
+    adapter!(opts).encode_id(id, opts)
+  end
+
+  @spec decode_id(id :: binary(), opts :: keyword()) :: binary()
+  def decode_id(id, opts \\ []) do
+    adapter!(opts).decode_id(id, opts)
+  end
 
   @doc """
   Returns a map describing each component of the permanent path.

@@ -1,4 +1,8 @@
 defmodule Uppy.Phases.PutImageProcessorResult do
+  @moduledoc """
+  ...
+  """
+
   alias Uppy.{
     PathBuilder,
     Utils
@@ -34,15 +38,20 @@ defmodule Uppy.Phases.PutImageProcessorResult do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
     file_info = context.file_info
+
     metadata = context.metadata
 
     if phase_completed?(context) or !supported_image?(file_info, metadata, options) do
-      IO.inspect("SKIP")
+      Utils.Logger.debug(@logger_prefix, "skipping execution because phase already completed or the object is not a support image")
+
       {:ok, input}
     else
-      IO.inspect("RUN")
+      Utils.Logger.debug(@logger_prefix, "copying optimized image result")
+
       with {:ok, destination_object} <-
         put_permanent_result(bucket, holder, schema_data, options) do
+        Utils.Logger.debug(@logger_prefix, "copied image to #{inspect(destination_object)}")
+
         {:ok, %{input | context: Map.put(context, :destination_object, destination_object)}}
       end
     end

@@ -1,4 +1,7 @@
 defmodule Uppy.Adapter.Phase do
+  @moduledoc """
+  ...
+  """
 
   @type t :: module() | {module(), keyword()}
 

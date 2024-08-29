@@ -107,7 +107,10 @@ defmodule Uppy.Utils do
   """
   @spec string_to_existing_module!(binary()) :: atom()
   def string_to_existing_module!(string) do
-    String.to_existing_atom("Elixir.#{string}")
+    case string do
+      "Elixir." <> _ = module -> String.to_existing_atom(module)
+      string -> String.to_existing_atom("Elixir.#{string}")
+    end
   end
 
   @doc """

@@ -1,4 +1,8 @@
 defmodule Uppy.Storage do
+  @moduledoc """
+  ...
+  """
+
   alias Uppy.Config
 
   @type t_res :: Uppy.Adapter.Storage.t_res()

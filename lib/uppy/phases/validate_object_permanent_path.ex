@@ -21,9 +21,7 @@ defmodule Uppy.Phases.ValidateObjectPermanentPath do
   def run(%Uppy.Pipeline.Input{schema_data: schema_data} = input, options) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    IO.inspect(schema_data, label: "1")
-
-    with :ok <- PathBuilder.validate_permanent_path(schema_data.key, options) |> IO.inspect(label: "2") do
+    with :ok <- PathBuilder.validate_permanent_path(schema_data.key, options) do
       {:ok, input}
     end
   end

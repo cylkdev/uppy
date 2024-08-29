@@ -22,23 +22,9 @@ defmodule Uppy.CoreSchemaTest do
   @unique_identifier "test_unique_identifier"
   @upload_id "test_upload_id"
 
-  @expires_at ~U[2024-07-24 02:51:32.453714Z]
-  @content_length 11
-  @content_type "text/plain"
-  @e_tag "etag"
-  @size 1
-  @last_modified ~U[2023-08-18 10:53:21Z]
-
-  @storage_object_metadata %{
-    content_length: @content_length,
-    content_type: @content_type,
-    e_tag: @e_tag,
-    last_modified: @last_modified
-  }
-
-  defmodule MockTestPipeline do
-    def pipeline(_options) do
-      [Uppy.Phases.ValidateObjectTemporaryPath]
+  defmodule MockPipeline do
+    def phases(opts \\ []) do
+      [{Uppy.Phases.ValidateObjectTemporaryPath, opts}]
     end
   end
 
@@ -63,123 +49,133 @@ defmodule Uppy.CoreSchemaTest do
          {:ok,
           %{
             url: "https://url.com/#{object}",
-            expires_at: @expires_at
+            expires_at: ~U[2024-07-24 02:51:32.453714Z]
           }}
        end}
     ])
   end
 
   describe "&find_permanent_multipart_upload/2" do
-    test "returns record when `:e_tag` is not nil and `:key` is a permanent object key", context do
-      expected_temporary_key =
-        "#{String.reverse("#{context.user.id}")}-uploads/user-avatars/#{@filename}"
+    test "returns a record if :e_tag is not nil and :key is a permanent object key.", context do
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      permanent_key = "#{user_id}-uploads/user-avatars/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: permanent_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
-          e_tag: @e_tag,
+          e_tag: "etag",
           upload_id: @upload_id
         })
 
-      assert {:ok, actual_schema_data} =
+      assert {:ok, found_schema_data} =
         Core.find_permanent_multipart_upload(
           @schema,
-          %{id: expected_schema_data.id}
+          %{id: schema_data.id}
         )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert schema_data.id === found_schema_data.id
     end
   end
 
   describe "&find_completed_multipart_upload/2" do
-    test "returns record when `:e_tag` is not nil", context do
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+    test "returns a record when `:e_tag` is not nil", context do
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
-          e_tag: @e_tag,
+          e_tag: "etag",
           upload_id: @upload_id
         })
 
-      assert {:ok, actual_schema_data} =
+      assert {:ok, found_schema_data} =
         Core.find_completed_multipart_upload(
           @schema,
-          %{id: expected_schema_data.id}
+          %{id: schema_data.id}
         )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert schema_data.id === found_schema_data.id
     end
   end
 
   describe "&find_temporary_multipart_upload/2" do
     test "returns record when `:e_tag` is not nil and `:key` is a temporary object key", context do
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
         })
 
-      assert {:ok, actual_schema_data} =
+      assert {:ok, found_schema_data} =
         Core.find_temporary_multipart_upload(
           @schema,
-          %{id: expected_schema_data.id}
+          %{id: schema_data.id}
         )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert schema_data.id === found_schema_data.id
     end
   end
 
   describe "&find_parts/5" do
     test "returns the parts for a multipart upload", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
         })
 
-      expected_schema_data_id = expected_schema_data.id
-      expected_user_id = context.user.id
-      expected_user_avatar_id = context.user_avatar.id
+      schema_data_id = schema_data.id
+      user_id = context.user.id
+      user_avatar_id = context.user_avatar.id
 
       StorageSandbox.set_list_parts_responses([
-        {@bucket,
-         fn ->
-           {:ok,
-            [
+        {
+          @bucket,
+          fn ->
+            {:ok, [
               %{
-                size: @size,
-                etag: @e_tag,
+                size: 1,
+                etag: "etag",
                 part_number: 1
               }
             ]}
-         end}
+          end
+        }
       ])
 
       assert {:ok, response} =
-        Core.find_parts(@bucket, @schema, %{id: expected_schema_data.id})
+        Core.find_parts(
+          @bucket,
+          @schema,
+          %{id: schema_data_id}
+        )
 
       assert %{
         parts: parts,
@@ -188,19 +184,19 @@ defmodule Uppy.CoreSchemaTest do
 
       assert [
         %{
-          size: @size,
-          etag: @e_tag,
+          size: 1,
+          etag: "etag",
           part_number: 1
         }
       ] = parts
 
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        id: ^expected_schema_data_id,
-        user_id: ^expected_user_id,
-        user_avatar_id: ^expected_user_avatar_id,
+        id: ^schema_data_id,
+        user_id: ^user_id,
+        user_avatar_id: ^user_avatar_id,
         unique_identifier: @unique_identifier,
-        key: ^expected_temporary_key,
-        filename: @filename,
+        key: ^temporary_key,
+        filename: "example.txt",
         e_tag: nil,
         upload_id: @upload_id,
         content_length: nil,
@@ -214,29 +210,31 @@ defmodule Uppy.CoreSchemaTest do
 
   describe "&presigned_part/5" do
     test "returns presigned url payload and schema data", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
         })
 
-      expected_presigned_url = "https://url.com/#{expected_temporary_key}"
+      presigned_url = "https://url.com/#{temporary_key}"
 
-      expected_schema_data_id = expected_schema_data.id
-      expected_user_id = context.user.id
-      expected_user_avatar_id = context.user_avatar.id
+      schema_data_id = schema_data.id
+      user_id = context.user.id
+      user_avatar_id = context.user_avatar.id
 
       assert {:ok, response} =
         Core.presigned_part(
           @bucket,
           @schema,
-          %{id: expected_schema_data.id},
+          %{id: schema_data_id},
           1
         )
 
@@ -246,17 +244,17 @@ defmodule Uppy.CoreSchemaTest do
       } = response
 
       assert %{
-        url: ^expected_presigned_url,
-        expires_at: @expires_at
+        url: ^presigned_url,
+        expires_at: ~U[2024-07-24 02:51:32.453714Z]
       } = presigned_part
 
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        id: ^expected_schema_data_id,
-        user_id: ^expected_user_id,
-        user_avatar_id: ^expected_user_avatar_id,
+        id: ^schema_data_id,
+        user_id: ^user_id,
+        user_avatar_id: ^user_avatar_id,
         unique_identifier: @unique_identifier,
-        key: ^expected_temporary_key,
-        filename: @filename,
+        key: ^temporary_key,
+        filename: "example.txt",
         e_tag: nil,
         upload_id: @upload_id,
         content_length: nil,
@@ -269,15 +267,16 @@ defmodule Uppy.CoreSchemaTest do
   end
 
   describe "&complete_multipart_upload/7" do
-    test "updates the `:e_tag and creates pipeline job when given `schema_data` as an argument and the scheduler is enabled", context do
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+    test "updates :e_tag and creates a pipeline job when schema_data is provided and the scheduler is enabled.", context do
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
@@ -288,47 +287,59 @@ defmodule Uppy.CoreSchemaTest do
          fn ->
            {:ok,
             %{
-              location: "https://s3.com/#{expected_temporary_key}",
+              location: "https://s3.com/#{temporary_key}",
               bucket: @bucket,
-              key: expected_temporary_key,
-              e_tag: @e_tag
+              key: temporary_key,
+              e_tag: "etag"
             }}
          end}
       ])
 
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       assert {:ok, response} =
         Core.complete_multipart_upload(
           @bucket,
           @resource,
-          MockTestPipeline,
+          MockPipeline,
           @schema,
-          expected_schema_data,
+          schema_data,
           %{},
-          [{1, @e_tag}]
+          [{1, "etag"}]
         )
 
       assert %{
-        metadata: @storage_object_metadata,
-        schema_data: expected_schema_data,
-        jobs: %{process_upload: process_upload_job}
+        metadata: metadata,
+        schema_data: schema_data,
+        jobs: %{
+          process_upload: process_upload_job
+        }
       } = response
 
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      assert %{
+        content_length: 11,
+        content_type: "text/plain",
+        e_tag: "etag",
+        last_modified: ~U[2023-08-18 10:53:21Z]
+      } = metadata
 
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        key: ^expected_temporary_key,
-        e_tag: @e_tag
-      } = expected_schema_data
+        key: ^temporary_key,
+        e_tag: "etag"
+      } = schema_data
 
-      expected_process_upload_job_args = %{
+      job_args = %{
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
-        id: expected_schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
+        id: schema_data.id,
+        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
         resource: @resource,
         schema: inspect(@schema)
       }
@@ -337,7 +348,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "post_processing",
         worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-        args: ^expected_process_upload_job_args,
+        args: ^job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -349,105 +360,122 @@ defmodule Uppy.CoreSchemaTest do
 
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.PostProcessingWorker,
-        args: expected_process_upload_job_args,
+        args: job_args,
         queue: :post_processing
       )
 
-      expected_schema_data_id = expected_schema_data.id
-      expected_user_id = context.user.id
-      expected_user_avatar_id = context.user_avatar.id
+      schema_data_id = schema_data.id
+      user_id = context.user.id
+      user_avatar_id = context.user_avatar.id
 
       assert {:ok, job_response} =
         perform_job(
           Uppy.Schedulers.Oban.PostProcessingWorker,
-          expected_process_upload_job_args
+          job_args
         )
 
       assert {input, phases} = job_response
 
       assert %Uppy.Pipeline.Input{
-        schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{
-          id: ^expected_schema_data_id,
-          user_id: ^expected_user_id,
-          user_avatar_id: ^expected_user_avatar_id,
-          unique_identifier: @unique_identifier,
-          key: ^expected_temporary_key,
-          filename: @filename,
-          e_tag: @e_tag,
-          upload_id: @upload_id,
-          # metadata should be nil as file is not processed yet
-          content_length: nil,
-          content_type: nil,
-          last_modified: nil,
-          archived: false,
-          archived_at: nil
-        },
+        schema_data: input_schema_data,
         schema: Uppy.Support.PG.Objects.UserAvatarObject,
         source: nil,
         resource: "user-avatars",
         bucket: @bucket
       } = input
 
+      assert %Uppy.Support.PG.Objects.UserAvatarObject{
+        id: ^schema_data_id,
+        user_id: ^user_id,
+        user_avatar_id: ^user_avatar_id,
+        unique_identifier: @unique_identifier,
+        key: ^temporary_key,
+        filename: "example.txt",
+        e_tag: "etag",
+        upload_id: @upload_id,
+        # metadata should be nil as file is not processed yet
+        content_length: nil,
+        content_type: nil,
+        last_modified: nil,
+        archived: false,
+        archived_at: nil
+      } = input_schema_data
+
       assert [Uppy.Phases.ValidateObjectTemporaryPath] = phases
     end
 
     test "updates the `:e_tag and creates pipeline job when given a `schema` module and `params` map as an argument and the scheduler is enabled", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
         })
 
       StorageSandbox.set_complete_multipart_upload_responses([
-        {@bucket,
-         fn ->
-           {:ok,
-            %{
-              location: "https://s3.com/#{expected_temporary_key}",
+        {
+          @bucket,
+          fn ->
+            {:ok, %{
+              location: "https://s3.com/#{temporary_key}",
               bucket: @bucket,
-              key: expected_temporary_key,
-              e_tag: @e_tag
+              key: temporary_key,
+              e_tag: "etag"
             }}
-         end}
+          end
+        }
       ])
 
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       assert {:ok, response} =
         Core.complete_multipart_upload(
           @bucket,
           @resource,
-          MockTestPipeline,
+          MockPipeline,
           @schema,
-          %{id: expected_schema_data.id},
+          %{id: schema_data.id},
           %{},
-          [{1, @e_tag}]
+          [{1, "etag"}]
         )
 
       assert %{
-        metadata: @storage_object_metadata,
-        schema_data: expected_schema_data,
+        metadata: metadata,
+        schema_data: schema_data,
         jobs: %{process_upload: process_upload_job}
       } = response
 
-      assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        key: ^expected_temporary_key,
-        e_tag: @e_tag
-      } = expected_schema_data
+      assert %{
+        content_length: 11,
+        content_type: "text/plain",
+        e_tag: "etag",
+        last_modified: ~U[2023-08-18 10:53:21Z]
+      } = metadata
 
-      expected_process_upload_job_args = %{
+      assert %Uppy.Support.PG.Objects.UserAvatarObject{
+        key: ^temporary_key,
+        e_tag: "etag"
+      } = schema_data
+
+      job_args = %{
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
-        id: expected_schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
+        id: schema_data.id,
+        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
         resource: @resource,
         schema: inspect(@schema)
       }
@@ -456,7 +484,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "post_processing",
         worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-        args: ^expected_process_upload_job_args,
+        args: ^job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -468,14 +496,15 @@ defmodule Uppy.CoreSchemaTest do
     end
 
     test "can complete already completed multipart upload", context do
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
@@ -486,36 +515,48 @@ defmodule Uppy.CoreSchemaTest do
       ])
 
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       assert {:ok, response} =
         Core.complete_multipart_upload(
           @bucket,
           @resource,
-          MockTestPipeline,
+          MockPipeline,
           @schema,
-          %{id: expected_schema_data.id},
+          %{id: schema_data.id},
           %{},
-          [{1, @e_tag}]
+          [{1, "etag"}]
         )
 
       assert %{
-        metadata: @storage_object_metadata,
-        schema_data: expected_schema_data,
+        metadata: metadata,
+        schema_data: schema_data,
         jobs: %{process_upload: process_upload_job}
       } = response
 
-      assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        key: ^expected_temporary_key,
-        e_tag: @e_tag
-      } = expected_schema_data
+      assert %{
+        content_length: 11,
+        content_type: "text/plain",
+        e_tag: "etag",
+        last_modified: ~U[2023-08-18 10:53:21Z]
+      } = metadata
 
-      expected_process_upload_job_args = %{
+      assert %Uppy.Support.PG.Objects.UserAvatarObject{
+        key: ^temporary_key,
+        e_tag: "etag"
+      } = schema_data
+
+      job_args = %{
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
-        id: expected_schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
+        id: schema_data.id,
+        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
         resource: @resource,
         schema: inspect(@schema)
       }
@@ -524,7 +565,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "post_processing",
         worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-        args: ^expected_process_upload_job_args,
+        args: ^job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -536,14 +577,15 @@ defmodule Uppy.CoreSchemaTest do
     end
 
     test "returns unhandled error", context do
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
@@ -557,24 +599,26 @@ defmodule Uppy.CoreSchemaTest do
         Core.complete_multipart_upload(
           @bucket,
           @resource,
-          MockTestPipeline,
+          MockPipeline,
           @schema,
-          %{id: expected_schema_data.id},
+          %{id: schema_data.id},
           %{},
-          [{1, @e_tag}]
+          [{1, "etag"}]
         )
     end
   end
 
   describe "&abort_multipart_upload/4" do
     test "deletes record and creates job to garbage collect the object when the scheduler is enabled.", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
@@ -600,23 +644,31 @@ defmodule Uppy.CoreSchemaTest do
       ])
 
       assert {:ok, response} =
-        Core.abort_multipart_upload(@bucket, @schema, expected_schema_data)
+        Core.abort_multipart_upload(
+          @bucket,
+          @schema,
+          schema_data
+        )
 
       assert %{
         schema_data: abort_multipart_upload_schema_data,
-        jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
+        jobs: %{
+          delete_object_if_upload_not_found: delete_not_found_object_job
+        }
       } = response
 
       # should be the same database record
-      assert abort_multipart_upload_schema_data.id === expected_schema_data.id
+      assert abort_multipart_upload_schema_data.id === schema_data.id
 
       # The record should not exist.
       assert {:error, %{code: :not_found}} =
-        PG.Objects.find_user_avatar_object(%{id: expected_schema_data.id})
+        PG.Objects.find_user_avatar_object(%{
+          id: schema_data.id
+        })
 
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
-      expected_delete_object_if_upload_not_found_job_args = %{
-        key: expected_temporary_key,
+      expected_delete_not_found_object_job_args = %{
+        key: temporary_key,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -626,7 +678,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
-        args: ^expected_delete_object_if_upload_not_found_job_args,
+        args: ^expected_delete_not_found_object_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -634,76 +686,80 @@ defmodule Uppy.CoreSchemaTest do
           fields: [:args, :queue, :worker],
           states: [:available, :scheduled, :executing]
         }
-      } = delete_object_if_upload_not_found_job
+      } = delete_not_found_object_job
 
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
-        args: expected_delete_object_if_upload_not_found_job_args,
+        args: expected_delete_not_found_object_job_args,
         queue: :garbage_collection
       )
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       StorageSandbox.set_delete_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{}} end}
       ])
 
       assert :ok =
         perform_job(
           Uppy.Schedulers.Oban.GarbageCollectorWorker,
-          expected_delete_object_if_upload_not_found_job_args
+          expected_delete_not_found_object_job_args
         )
     end
 
     test "can abort an already aborted upload, delete the record and create a job to garbage collect the object when the scheduler is enabled.", context do
-      partition_id = String.reverse("#{context.user.id}")
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_temporary_key = "temp/#{partition_id}-user/#{@filename}"
+      temporary_key = "temp/#{user_id}-user/example.txt"
 
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
         })
 
       StorageSandbox.set_abort_multipart_upload_responses([
-        {
-          @bucket,
-          fn ->
-            {:error, %{code: :not_found}}
-          end
-        }
+        {@bucket, fn -> {:error, %{code: :not_found}} end}
       ])
 
       assert {:ok, response} =
-        Core.abort_multipart_upload(@bucket, @schema, expected_schema_data)
+        Core.abort_multipart_upload(
+          @bucket,
+          @schema,
+          schema_data
+        )
 
       assert %{
         schema_data: abort_multipart_upload_schema_data,
         jobs: %{
-          delete_object_if_upload_not_found: delete_object_if_upload_not_found_job
+          delete_object_if_upload_not_found: delete_not_found_object_job
         }
       } = response
 
       # should be the same database record
-      assert abort_multipart_upload_schema_data.id === expected_schema_data.id
+      assert abort_multipart_upload_schema_data.id === schema_data.id
 
       # The record should not exist.
       assert {:error, %{code: :not_found}} =
-        PG.Objects.find_user_avatar_object(%{id: expected_schema_data.id})
+        PG.Objects.find_user_avatar_object(%{id: schema_data.id})
 
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
-      expected_delete_object_if_upload_not_found_job_args = %{
-        key: expected_temporary_key,
+      expected_delete_not_found_object_job_args = %{
+        key: temporary_key,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -713,7 +769,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
-        args: ^expected_delete_object_if_upload_not_found_job_args,
+        args: ^expected_delete_not_found_object_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -721,19 +777,19 @@ defmodule Uppy.CoreSchemaTest do
           fields: [:args, :queue, :worker],
           states: [:available, :scheduled, :executing]
         }
-      } = delete_object_if_upload_not_found_job
+      } = delete_not_found_object_job
     end
 
     test "returns unhandled error", context do
-      partition_id = String.reverse("#{context.user.id}")
+      partition_id = Uppy.PathBuilder.encode_id(context.user.id)
 
-      expected_temporary_key = "temp/#{partition_id}-user/#{@filename}"
+      temporary_key = "temp/#{partition_id}-user/example.txt"
 
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
           upload_id: @upload_id
@@ -744,192 +800,17 @@ defmodule Uppy.CoreSchemaTest do
       ])
 
       assert {:error, %{code: :internal_server_error}} =
-               Core.abort_multipart_upload(@bucket, @schema, expected_schema_data)
+        Core.abort_multipart_upload(
+          @bucket,
+          @schema,
+          schema_data
+        )
     end
   end
 
   describe "&start_multipart_upload/5" do
-    test "It initializes a multipart upload, creates a database record, and schedules its deletion after expiration. It also schedules a job to garbage collect the object after the record is deleted.", context do
-      partition_id = String.reverse("#{context.user.id}")
-
-      StorageSandbox.set_initiate_multipart_upload_responses([
-        {@bucket,
-         fn object ->
-           {:ok,
-            %{
-              key: object,
-              bucket: @bucket,
-              upload_id: @upload_id
-            }}
-         end}
-      ])
-
-      assert {:ok,
-              %{
-                unique_identifier: unique_identifier,
-                basename: basename,
-                key: temporary_key,
-                multipart_upload: multipart_upload,
-                schema_data: expected_schema_data,
-                jobs: %{abort_multipart_upload: abort_multipart_upload_job}
-              }} =
-               Core.start_multipart_upload(
-                 @bucket,
-                 context.user.id,
-                 @schema,
-                 %{
-                   filename: @filename,
-                   user_avatar_id: context.user_avatar.id,
-                   user_id: context.user.id
-                 }
-               )
-
-      # key should be in the temporary path
-      expected_temporary_key = "temp/#{partition_id}-user/#{basename}"
-
-      assert ^expected_temporary_key = temporary_key
-
-      assert :ok = PathBuilder.validate_temporary_path(temporary_key)
-
-      assert ^basename = "#{unique_identifier}-#{expected_schema_data.filename}"
-
-      assert %{
-               key: ^expected_temporary_key,
-               bucket: @bucket,
-               upload_id: @upload_id
-             } = multipart_upload
-
-      # upload id should be stored
-      assert expected_schema_data.upload_id === @upload_id
-
-      # the expected fields are set on the schema data
-      assert %Uppy.Support.PG.Objects.UserAvatarObject{
-               unique_identifier: ^unique_identifier,
-               key: ^expected_temporary_key,
-               filename: @filename
-             } = expected_schema_data
-
-      expected_abort_multipart_upload_job_args = %{
-        id: expected_schema_data.id,
-        schema: "Uppy.Support.PG.Objects.UserAvatarObject",
-        event: "uppy.abort_upload_worker.abort_multipart_upload",
-        bucket: @bucket
-      }
-
-      assert %Oban.Job{
-               state: "available",
-               queue: "abort_upload",
-               worker: "Uppy.Schedulers.Oban.AbortUploadWorker",
-               args: ^expected_abort_multipart_upload_job_args,
-               unique: %{
-                 timestamp: :inserted_at,
-                 keys: [],
-                 period: 300,
-                 fields: [:args, :queue, :worker],
-                 states: [:available, :scheduled, :executing]
-               }
-             } = abort_multipart_upload_job
-
-      # a job should be scheduled to abort and only abort if it's a temporary object.
-      # If the upload is already processed and permanently stored it must be deleted.
-
-      expected_abort_multipart_upload_job_args = %{
-        event: "uppy.abort_upload_worker.abort_multipart_upload",
-        bucket: @bucket,
-        schema: inspect(@schema),
-        id: expected_schema_data.id
-      }
-
-      assert_enqueued(
-        worker: Uppy.Schedulers.Oban.AbortUploadWorker,
-        args: expected_abort_multipart_upload_job_args,
-        queue: :abort_upload
-      )
-
-      StorageSandbox.set_abort_multipart_upload_responses([
-        {
-          @bucket,
-          fn ->
-            {:ok,
-             %{
-               body: "",
-               headers: [
-                 {"x-amz-id-2", "<x-amz-id-2>"},
-                 {"x-amz-request-id", "<x-amz-request-id>"},
-                 {"date", "Sat, 16 Sep 2023 04:13:38 GMT"},
-                 {"server", "AmazonS3"}
-               ],
-               status_code: 204
-             }}
-          end
-        }
-      ])
-
-      assert {:ok,
-              %{
-                schema_data: abort_multipart_upload_schema_data,
-                jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
-              }} =
-               perform_job(
-                 Uppy.Schedulers.Oban.AbortUploadWorker,
-                 expected_abort_multipart_upload_job_args
-               )
-
-      # should be the same database record
-      assert abort_multipart_upload_schema_data.id === expected_schema_data.id
-
-      # The record should not exist.
-      assert {:error, %{code: :not_found}} =
-               PG.Objects.find_user_avatar_object(%{id: expected_schema_data.id})
-
-      # job should be schedule to delete the object incase it was uploaded after deleting the record.
-      expected_delete_object_if_upload_not_found_job_args = %{
-        key: expected_temporary_key,
-        schema: "Uppy.Support.PG.Objects.UserAvatarObject",
-        event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
-        bucket: @bucket
-      }
-
-      assert %Oban.Job{
-               state: "available",
-               queue: "garbage_collection",
-               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
-               args: ^expected_delete_object_if_upload_not_found_job_args,
-               unique: %{
-                 timestamp: :inserted_at,
-                 keys: [],
-                 period: 300,
-                 fields: [:args, :queue, :worker],
-                 states: [:available, :scheduled, :executing]
-               }
-             } = delete_object_if_upload_not_found_job
-
-      # after performing the job another job should be schedule that can
-      # garbage collect the object if it was uploaded after expiration.
-      assert_enqueued(
-        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
-        args: expected_delete_object_if_upload_not_found_job_args,
-        queue: :garbage_collection
-      )
-
-      # storage head_object must return an ok response to proceed with deleting.
-      StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
-      ])
-
-      StorageSandbox.set_delete_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
-      ])
-
-      assert :ok =
-               perform_job(
-                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
-                 expected_delete_object_if_upload_not_found_job_args
-               )
-    end
-
-    test "creates a record only when the scheduler is disabled.", context do
-      partition_id = String.reverse("#{context.user.id}")
+    test "initializes a multipart upload, creates a database record, and schedules both its deletion after expiration and a garbage collection job after the record is deleted.", context do
+      user_id = PathBuilder.encode_id(context.user.id)
 
       StorageSandbox.set_initiate_multipart_upload_responses([
         {
@@ -950,7 +831,191 @@ defmodule Uppy.CoreSchemaTest do
           context.user.id,
           @schema,
           %{
-            filename: @filename,
+            filename: "example.txt",
+            user_avatar_id: context.user_avatar.id,
+            user_id: context.user.id
+          }
+        )
+
+      assert %{
+        unique_identifier: unique_identifier,
+        basename: basename,
+        key: temporary_key,
+        multipart_upload: multipart_upload,
+        schema_data: schema_data,
+        jobs: %{
+          abort_multipart_upload: abort_multipart_upload_job
+        }
+      } = response
+
+      assert :ok = PathBuilder.validate_temporary_path(temporary_key)
+
+      assert ^basename = "#{unique_identifier}-#{schema_data.filename}"
+
+      expected_temporary_key = "temp/#{user_id}-user/#{schema_data.unique_identifier}-example.txt"
+
+      assert ^expected_temporary_key = temporary_key
+
+      assert %{
+        key: ^temporary_key,
+        bucket: @bucket,
+        upload_id: @upload_id
+      } = multipart_upload
+
+      # upload id should be stored
+      assert schema_data.upload_id === @upload_id
+
+      # the expected fields are set on the schema data
+      assert %Uppy.Support.PG.Objects.UserAvatarObject{
+        unique_identifier: ^unique_identifier,
+        key: ^temporary_key,
+        filename: @filename
+      } = schema_data
+
+      abort_multipart_upload_job_args = %{
+        id: schema_data.id,
+        schema: "Uppy.Support.PG.Objects.UserAvatarObject",
+        event: "uppy.abort_upload_worker.abort_multipart_upload",
+        bucket: @bucket
+      }
+
+      assert %Oban.Job{
+        state: "available",
+        queue: "abort_upload",
+        worker: "Uppy.Schedulers.Oban.AbortUploadWorker",
+        args: ^abort_multipart_upload_job_args,
+        unique: %{
+          timestamp: :inserted_at,
+          keys: [],
+          period: 300,
+          fields: [:args, :queue, :worker],
+          states: [:available, :scheduled, :executing]
+        }
+      } = abort_multipart_upload_job
+
+      # a job should be scheduled to abort and only abort if it's a temporary object.
+      # If the upload is already processed and permanently stored it must be deleted.
+
+      assert_enqueued(
+        worker: Uppy.Schedulers.Oban.AbortUploadWorker,
+        args: abort_multipart_upload_job_args,
+        queue: :abort_upload
+      )
+
+      StorageSandbox.set_abort_multipart_upload_responses([
+        {
+          @bucket,
+          fn ->
+            {:ok, %{
+              body: "",
+              headers: [
+                {"x-amz-id-2", "<x-amz-id-2>"},
+                {"x-amz-request-id", "<x-amz-request-id>"},
+                {"date", "Sat, 16 Sep 2023 04:13:38 GMT"},
+                {"server", "AmazonS3"}
+              ],
+              status_code: 204
+            }}
+          end
+        }
+      ])
+
+      assert {:ok, response} =
+        perform_job(
+          Uppy.Schedulers.Oban.AbortUploadWorker,
+          abort_multipart_upload_job_args
+        )
+
+      assert %{
+        schema_data: abort_multipart_upload_schema_data,
+        jobs: %{
+          delete_object_if_upload_not_found: delete_not_found_object_job
+        }
+      } = response
+
+      # should be the same database record
+      assert abort_multipart_upload_schema_data.id === schema_data.id
+
+      # The record should not exist.
+      assert {:error, %{code: :not_found}} =
+        PG.Objects.find_user_avatar_object(%{
+          id: schema_data.id
+        })
+
+      # job should be schedule to delete the object incase it was uploaded after deleting the record.
+      delete_not_found_object_job_args = %{
+        key: temporary_key,
+        schema: "Uppy.Support.PG.Objects.UserAvatarObject",
+        event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
+        bucket: @bucket
+      }
+
+      assert %Oban.Job{
+        state: "available",
+        queue: "garbage_collection",
+        worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
+        args: ^delete_not_found_object_job_args,
+        unique: %{
+          timestamp: :inserted_at,
+          keys: [],
+          period: 300,
+          fields: [:args, :queue, :worker],
+          states: [:available, :scheduled, :executing]
+        }
+      } = delete_not_found_object_job
+
+      # after performing the job another job should be schedule that can
+      # garbage collect the object if it was uploaded after expiration.
+      assert_enqueued(
+        worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
+        args: delete_not_found_object_job_args,
+        queue: :garbage_collection
+      )
+
+      # storage head_object must return an ok response to proceed with deleting.
+      StorageSandbox.set_head_object_responses([
+        {@bucket, fn -> {:ok,%{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
+      ])
+
+      StorageSandbox.set_delete_object_responses([
+        {@bucket, fn -> {:ok, %{}} end}
+      ])
+
+      assert :ok =
+        perform_job(
+          Uppy.Schedulers.Oban.GarbageCollectorWorker,
+          delete_not_found_object_job_args
+        )
+    end
+
+    test "creates a record only when the scheduler is disabled.", context do
+      user_id = PathBuilder.encode_id(context.user.id)
+
+      StorageSandbox.set_initiate_multipart_upload_responses([
+        {
+          @bucket,
+          fn object ->
+            {:ok, %{
+              key: object,
+              bucket: @bucket,
+              upload_id: @upload_id
+            }}
+          end
+        }
+      ])
+
+      assert {:ok, response} =
+        Core.start_multipart_upload(
+          @bucket,
+          context.user.id,
+          @schema,
+          %{
+            filename: "example.txt",
             user_avatar_id: context.user_avatar.id,
             user_id: context.user.id
           },
@@ -958,61 +1023,67 @@ defmodule Uppy.CoreSchemaTest do
         )
 
       assert %{
-        unique_identifier: expected_unique_identifier,
-        basename: expected_basename,
-        key: expected_temporary_key,
-        multipart_upload: expected_multipart_upload,
-        schema_data: expected_schema_data
+        unique_identifier: unique_identifier,
+        basename: basename,
+        key: temporary_key,
+        multipart_upload: multipart_upload,
+        schema_data: schema_data
       } = response
 
-      assert :ok = PathBuilder.validate_temporary_path(expected_temporary_key)
+      assert :ok = PathBuilder.validate_temporary_path(temporary_key)
 
-      assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
+      assert ^basename = "#{unique_identifier}-#{schema_data.filename}"
+
+      expected_temporary_key = "temp/#{user_id}-user/#{schema_data.unique_identifier}-example.txt"
+
+      assert ^expected_temporary_key = temporary_key
 
       # the expected fields are set on the schema data
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        unique_identifier: ^expected_unique_identifier,
-        key: ^expected_temporary_key,
+        unique_identifier: ^unique_identifier,
+        key: ^temporary_key,
         filename: @filename
-      } = expected_schema_data
+      } = schema_data
 
       assert %{
-        key: ^expected_temporary_key,
+        key: ^temporary_key,
         bucket: @bucket,
         upload_id: @upload_id
-      } = expected_multipart_upload
+      } = multipart_upload
 
       # jobs should not be present
       refute response[:jobs]
-
-      # key should be in the temporary path
-      assert ^expected_temporary_key = "temp/#{partition_id}-user/#{expected_basename}"
     end
   end
 
   describe "&process_upload/6: " do
     test "copies image to destination with a resolution up to 1024 x 1024 and less than 5 MB", context do
-      partition_id = String.reverse("#{context.user.id}")
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_temporary_key = "temp/#{partition_id}-user/example.txt"
+      temporary_key = "temp/#{user_id}-user/example.txt"
 
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
 
-      expected_schema_data_id = expected_schema_data.id
-      expected_user_id = context.user.id
-      expected_user_avatar_id = context.user_avatar.id
+      schema_data_id = schema_data.id
+      user_id = context.user.id
+      user_avatar_id = context.user_avatar.id
 
       # The phase `Uppy.Phases.HeadTemporaryObject` retrieves the metadata from
       # storage and adds it to the context for other phases in the pipeline.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       # The phase `Uppy.Phases.FileInfo` downloads the first 256 bytes of the object.
@@ -1059,7 +1130,7 @@ defmodule Uppy.CoreSchemaTest do
           @bucket,
           @resource,
           @schema,
-          expected_schema_data
+          schema_data
         )
 
       assert %Uppy.Pipeline.Input{
@@ -1071,11 +1142,11 @@ defmodule Uppy.CoreSchemaTest do
       } = input
 
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        id: ^expected_schema_data_id,
-        user_id: ^expected_user_id,
-        user_avatar_id: ^expected_user_avatar_id,
+        id: ^schema_data_id,
+        user_id: ^user_id,
+        user_avatar_id: ^user_avatar_id,
         unique_identifier: @unique_identifier,
-        key: ^expected_temporary_key,
+        key: key,
         filename: filename,
         e_tag: "etag",
         upload_id: nil,
@@ -1086,21 +1157,27 @@ defmodule Uppy.CoreSchemaTest do
         archived_at: nil
       } = schema_data
 
+      organization_id = Uppy.PathBuilder.encode_id(context.user.organization_id)
+
+      permanent_key = "#{organization_id}-uploads/#{@unique_identifier}-example.txt"
+
+      assert ^permanent_key = key
+
       # The filename extension should be replaced with the extension
       # detected by the file info phase.
       assert "example.png" = filename
     end
 
     test "rejects image with a width or height larger than 1024", context do
-      partition_id = String.reverse("#{context.user.id}")
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
 
-      expected_temporary_key = "temp/#{partition_id}-user/example.txt"
+      temporary_key = "temp/#{user_id}-user/example.txt"
 
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
@@ -1108,11 +1185,12 @@ defmodule Uppy.CoreSchemaTest do
       # The phase `Uppy.Phases.HeadTemporaryObject` retrieves the metadata from
       # storage and adds it to the context for other phases in the pipeline.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn object ->
-          IO.inspect(object, label: "TESTING")
-
-          {:ok, @storage_object_metadata}
-        end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       # The phase `Uppy.Phases.FileInfo` downloads the first 256 bytes of the object.
@@ -1176,55 +1254,70 @@ defmodule Uppy.CoreSchemaTest do
           @bucket,
           @resource,
           @schema,
-          expected_schema_data
+          schema_data
         )
     end
   end
 
   describe "&delete_object_if_upload_not_found/4" do
     test "returns ok when record not found and object is deleted", context do
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
+          filename: "example.txt",
           key: "key",
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
 
-      assert {:ok, _} = Action.delete(expected_schema_data)
+      assert {:ok, _} = Action.delete(schema_data)
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       StorageSandbox.set_delete_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{}} end}
       ])
 
       assert :ok =
-        Core.delete_object_if_upload_not_found(@bucket, @schema, expected_schema_data.key)
+        Core.delete_object_if_upload_not_found(
+          @bucket,
+          @schema,
+          schema_data.key
+        )
     end
 
     test "returns error when record exists", context do
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
+          filename: "example.txt",
           key: "key",
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
 
       assert {:error, error_message} =
-        Core.delete_object_if_upload_not_found(@bucket, @schema, expected_schema_data.key)
+        Core.delete_object_if_upload_not_found(
+          @bucket,
+          @schema,
+          schema_data.key
+        )
 
       assert %ErrorMessage{
         code: :forbidden,
         message: "deleting the object for an existing record is not allowed",
         details: %{
-          params: %{key: "key"},
+          params: %{
+            key: "key"
+          },
           schema: Uppy.Support.PG.Objects.UserAvatarObject,
           schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{}
         }
@@ -1233,121 +1326,135 @@ defmodule Uppy.CoreSchemaTest do
   end
 
   describe "&find_permanent_upload/2" do
-    test "returns record when field `:e_tag` is not nil and `:key` is a temporary object key",
-         context do
-      expected_temporary_key =
-        "#{String.reverse("#{context.user.id}")}-uploads/user-avatars/#{@filename}"
+    test "returns a record if :e_tag is not nil and :key is a temporary object key", context do
+      user_id = PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      permanent_key = "#{user_id}-uploads/user-avatars/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: permanent_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
-          e_tag: @e_tag
+          e_tag: "etag"
         })
 
-      assert {:ok, actual_schema_data} =
-        Core.find_permanent_upload(@schema, %{id: expected_schema_data.id})
+      assert {:ok, permanent_schema_data} =
+        Core.find_permanent_upload(
+          @schema,
+          %{id: schema_data.id}
+        )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert permanent_schema_data.id === schema_data.id
     end
 
     test "can disable object key validation when option `:validate?` is set to false", context do
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
+          filename: "example.txt",
           key: "invalid-key",
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
-          e_tag: @e_tag
+          e_tag: "etag"
         })
 
-      assert {:ok, actual_schema_data} =
+      assert {:ok, permanent_schema_data} =
         Core.find_permanent_upload(
           @schema,
-          %{id: expected_schema_data.id},
+          %{id: schema_data.id},
           validate?: false
         )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert permanent_schema_data.id === schema_data.id
     end
   end
 
   describe "&find_completed_upload/2" do
     test "returns record when field `:e_tag` is not nil and `:key` is a temporary object key", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
-          e_tag: @e_tag
+          e_tag: "etag"
         })
 
       assert {:ok, actual_schema_data} =
-        Core.find_completed_upload(@schema, %{id: expected_schema_data.id})
+        Core.find_completed_upload(
+          @schema,
+          %{id: schema_data.id}
+        )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert actual_schema_data.id === schema_data.id
     end
   end
 
   describe "&find_temporary_upload/2" do
     test "returns record when field `:e_tag` is nil and `:key` is a temporary object key", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
 
       assert {:ok, actual_schema_data} =
-               Core.find_temporary_upload(@schema, %{id: expected_schema_data.id})
+        Core.find_temporary_upload(
+          @schema,
+          %{id: schema_data.id}
+        )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert actual_schema_data.id === schema_data.id
     end
 
     test "can disable object key validation when option `:validate?` is set to false", context do
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
+          filename: "example.txt",
           key: "invalid-key",
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id,
-          e_tag: @e_tag
+          e_tag: "etag"
         })
 
       assert {:ok, actual_schema_data} =
         Core.find_temporary_upload(
           @schema,
-          %{id: expected_schema_data.id},
+          %{id: schema_data.id},
           validate?: false
         )
 
-      assert actual_schema_data.id === expected_schema_data.id
+      assert actual_schema_data.id === schema_data.id
     end
   end
 
   describe "delete_upload/4" do
     test "deletes database record and schedules job to delete object", context do
-      expected_permanent_key =
-        "#{String.reverse("#{context.user.id}")}-uploads/user-avatars/#{@filename}"
+      user_id = PathBuilder.encode_id(context.user.id)
+
+      permanent_key = "#{user_id}-uploads/user-avatars/example.txt"
 
       schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_permanent_key,
+          filename: "example.txt",
+          key: permanent_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
@@ -1358,7 +1465,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %{
         schema_data: delete_upload_schema_data,
         jobs: %{
-          delete_object_if_upload_not_found: delete_object_if_upload_not_found_job
+          delete_object_if_upload_not_found: delete_not_found_object_job
         }
       } = response
 
@@ -1371,8 +1478,8 @@ defmodule Uppy.CoreSchemaTest do
         user_id: ^expected_user_id,
         user_avatar_id: ^expected_user_avatar_id,
         unique_identifier: @unique_identifier,
-        key: ^expected_permanent_key,
-        filename: @filename,
+        key: ^permanent_key,
+        filename: "example.txt",
         e_tag: nil,
         upload_id: nil,
         content_length: nil,
@@ -1387,7 +1494,7 @@ defmodule Uppy.CoreSchemaTest do
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
         args: %{
-          key: ^expected_permanent_key,
+          key: ^permanent_key,
           schema: "Uppy.Support.PG.Objects.UserAvatarObject",
           event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
           bucket: @bucket
@@ -1399,102 +1506,114 @@ defmodule Uppy.CoreSchemaTest do
           fields: [:args, :queue, :worker],
           states: [:available, :scheduled, :executing]
         }
-      } = delete_object_if_upload_not_found_job
+      } = delete_not_found_object_job
 
-      expected_delete_object_if_upload_not_found_job_args = %{
-        key: expected_permanent_key,
+      expected_delete_not_found_object_job_args = %{
+        key: permanent_key,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
       }
 
       assert %Oban.Job{
-               state: "available",
-               queue: "garbage_collection",
-               worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
-               args: ^expected_delete_object_if_upload_not_found_job_args,
-               unique: %{
-                 timestamp: :inserted_at,
-                 keys: [],
-                 period: 300,
-                 fields: [:args, :queue, :worker],
-                 states: [:available, :scheduled, :executing]
-               }
-             } = delete_object_if_upload_not_found_job
+        state: "available",
+        queue: "garbage_collection",
+        worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
+        args: ^expected_delete_not_found_object_job_args,
+        unique: %{
+          timestamp: :inserted_at,
+          keys: [],
+          period: 300,
+          fields: [:args, :queue, :worker],
+          states: [:available, :scheduled, :executing]
+        }
+      } = delete_not_found_object_job
 
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
-        args: expected_delete_object_if_upload_not_found_job_args,
+        args: expected_delete_not_found_object_job_args,
         queue: :garbage_collection
       )
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       StorageSandbox.set_delete_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{}} end}
       ])
 
       assert :ok =
-               perform_job(
-                 Uppy.Schedulers.Oban.GarbageCollectorWorker,
-                 expected_delete_object_if_upload_not_found_job_args
-               )
+        perform_job(
+          Uppy.Schedulers.Oban.GarbageCollectorWorker,
+          expected_delete_not_found_object_job_args
+        )
     end
   end
 
   describe "&complete_upload/7" do
     test "updates the `:e_tag` and creates job to run the pipeline when the scheduler is enabled.", context do
-      partition_id = String.reverse("#{context.user.id}")
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
 
-      expected_temporary_key = "temp/#{partition_id}-user/#{@filename}"
+      temporary_key = "temp/#{user_id}-user/example.txt"
 
-      expected_schema_data =
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
 
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       assert {:ok, response} =
         Core.complete_upload(
           @bucket,
           @resource,
-          MockTestPipeline,
+          MockPipeline,
           @schema,
-          expected_schema_data
+          schema_data
         )
 
       assert %{
-        metadata: @storage_object_metadata,
-        schema_data: expected_schema_data,
+        metadata: metadata,
+        schema_data: schema_data,
         jobs: %{
           process_upload: process_upload_job
         }
       } = response
 
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      assert %{
+        content_length: 11,
+        content_type: "text/plain",
+        e_tag: "etag",
+        last_modified: ~U[2023-08-18 10:53:21Z]
+      } = metadata
 
-      assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        key: ^expected_temporary_key
-      } = expected_schema_data
+      assert %Uppy.Support.PG.Objects.UserAvatarObject{key: ^temporary_key} = schema_data
 
-      expected_process_upload_job_args = %{
+      process_upload_job_args = %{
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
-        id: expected_schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
+        id: schema_data.id,
+        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
         resource: @resource,
         schema: inspect(@schema)
       }
@@ -1503,7 +1622,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "post_processing",
         worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-        args: ^expected_process_upload_job_args,
+        args: ^process_upload_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -1515,18 +1634,18 @@ defmodule Uppy.CoreSchemaTest do
 
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.PostProcessingWorker,
-        args: expected_process_upload_job_args,
+        args: process_upload_job_args,
         queue: :post_processing
       )
 
-      expected_schema_data_id = expected_schema_data.id
-      expected_user_id = context.user.id
-      expected_user_avatar_id = context.user_avatar.id
+      schema_data_id = schema_data.id
+      user_id = context.user.id
+      user_avatar_id = context.user_avatar.id
 
       assert {:ok, response} =
         perform_job(
           Uppy.Schedulers.Oban.PostProcessingWorker,
-          expected_process_upload_job_args
+          process_upload_job_args
         )
 
       assert {input, phases} = response
@@ -1540,13 +1659,13 @@ defmodule Uppy.CoreSchemaTest do
       } = input
 
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        id: ^expected_schema_data_id,
-        user_id: ^expected_user_id,
-        user_avatar_id: ^expected_user_avatar_id,
+        id: ^schema_data_id,
+        user_id: ^user_id,
+        user_avatar_id: ^user_avatar_id,
         unique_identifier: @unique_identifier,
-        key: ^expected_temporary_key,
-        filename: @filename,
-        e_tag: @e_tag,
+        key: ^temporary_key,
+        filename: "example.txt",
+        e_tag: "etag",
         upload_id: nil,
         # metadata should be nil as file is not processed yet
         content_length: nil,
@@ -1559,49 +1678,58 @@ defmodule Uppy.CoreSchemaTest do
       assert [Uppy.Phases.ValidateObjectTemporaryPath] = phases
     end
 
-    test "updates the `:e_tag and creates pipeline job when given `schema_data` as an argument and the scheduler is enabled", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+    test "updates :e_tag and creates a pipeline job when schema_data is provided and the scheduler is enabled.", context do
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
 
-      expected_schema_data =
+      temporary_key = "temp/#{user_id}-user/example.txt"
+
+      schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
 
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       assert {:ok, response} =
         Core.complete_upload(
           @bucket,
           @resource,
-          MockTestPipeline,
+          MockPipeline,
           @schema,
-          %{id: expected_schema_data.id}
+          %{id: schema_data.id}
         )
 
       assert %{
-        metadata: @storage_object_metadata,
-        schema_data: expected_schema_data,
+        metadata: metadata,
+        schema_data: schema_data,
         jobs: %{process_upload: process_upload_job}
       } = response
 
-      expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      assert %{
+        content_length: 11,
+        content_type: "text/plain",
+        e_tag: "etag",
+        last_modified: ~U[2023-08-18 10:53:21Z]
+      } = metadata
 
-      assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        key: ^expected_temporary_key
-      } = expected_schema_data
+      assert %Uppy.Support.PG.Objects.UserAvatarObject{key: ^temporary_key} = schema_data
 
-      expected_process_upload_job_args = %{
+      process_upload_job_args = %{
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
-        id: expected_schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockTestPipeline",
+        id: schema_data.id,
+        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
         resource: @resource,
         schema: inspect(@schema)
       }
@@ -1610,7 +1738,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "post_processing",
         worker: "Uppy.Schedulers.Oban.PostProcessingWorker",
-        args: ^expected_process_upload_job_args,
+        args: ^process_upload_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -1624,13 +1752,15 @@ defmodule Uppy.CoreSchemaTest do
 
   describe "&abort_upload/4" do
     test "deletes a upload record and creates job to garbage collect the object when the scheduler is enabled.", context do
-      expected_temporary_key = "temp/#{String.reverse("#{context.user.id}")}-user/#{@filename}"
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
+
+      temporary_key = "temp/#{user_id}-user/example.txt"
 
       schema_data =
         FactoryEx.insert!(Factory.Objects.UserAvatarObject, %{
           unique_identifier: @unique_identifier,
-          filename: @filename,
-          key: expected_temporary_key,
+          filename: "example.txt",
+          key: temporary_key,
           user_avatar_id: context.user_avatar.id,
           user_id: context.user.id
         })
@@ -1640,7 +1770,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %{
         schema_data: abort_upload_schema_data,
         jobs: %{
-          delete_object_if_upload_not_found: delete_object_if_upload_not_found_job
+          delete_object_if_upload_not_found: delete_not_found_object_job
         }
       } = response
 
@@ -1649,11 +1779,14 @@ defmodule Uppy.CoreSchemaTest do
 
       # The record should not exist.
       assert {:error, %{code: :not_found}} =
-        PG.Objects.find_user_avatar_object(%{id: schema_data.id})
+        PG.Objects.find_user_avatar_object(%{
+          id: schema_data.id
+        })
 
-      # job should be schedule to delete the object incase it was uploaded after deleting the record.
-      expected_delete_object_if_upload_not_found_job_args = %{
-        key: expected_temporary_key,
+      # job should be schedule to delete the object incase it was
+      # uploaded after deleting the record.
+      delete_not_found_object_job_args = %{
+        key: temporary_key,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -1663,7 +1796,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
-        args: ^expected_delete_object_if_upload_not_found_job_args,
+        args: ^delete_not_found_object_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -1671,79 +1804,86 @@ defmodule Uppy.CoreSchemaTest do
           fields: [:args, :queue, :worker],
           states: [:available, :scheduled, :executing]
         }
-      } = delete_object_if_upload_not_found_job
+      } = delete_not_found_object_job
 
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
-        args: expected_delete_object_if_upload_not_found_job_args,
+        args: delete_not_found_object_job_args,
         queue: :garbage_collection
       )
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       StorageSandbox.set_delete_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{}} end}
       ])
 
       assert :ok =
         perform_job(
           Uppy.Schedulers.Oban.GarbageCollectorWorker,
-          expected_delete_object_if_upload_not_found_job_args
+          delete_not_found_object_job_args
         )
     end
   end
 
   describe "&start_upload/5" do
-    test "creates a upload and a job to abort the upload and garbage collect the object when the scheduler is enabled.", context do
+    test "creates a record and schedules a job to abort the upload and garbage collect the object if the scheduler is enabled.", context do
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
+
       assert {:ok, response} =
         Core.start_upload(
           @bucket,
           context.user.id,
           @schema,
           %{
-            filename: @filename,
+            filename: "example.txt",
             user_avatar_id: context.user_avatar.id,
             user_id: context.user.id
           }
         )
 
       assert %{
-        unique_identifier: expected_unique_identifier,
-        basename: expected_basename,
-        key: expected_temporary_key,
-        presigned_upload: expected_presigned_upload,
-        schema_data: expected_schema_data,
+        unique_identifier: unique_identifier,
+        basename: basename,
+        key: temporary_key,
+        presigned_upload: presigned_upload,
+        schema_data: schema_data,
         jobs: %{
-          abort_upload: expected_abort_upload_job
+          abort_upload: abort_upload_job
         }
       } = response
 
-      # key should be in the temporary path
-      assert ^expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
+      expected_basename = "#{unique_identifier}-#{schema_data.filename}"
 
-      assert :ok = PathBuilder.validate_temporary_path(expected_temporary_key)
+      assert ^expected_basename = basename
 
-      assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
+      expected_temporary_key = "temp/#{user_id}-user/#{schema_data.unique_identifier}-example.txt"
+
+      assert ^expected_temporary_key = temporary_key
 
       # the expected fields are set on the schema data
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        unique_identifier: ^expected_unique_identifier,
-        key: ^expected_temporary_key,
+        unique_identifier: ^unique_identifier,
+        key: ^temporary_key,
         filename: @filename
-      } = expected_schema_data
+      } = schema_data
 
       # the presigned upload must contain the keys `url` and `expires_at`
-      assert String.contains?(expected_presigned_upload.url, expected_temporary_key)
-      assert DateTime.compare(expected_presigned_upload.expires_at, @expires_at) === :eq
+      assert String.contains?(presigned_upload.url, temporary_key)
+      assert DateTime.compare(presigned_upload.expires_at, ~U[2024-07-24 02:51:32.453714Z]) === :eq
 
-      expected_abort_upload_job_args = %{
-        id: expected_schema_data.id,
+      abort_upload_job_args = %{
+        id: schema_data.id,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.abort_upload_worker.abort_upload",
         bucket: @bucket
@@ -1753,7 +1893,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "abort_upload",
         worker: "Uppy.Schedulers.Oban.AbortUploadWorker",
-        args: ^expected_abort_upload_job_args,
+        args: ^abort_upload_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -1761,45 +1901,49 @@ defmodule Uppy.CoreSchemaTest do
           fields: [:args, :queue, :worker],
           states: [:available, :scheduled, :executing]
         }
-      } = expected_abort_upload_job
+      } = abort_upload_job
 
-      # a job should be scheduled to abort and only abort if it's a temporary object.
-      # If the upload is already processed and permanently stored it must be deleted.
-
-      expected_abort_upload_job_args = %{
+      # a job should be scheduled to abort and only abort if it's
+      # a temporary object. If the upload is already processed
+      # and permanently stored it must be deleted.
+      abort_upload_job_args = %{
         event: "uppy.abort_upload_worker.abort_upload",
         bucket: @bucket,
         schema: inspect(@schema),
-        id: expected_schema_data.id
+        id: schema_data.id
       }
 
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.AbortUploadWorker,
-        args: expected_abort_upload_job_args,
+        args: abort_upload_job_args,
         queue: :abort_upload
       )
 
       assert {:ok, job_response} =
         perform_job(
           Uppy.Schedulers.Oban.AbortUploadWorker,
-          expected_abort_upload_job_args
+          abort_upload_job_args
         )
 
       assert %{
         schema_data: abort_upload_schema_data,
-        jobs: %{delete_object_if_upload_not_found: delete_object_if_upload_not_found_job}
+        jobs: %{
+          delete_object_if_upload_not_found: delete_not_found_object_job
+        }
       } = job_response
 
       # should be the same database record
-      assert abort_upload_schema_data.id === expected_schema_data.id
+      assert abort_upload_schema_data.id === schema_data.id
 
       # The record should not exist.
       assert {:error, %{code: :not_found}} =
-        PG.Objects.find_user_avatar_object(%{id: expected_schema_data.id})
+        PG.Objects.find_user_avatar_object(%{
+          id: schema_data.id
+        })
 
       # job should be schedule to delete the object incase it was uploaded after deleting the record.
-      expected_delete_object_if_upload_not_found_job_args = %{
-        key: expected_temporary_key,
+      delete_not_found_object_job_args = %{
+        key: temporary_key,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         event: "uppy.garbage_collector_worker.delete_object_if_upload_not_found",
         bucket: @bucket
@@ -1809,7 +1953,7 @@ defmodule Uppy.CoreSchemaTest do
         state: "available",
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.Oban.GarbageCollectorWorker",
-        args: ^expected_delete_object_if_upload_not_found_job_args,
+        args: ^delete_not_found_object_job_args,
         unique: %{
           timestamp: :inserted_at,
           keys: [],
@@ -1817,29 +1961,34 @@ defmodule Uppy.CoreSchemaTest do
           fields: [:args, :queue, :worker],
           states: [:available, :scheduled, :executing]
         }
-      } = delete_object_if_upload_not_found_job
+      } = delete_not_found_object_job
 
       # after performing the job another job should be schedule that can
       # garbage collect the object if it was uploaded after expiration.
       assert_enqueued(
         worker: Uppy.Schedulers.Oban.GarbageCollectorWorker,
-        args: expected_delete_object_if_upload_not_found_job_args,
+        args: delete_not_found_object_job_args,
         queue: :garbage_collection
       )
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{
+          content_length: 11,
+          content_type: "text/plain",
+          e_tag: "etag",
+          last_modified: ~U[2023-08-18 10:53:21Z]
+        }} end}
       ])
 
       StorageSandbox.set_delete_object_responses([
-        {@bucket, fn -> {:ok, @storage_object_metadata} end}
+        {@bucket, fn -> {:ok, %{}} end}
       ])
 
       assert :ok =
         perform_job(
           Uppy.Schedulers.Oban.GarbageCollectorWorker,
-          expected_delete_object_if_upload_not_found_job_args
+          delete_not_found_object_job_args
         )
     end
 
@@ -1850,7 +1999,7 @@ defmodule Uppy.CoreSchemaTest do
           context.user.id,
           @schema,
           %{
-            filename: @filename,
+            filename: "example.txt",
             user_avatar_id: context.user_avatar.id,
             user_id: context.user.id,
             unique_identifier: "custom_unique_identifier"
@@ -1866,13 +2015,15 @@ defmodule Uppy.CoreSchemaTest do
     end
 
     test "creates a upload without job when the scheduler is disabled.", context do
-      assert {:ok, expected_response} =
+      user_id = Uppy.PathBuilder.encode_id(context.user.id)
+
+      assert {:ok, response} =
         Core.start_upload(
           @bucket,
           context.user.id,
           @schema,
           %{
-            filename: @filename,
+            filename: "example.txt",
             user_avatar_id: context.user_avatar.id,
             user_id: context.user.id
           },
@@ -1880,34 +2031,32 @@ defmodule Uppy.CoreSchemaTest do
         )
 
       assert %{
-        unique_identifier: expected_unique_identifier,
-        basename: expected_basename,
-        key: expected_temporary_key,
-        presigned_upload: expected_presigned_upload,
-        schema_data: expected_schema_data
-      } = expected_response
+        unique_identifier: unique_identifier,
+        basename: basename,
+        key: temporary_key,
+        presigned_upload: presigned_upload,
+        schema_data: schema_data
+      } = response
 
       # jobs should not be present
-      refute expected_response[:jobs]
+      refute response[:jobs]
 
-      # key should be in the temporary path
-      assert ^expected_temporary_key =
-        "temp/#{String.reverse("#{context.user.id}")}-user/#{expected_basename}"
+      assert ^basename = "#{unique_identifier}-#{schema_data.filename}"
 
-      assert :ok = PathBuilder.validate_temporary_path(expected_temporary_key)
+      expected_temporary_key = "temp/#{user_id}-user/#{schema_data.unique_identifier}-example.txt"
 
-      assert ^expected_basename = "#{expected_unique_identifier}-#{expected_schema_data.filename}"
+      assert ^expected_temporary_key = temporary_key
 
       # the expected fields are set on the schema data
       assert %Uppy.Support.PG.Objects.UserAvatarObject{
-        unique_identifier: ^expected_unique_identifier,
-        key: ^expected_temporary_key,
+        unique_identifier: ^unique_identifier,
+        key: ^temporary_key,
         filename: @filename
-      } = expected_schema_data
+      } = schema_data
 
       # the presigned upload must contain the keys `url` and `expires_at`
-      assert String.contains?(expected_presigned_upload.url, expected_temporary_key)
-      assert DateTime.compare(expected_presigned_upload.expires_at, @expires_at) === :eq
+      assert String.contains?(presigned_upload.url, expected_temporary_key)
+      assert DateTime.compare(presigned_upload.expires_at, ~U[2024-07-24 02:51:32.453714Z]) === :eq
     end
   end
 end

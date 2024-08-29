@@ -134,8 +134,14 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   @impl true
   @spec validate_permanent_path(path :: binary(), opts :: keyword()) :: :ok | {:error, term()}
   def validate_permanent_path(path, opts \\ []) do
-    with {:ok, _} <- decode_permanent_path(path, opts) |> IO.inspect() do
-      :ok
+    temporary_prefix = temporary_prefix!(opts)
+
+    if String.starts_with?(path, temporary_prefix) do
+      {:error, Error.forbidden("not a permanent path", %{path: path})}
+    else
+      with {:ok, _} <- decode_permanent_path(path, opts) do
+        :ok
+      end
     end
   end
 
@@ -227,8 +233,14 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   @impl true
   @spec validate_temporary_path(path :: binary(), opts :: keyword()) :: :ok | {:error, term()}
   def validate_temporary_path(path, opts \\ []) do
-    with {:ok, _} <- decode_temporary_path(path, opts) do
-      :ok
+    prefix = temporary_prefix!(opts)
+
+    if String.starts_with?(path, prefix) do
+      with {:ok, _} <- decode_temporary_path(path, opts) do
+        :ok
+      end
+    else
+      {:error, Error.forbidden("not a temporary path", %{path: path})}
     end
   end
 

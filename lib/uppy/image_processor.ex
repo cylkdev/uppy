@@ -1,4 +1,7 @@
 defmodule Uppy.ImageProcessor do
+  @moduledoc """
+  ...
+  """
 
   @default_options [
     image_processor: [sandbox: Mix.env() === :test]

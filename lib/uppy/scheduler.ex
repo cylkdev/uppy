@@ -1,4 +1,8 @@
 defmodule Uppy.Scheduler do
+  @moduledoc """
+  ...
+  """
+
   alias Uppy.Config
 
   @default_scheduler_adapter Uppy.Schedulers.Oban

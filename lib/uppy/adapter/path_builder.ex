@@ -1,4 +1,7 @@
 defmodule Uppy.Adapter.PathBuilder do
+  @moduledoc """
+  ...
+  """
 
   @type options :: Uppy.options()
 

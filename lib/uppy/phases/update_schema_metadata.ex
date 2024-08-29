@@ -28,22 +28,63 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
 
     file_info = context.file_info
     metadata = context.metadata
+    destination_object = context.destination_object
 
-    if destination_object_exists?(context) do
-      with {:ok, schema_data} <-
-        update_metadata(schema, schema_data, file_info, metadata, options) do
-        {:ok, %{input | schema_data: schema_data}}
-      end
-    else
-      raise "destination object does not exist, did you add a phase to copy the object?"
+    with {:ok, schema_data} <-
+      update_metadata(
+        schema,
+        schema_data,
+        destination_object,
+        file_info,
+        metadata,
+        options
+      ) do
+        Utils.Logger.debug(@logger_prefix, "Updated schema data:\n\n#{inspect(schema_data, pretty: true)}")
+
+      {:ok, %{input | schema_data: schema_data}}
     end
   end
 
-  def update_metadata(schema, schema_data, file_info, metadata, options) do
+  def update_metadata(
+    schema,
+    schema_data,
+    destination_object,
+    file_info,
+    metadata,
+    options
+  ) do
+    Utils.Logger.debug(
+      @logger_prefix,
+      """
+      Updating schema data:
+
+      schema:
+
+      #{inspect(schema)}
+
+      schema data:
+
+      #{inspect(schema_data, pretty: true)}
+
+      destination object:
+
+      #{inspect(destination_object, pretty: true)}
+
+      file info:
+
+      #{inspect(file_info, pretty: true)}
+
+      storage metadata:
+
+      #{inspect(metadata, pretty: true)}
+      """
+    )
+
     Action.update(
       schema,
       schema_data,
       %{
+        key: destination_object,
         filename: filename(schema_data.key, file_info.extension),
         e_tag: metadata.e_tag,
         content_type: file_info.mimetype,
@@ -55,11 +96,11 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   end
 
   defp filename(path, extension) do
-    basename = String.replace(Path.basename(path), Path.extname(path), "")
+    basename = Path.basename(path)
+    extname = Path.extname(path)
 
-    "#{basename}.#{extension}"
+    basename_without_extension = String.replace(basename, extname, "")
+
+    "#{basename_without_extension}.#{extension}"
   end
-
-  defp destination_object_exists?(%{destination_object: _}), do: true
-  defp destination_object_exists?(_), do: false
 end

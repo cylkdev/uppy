@@ -165,7 +165,7 @@ defmodule Uppy.Core do
         bucket,
         schema,
         %schema_data_module{} = schema_data,
-        nil_or_next_part_number_marker,
+        next_part_number_marker,
         options
       )
       when schema === schema_data_module do
@@ -176,7 +176,7 @@ defmodule Uppy.Core do
              bucket,
              schema_data.key,
              schema_data.upload_id,
-             nil_or_next_part_number_marker,
+             next_part_number_marker,
              options
            ) do
       {:ok,
@@ -187,9 +187,9 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_parts(bucket, schema, params, nil_or_next_part_number_marker, options) do
+  def find_parts(bucket, schema, params, next_part_number_marker, options) do
     with {:ok, schema_data} <- Action.find(schema, params, options) do
-      find_parts(bucket, schema, schema_data, nil_or_next_part_number_marker, options)
+      find_parts(bucket, schema, schema_data, next_part_number_marker, options)
     end
   end
 
@@ -197,13 +197,13 @@ defmodule Uppy.Core do
     bucket,
     schema,
     params_or_schema_data,
-    nil_or_next_part_number_marker
+    next_part_number_marker
   ) do
     find_parts(
       bucket,
       schema,
       params_or_schema_data,
-      nil_or_next_part_number_marker,
+      next_part_number_marker,
       []
     )
   end
@@ -635,7 +635,9 @@ defmodule Uppy.Core do
   end
 
   def process_upload(module, %Uppy.Pipeline.Input{} = input, options) when is_atom(module) do
-    process_upload(module.pipeline(options), input)
+    module
+    |> Pipeline.phases(options)
+    |> process_upload(input)
   end
 
   def process_upload(pipeline, %Uppy.Pipeline.Input{} = input, _options) do
