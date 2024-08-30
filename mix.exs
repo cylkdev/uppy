@@ -73,7 +73,7 @@ defmodule Uppy.MixProject do
       {:postgrex, ">= 0.0.0", optional: true},
       {:tzdata, "~> 1.1"},
 
-      {:ecto_shorts, path: "../ecto_shorts", optional: true},
+      {:ecto_shorts, "~> 2.4"},
       {:error_message, "~> 0.3.0", optional: true},
 
       {:finch, "~> 0.18.0", optional: true},
