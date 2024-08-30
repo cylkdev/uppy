@@ -20,6 +20,8 @@ defmodule Uppy.Support.StorageSandbox do
           | :put_object_copy
           | :put_object
           | :delete_object
+          | :download_chunk_stream
+          | :get_chunk
   @type bucket :: binary()
   @type prefix :: binary()
   @type object :: binary()

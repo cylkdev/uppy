@@ -27,9 +27,22 @@ defmodule Uppy.MixProject do
       ],
       dialyzer: [
         plt_add_apps: [
+          :ecto,
+          :ecto_sql,
+          :ecto_shorts,
+          :ex_aws,
+          :ex_aws_s3,
+          :ex_image_info,
           :ex_unit,
+          :faker,
+          :factory_ex,
+          :finch,
+          :file_type,
           :decimal,
-          :mix
+          :mix,
+          :nimble_options,
+          :oban,
+          :sandbox_registry
         ],
         list_unused_filters: true,
         plt_local_path: "dialyzer",
@@ -53,15 +66,16 @@ defmodule Uppy.MixProject do
       {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
       {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", runtime: false},
 
       {:ecto, "~> 3.11"},
-      {:postgrex, ">= 0.0.0", optional: true},
       {:ecto_sql, "~> 3.11", optional: true},
-
+      {:postgrex, ">= 0.0.0", optional: true},
       {:tzdata, "~> 1.1"},
 
       {:ecto_shorts, path: "../ecto_shorts", optional: true},
       {:error_message, "~> 0.3.0", optional: true},
+
       {:finch, "~> 0.18.0", optional: true},
       {:thumbor, git: "https://github.com/RequisDev/thumbor.git", branch: "main", optional: true},
 

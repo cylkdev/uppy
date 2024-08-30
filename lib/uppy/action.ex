@@ -4,7 +4,7 @@ defmodule Uppy.Action do
   """
   alias Uppy.Config
 
-  @default_action_adapter Uppy.EctoShortAction
+  @default_action_adapter Uppy.Actions.EctoAction
 
   def create(schema, params, options) do
     adapter!(options).create(schema, params, options)

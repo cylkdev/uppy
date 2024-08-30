@@ -9,12 +9,15 @@ defmodule Uppy.Adapter.HTTP do
   @type options :: keyword()
   @type status :: non_neg_integer()
 
-  @type http_response :: %{
-          optional(atom()) => any(),
-          body: body(),
-          status: status(),
-          headers: headers()
-        }
+  @type http_response :: {
+    body(),
+    %{
+      optional(atom()) => any(),
+      body: body(),
+      status: status(),
+      headers: headers()
+    }
+  }
 
   @type t_response :: {:ok, http_response()} | {:error, any()}
 

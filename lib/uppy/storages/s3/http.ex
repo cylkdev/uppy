@@ -53,19 +53,19 @@ defmodule Uppy.Storages.S3.HTTP do
     request(method, url, headers, body, [])
   end
 
-  defp handle_response({:ok, {body, %{status: status, headers: headers, body: _body}}}) do
-    {:ok, %{
-      status_code: status,
-      body: body,
-      headers: headers
-    }}
-  end
-
   defp handle_response({:error, %{message: message}}) when is_binary(message) do
     {:error, %{reason: message}}
   end
 
   defp handle_response({:error, message}) when is_binary(message) do
     {:error, %{reason: message}}
+  end
+
+  defp handle_response({:ok, {body, %{status: status, headers: headers, body: _body}}}) do
+    {:ok, %{
+      status_code: status,
+      body: body,
+      headers: headers
+    }}
   end
 end

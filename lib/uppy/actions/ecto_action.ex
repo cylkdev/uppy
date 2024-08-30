@@ -1,5 +1,5 @@
 if Uppy.Utils.application_loaded?(:ecto_shorts) do
-  defmodule Uppy.EctoShortAction do
+  defmodule Uppy.Actions.EctoAction do
     @moduledoc """
     Implements the `Uppy.Adapter.Action` behaviour.
 
@@ -42,10 +42,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.all/3` for documentation.
     """
     @spec all(
-            query :: query(),
-            params :: params(),
-            options :: options()
-          ) :: list(schema_data())
+      query :: query(),
+      params :: params(),
+      options :: options()
+    ) :: list(schema_data())
     def all(query, params, options) do
       EctoShorts.Actions.all(query, params, options)
     end
@@ -57,10 +57,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.create/3` for documentation.
     """
     @spec create(
-            schema :: queryable(),
-            params :: params(),
-            options :: options()
-          ) :: t_res(schema_data())
+      schema :: queryable(),
+      params :: params(),
+      options :: options()
+    ) :: t_res(schema_data())
     def create(schema, params, options) do
       EctoShorts.Actions.create(schema, params, options)
     end
@@ -87,11 +87,11 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.update/4` for documentation.
     """
     @spec update(
-            schema :: queryable(),
-            id_or_schema_data :: id() | schema_data(),
-            params :: params(),
-            options :: options()
-          ) :: t_res(schema_data())
+      schema :: queryable(),
+      id_or_schema_data :: id() | schema_data(),
+      params :: params(),
+      options :: options()
+    ) :: t_res(schema_data())
     def update(schema, id_or_schema_data, params, options) do
       EctoShorts.Actions.update(schema, id_or_schema_data, params, options)
     end
@@ -103,9 +103,9 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.delete/2` for documentation.
     """
     @spec delete(
-            schema_data :: struct(),
-            options :: options()
-          ) :: t_res(schema_data())
+      schema_data :: struct(),
+      options :: options()
+    ) :: t_res(schema_data())
     def delete(%_{} = schema_data, options) do
       EctoShorts.Actions.delete(schema_data, options)
     end
@@ -117,10 +117,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.delete/3` for documentation.
     """
     @spec delete(
-            schema :: queryable(),
-            id :: id(),
-            options :: options()
-          ) :: t_res(schema_data())
+      schema :: queryable(),
+      id :: id(),
+      options :: options()
+    ) :: t_res(schema_data())
     def delete(schema, id, options) do
       EctoShorts.Actions.delete(schema, id, options)
     end
@@ -132,11 +132,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     Executes a repo transaction.
     """
     @spec transaction(
-            func :: function(),
-            options :: options()
-          ) :: t_res(schema_data())
-    def transaction(func, options)
-        when is_function(func, 1) or is_function(func, 0) do
+      func :: function(),
+      options :: options()
+    ) :: t_res(schema_data())
+    def transaction(func, options) when is_function(func, 1) or is_function(func, 0) do
       fn repo ->
         func
         |> execute_transaction(repo)
@@ -167,7 +166,7 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     defp handle_transaction_response(term), do: term
 
     defp repo!(options) do
-      with nil <- Keyword.get(options, :repo, EctoShorts.Config.repo()) do
+      with nil <- Keyword.get(options, :repo, Uppy.Config.repo()) do
         raise """
         The option `:repo` cannot be nil.
 
