@@ -13,7 +13,6 @@ if Mix.env() === :test do
     username: "postgres",
     database: "uppy_test",
     hostname: "localhost",
-    password: "postgres",
     show_sensitive_data_on_connection_error: true,
     log: :debug,
     stacktrace: true,
@@ -24,7 +23,6 @@ else
     username: "postgres",
     database: "uppy_test",
     hostname: "localhost",
-    password: "postgres",
     pool_size: 10,
     show_sensitive_data_on_connection_error: true,
     stacktrace: true
