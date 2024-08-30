@@ -72,10 +72,10 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     See `EctoShorts.Actions.find/3` for documentation.
     """
     @spec find(
-            schema :: queryable(),
-            params :: params(),
-            options :: options()
-          ) :: t_res(schema_data())
+      schema :: queryable(),
+      params :: params(),
+      options :: options()
+    ) :: t_res(schema_data())
     def find(schema, params, options) do
       EctoShorts.Actions.find(schema, params, options)
     end

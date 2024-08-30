@@ -1313,7 +1313,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert %ErrorMessage{
         code: :forbidden,
-        message: "deleting the object for an existing record is not allowed",
+        message: "cannot delete object due to existing record",
         details: %{
           params: %{
             key: "key"

@@ -162,28 +162,26 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_parts("bucket", "unique_id", YourSchema, %{id: 1})
   """
   def find_parts(
-        bucket,
-        schema,
-        %schema_data_module{} = schema_data,
-        next_part_number_marker,
-        options
-      )
-      when schema === schema_data_module do
+    bucket,
+    _schema,
+    %_{} = schema_data,
+    next_part_number_marker,
+    options
+  ) do
     with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
-         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
-         {:ok, parts} <-
-           Storage.list_parts(
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             next_part_number_marker,
-             options
-           ) do
-      {:ok,
-       %{
-         parts: parts,
-         schema_data: schema_data
-       }}
+      {:ok, schema_data} <- check_if_multipart_upload(schema_data),
+      {:ok, parts} <-
+        Storage.list_parts(
+          bucket,
+          schema_data.key,
+          schema_data.upload_id,
+          next_part_number_marker,
+          options
+        ) do
+      {:ok, %{
+        parts: parts,
+        schema_data: schema_data
+      }}
     end
   end
 
@@ -716,9 +714,9 @@ defmodule Uppy.Core do
       iex> Uppy.Core.delete_object_if_upload_not_found("bucket", YourSchema, %{id: 1})
   """
   def delete_object_if_upload_not_found(bucket, schema, key, options \\ []) do
-    with :ok <- validate_not_found(schema, %{key: key}, options),
-         {:ok, _} <- Storage.head_object(bucket, key, options),
-         {:ok, _} <- Storage.delete_object(bucket, key, options) do
+    with :ok <- ensure_not_found(schema, %{key: key}, options),
+      {:ok, _} <- Storage.head_object(bucket, key, options),
+      {:ok, _} <- Storage.delete_object(bucket, key, options) do
       :ok
     else
       {:error, %{code: :not_found}} -> :ok
@@ -726,15 +724,14 @@ defmodule Uppy.Core do
     end
   end
 
-  defp validate_not_found(schema, params, options) do
+  defp ensure_not_found(schema, params, options) do
     case Action.find(schema, params, options) do
       {:ok, schema_data} ->
-        {:error,
-         Error.forbidden("deleting the object for an existing record is not allowed", %{
-           schema: schema,
-           params: params,
-           schema_data: schema_data
-         })}
+        {:error, Error.forbidden("cannot delete object due to existing record", %{
+          schema: schema,
+          params: params,
+          schema_data: schema_data
+        })}
 
       {:error, %{code: :not_found}} ->
         :ok

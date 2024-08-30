@@ -1,4 +1,4 @@
-defmodule Uppy.CoreSchemaTest do
+defmodule Uppy.CoreAbstractSchemaTest do
   use Uppy.Support.DataCase, async: true
 
   alias Uppy.{
@@ -15,6 +15,7 @@ defmodule Uppy.CoreSchemaTest do
 
   @schema Uppy.Support.PG.Objects.UserAvatarObject
   @source "user_avatar_objects"
+
   @schema_source_tuple {@schema, @source}
 
   @resource "user-avatars"
@@ -341,7 +342,7 @@ defmodule Uppy.CoreSchemaTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
         id: schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
+        pipeline: "Uppy.CoreAbstractSchemaTest.MockPipeline",
         resource: @resource,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         source: "user_avatar_objects"
@@ -478,7 +479,7 @@ defmodule Uppy.CoreSchemaTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
         id: schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
+        pipeline: "Uppy.CoreAbstractSchemaTest.MockPipeline",
         resource: @resource,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         source: "user_avatar_objects"
@@ -562,7 +563,7 @@ defmodule Uppy.CoreSchemaTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
         id: schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
+        pipeline: "Uppy.CoreAbstractSchemaTest.MockPipeline",
         resource: @resource,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         source: "user_avatar_objects",
@@ -1147,7 +1148,7 @@ defmodule Uppy.CoreSchemaTest do
       assert %Uppy.Pipeline.Input{
         bucket: @bucket,
         resource: @resource,
-        schema: {Uppy.Support.PG.Objects.UserAvatarObject, "user_avatar_objects"},
+        schema: Uppy.Support.PG.Objects.UserAvatarObject,
         source: "user_avatar_objects",
         schema_data: schema_data
       } = input
@@ -1324,11 +1325,9 @@ defmodule Uppy.CoreSchemaTest do
 
       assert %ErrorMessage{
         code: :forbidden,
-        message: "deleting the object for an existing record is not allowed",
+        message: "cannot delete object due to existing record",
         details: %{
-          params: %{
-            key: "key"
-          },
+          params: %{key: "key"},
           schema: {Uppy.Support.PG.Objects.UserAvatarObject, "user_avatar_objects"},
           schema_data: %Uppy.Support.PG.Objects.UserAvatarObject{}
         }
@@ -1625,7 +1624,7 @@ defmodule Uppy.CoreSchemaTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
         id: schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
+        pipeline: "Uppy.CoreAbstractSchemaTest.MockPipeline",
         resource: @resource,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         source: "user_avatar_objects"
@@ -1744,7 +1743,7 @@ defmodule Uppy.CoreSchemaTest do
         bucket: @bucket,
         event: "uppy.post_processing_worker.process_upload",
         id: schema_data.id,
-        pipeline: "Uppy.CoreSchemaTest.MockPipeline",
+        pipeline: "Uppy.CoreAbstractSchemaTest.MockPipeline",
         resource: @resource,
         schema: "Uppy.Support.PG.Objects.UserAvatarObject",
         source: "user_avatar_objects"
