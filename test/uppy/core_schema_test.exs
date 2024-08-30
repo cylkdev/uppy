@@ -974,7 +974,7 @@ defmodule Uppy.CoreSchemaTest do
 
       # storage head_object must return an ok response to proceed with deleting.
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok,%{
+        {@bucket, fn -> {:ok, %{
           content_length: 11,
           content_type: "text/plain",
           e_tag: "etag",
