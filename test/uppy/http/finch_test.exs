@@ -1,6 +1,8 @@
 defmodule Uppy.HTTP.FinchTest do
   use ExUnit.Case, async: true
 
+  @moduletag :external
+
   describe "head/3: " do
     test "returns expected response" do
       assert {:ok, response} = Uppy.HTTP.Finch.head("http://localhost/response-headers?content_type=image/png")
