@@ -1,6 +1,8 @@
 defmodule Uppy.CoreAbstractSchemaTest do
   use Uppy.Support.DataCase, async: true
 
+  @moduletag :external
+
   alias Uppy.{
     Action,
     Core,

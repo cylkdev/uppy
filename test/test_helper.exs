@@ -1,8 +1,10 @@
 ExUnit.start()
 
-# Code.put_compiler_option(:warnings_as_errors, true)
+Code.put_compiler_option(:warnings_as_errors, true)
 
-{:ok, _} = :application.ensure_all_started([:ecto, :hackney, :oban, :postgrex])
+for app <- [:ecto, :hackney, :oban, :postgrex] do
+  Application.ensure_all_started(app)
+end
 
 {:ok, _} = Uppy.Repo.start_link()
 
