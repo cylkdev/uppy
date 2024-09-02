@@ -65,7 +65,7 @@ defmodule Uppy.Phases.FileHolder do
 
       iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %{id: 1})
   """
-  @spec find_holder(schema(), schema_data(), options()) :: t_res(schema_data())
+  @spec find_holder(schema(), schema_data() | params(), options()) :: t_res(schema_data())
   def find_holder(schema, %_{} = schema_data, options) do
     assoc_source = Keyword.get(options, :holder_association_source, :user)
     ecto_assoc = fetch_ecto_association!(schema, assoc_source)
@@ -81,7 +81,6 @@ defmodule Uppy.Phases.FileHolder do
     Action.find(holder_schema, params, options)
   end
 
-  @spec find_holder(schema(), params(), options()) :: t_res(schema_data())
   def find_holder(schema, params, options) do
     with {:ok, schema_data} <- Action.find(schema, params, options) do
       find_holder(schema, schema_data, options)
