@@ -60,7 +60,7 @@ jobs:
         run: mix dialyzer
       - name: Run credo
         run: mix credo --strict
-      # - name: Run coveralls
-      #   run: mix coveralls --exclude external
+      - name: Run coveralls
+        run: mix coveralls --exclude external
       - name: Run tests
         run: mix test --exclude external
