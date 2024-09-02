@@ -9,4 +9,3 @@ erl_crash.dump
 /config/*.secret.exs
 .elixir_ls/
 .DS_Store
-/dialyzer/*
