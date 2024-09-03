@@ -1,348 +1,312 @@
 defmodule Uppy.HTTP do
-  @definition [
-    json_adapter: [
-      type: :atom,
-      doc: "Sets the JSON adapter for encoding and decoding."
-    ],
-    http_adapter: [
-      type: :atom,
-      doc: "Sets the HTTP adapter module used to make requests."
-    ],
-    http_options: [
-      type: :keyword_list,
-      doc: "HTTP adapter module options."
-    ],
-    disable_json_encoding?: [
-      type: :boolean,
-      default: false,
-      doc: "Sets if http responses should be encoded to json."
-    ],
-    disable_json_decoding?: [
-      type: :boolean,
-      default: false,
-      doc: "Sets if http responses should be decoded from json."
-    ],
-    atomize_keys?: [
-      type: :boolean,
-      doc: "Sets if the keys in http responses should be converted to atoms."
-    ],
-    max_retries: [
-      type: :non_neg_integer,
-      doc: "The number of times to retry a http request before aborting."
-    ],
-    max_timeout: [
-      type: :non_neg_integer,
-      doc: "The maximum amount of time to wait when retrying a request in milliseconds."
-    ]
-  ]
-
   @moduledoc """
   This module dispatches HTTP requests to the http adapter.
 
-  ### Options
-  #{NimbleOptions.docs(@definition)}
+  ## Retries
+
+  This module provides a mechanism out-of-the-box for retrying failed requests.
+  An exponential backoff equation is used to calculate the time between attempts.
+
+  The default equation used for exponential backoff is:
+
+  `t𝑛 = t0 * 2𝑛 * (1 + rand())`
+
+  where:
+
+    * `t𝑛` - is the time to wait before the `𝑛` n-th retry attempt.
+
+    * `t0` - is the initial delay.
+
+    * `𝑛` - is the number of retries that have been attempted.
+
+    * `rand()` - is a random number between 0 and 1. The randomness is added to
+      mitigate synchronized retries.
+
+  The behaviour of the exponential backoff can be configured via the following options:
+
+    * `:exponential_backoff_function` - A 2-arity function that is passed the number
+      of `attempts` and `options` as the arguments. This function must return a
+      positive integer for the amount of time to sleep. If this option is used
+      `:max`, `:delay`, and `:jitter` will have no effect.
+
+    * `:exponential_backoff_max` - The maximum amount of time to sleep.
+
+    * `:exponential_backoff_delay` - The initial delay to wait when calculating the
+      backoff.
+
+    * `:exponential_backoff_jitter` - A random number between 0 and 1.
   """
-  alias Uppy.{Config, Utils}
-  alias Uppy.HTTP.Encoder
+  alias Uppy.{Config, JSONEncoder, Utils}
 
-  @type t_res(t) :: Uppy.t_res(t)
-
-  @type api_key :: Uppy.api_key()
-
-  @type options :: Uppy.options()
-
-  @typedoc "URL to make a HTTP request."
-  @type http_url :: binary
-
-  @typedoc "A list of key-value pairs sent as headers in a HTTP request."
-  @type http_headers :: [{binary | atom, binary}]
-
-  @typedoc "Payload sent in a HTTP request."
-  @type http_body :: term
-
-  @typedoc "The response from the HTTP adapter."
-  @type http_response :: %{
-          body: term,
-          status: non_neg_integer,
-          headers: [{binary | atom, binary}]
-        }
+  @type url :: Uppy.Adapter.HTTP.url()
+  @type headers :: Uppy.Adapter.HTTP.headers()
+  @type body :: Uppy.Adapter.HTTP.body()
+  @type options :: Uppy.Adapter.HTTP.options()
+  @type status :: Uppy.Adapter.HTTP.status()
+  @type t_response :: Uppy.Adapter.HTTP.t_response()
 
   @logger_prefix "Uppy.HTTP"
 
-  @default_options [
-    host: "http://localhost:8108",
-    http_adapter: Uppy.Adapters.HTTP.Finch,
-    http_options: [],
-    disable_json_encoding?: false,
-    disable_json_decoding?: false,
-    max_retries: 10,
-    max_timeout: 30_000
-  ]
+  @default_max_retries 10
+  @one_hundred 100
+  @two_minutes_ms 120_000
+
+  @default_http_adapter Uppy.HTTP.Finch
 
   @doc """
-  Executes a HTTP HEAD request using the http adapter.
+  Executes a HTTP HEAD request.
 
   ### Examples
 
       iex> Uppy.HTTP.head("http://url.com")
   """
-  def head(url, headers, options \\ []) do
-    options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-
-    http_adapter = Keyword.get(options, :http_adapter, Config.http_adapter())
+  @spec head(url(), headers(), options()) :: t_response()
+  def head(url, headers \\ [], options \\ []) do
     http_options = Keyword.get(options, :http_options, [])
 
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      action: HEAD
-      encoding: JSON
-      adapter: #{inspect(http_adapter)}
-      url: #{url}
-      headers: #{inspect(headers)}
-      options: #{inspect(http_options, pretty: true)}
-      """
-    )
-
     fn ->
-      http_adapter.head(url, headers, http_options)
+      url
+      |> adapter!(options).head(headers, http_options)
+      |> handle_response()
     end
-    |> maybe_retry_on_error(options)
-    |> handle_json_response(options)
+    |> maybe_retry(options)
+    |> deserialize_json_response(options)
   end
 
   @doc """
-  Executes a HTTP GET request using the http adapter.
+  Executes a HTTP GET request.
 
   ### Examples
 
       iex> Uppy.HTTP.get("http://url.com")
   """
-  def get(url, headers, options \\ []) do
-    options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-
-    http_adapter = Keyword.get(options, :http_adapter, Config.http_adapter())
+  @spec get(url(), headers(), options()) :: t_response()
+  def get(url, headers \\ [], options \\ []) do
     http_options = Keyword.get(options, :http_options, [])
 
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      action: GET
-      encoding: JSON
-      adapter: #{inspect(http_adapter)}
-      url: #{url}
-      headers: #{inspect(headers)}
-      options: #{inspect(http_options, pretty: true)}
-      """
-    )
-
     fn ->
-      http_adapter.get(url, headers, http_options)
+      url
+      |> adapter!(options).get(headers, http_options)
+      |> handle_response()
     end
-    |> maybe_retry_on_error(options)
-    |> handle_json_response(options)
+    |> maybe_retry(options)
+    |> deserialize_json_response(options)
   end
 
   @doc """
-  Executes a HTTP DELETE request using the http adapter.
+  Executes a HTTP DELETE request.
 
   ### Examples
 
       iex> Uppy.HTTP.delete("http://url.com")
   """
-  def delete(url, headers, options \\ []) do
-    options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-
-    http_adapter = Keyword.get(options, :http_adapter, Config.http_adapter())
+  @spec delete(url(), headers(), options()) :: t_response()
+  def delete(url, headers \\ [], options \\ []) do
     http_options = Keyword.get(options, :http_options, [])
 
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      action: DELETE
-      encoding: JSON
-      adapter: #{inspect(http_adapter)}
-      url: #{url}
-      headers: #{inspect(headers)}
-      options: #{inspect(http_options, pretty: true)}
-      """
-    )
-
     fn ->
-      http_adapter.delete(url, headers, http_options)
+      url
+      |> adapter!(options).delete(headers, http_options)
+      |> handle_response()
     end
-    |> maybe_retry_on_error(options)
-    |> handle_json_response(options)
+    |> maybe_retry(options)
+    |> deserialize_json_response(options)
   end
 
   @doc """
-  Executes a HTTP POST request using the http adapter.
+  Executes a HTTP POST request.
 
   ### Examples
 
-      iex> Uppy.HTTP.post("http://url.com", %{})
+      iex> Uppy.HTTP.post("http://url.com", "body")
   """
-  def post(url, headers, body, options \\ []) do
-    options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-
-    http_adapter = Keyword.get(options, :http_adapter, Config.http_adapter())
+  @spec post(url(), body(), headers(), options()) :: t_response()
+  def post(url, body, headers \\ [], options \\ []) do
     http_options = Keyword.get(options, :http_options, [])
 
     body = encode_json!(body, options)
 
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      action: POST
-      encoding: JSON
-      adapter: #{inspect(http_adapter)}
-      url: #{url}
-      body: #{inspect(body, pretty: true)}
-      headers: #{inspect(headers)}
-      options: #{inspect(http_options, pretty: true)}
-      """
-    )
-
     fn ->
-      http_adapter.post(url, body, headers, http_options)
+      url
+      |> adapter!(options).post(body, headers, http_options)
+      |> handle_response()
     end
-    |> maybe_retry_on_error(options)
-    |> handle_json_response(options)
+    |> maybe_retry(options)
+    |> deserialize_json_response(options)
   end
 
   @doc """
-  Executes a HTTP PATCH request using the http adapter.
+  Executes a HTTP PATCH request.
 
   ### Examples
 
-      iex> Uppy.HTTP.patch("http://url.com", %{})
+      iex> Uppy.HTTP.patch("http://url.com", "body")
   """
-  def patch(url, headers, body, options \\ []) do
-    options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-
-    http_adapter = Keyword.get(options, :http_adapter, Config.http_adapter())
+  @spec patch(url(), body(), headers(), options()) :: t_response()
+  def patch(url, body, headers \\ [], options \\ []) do
     http_options = Keyword.get(options, :http_options, [])
 
     body = encode_json!(body, options)
 
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      action: PATCH
-      encoding: JSON
-      adapter: #{inspect(http_adapter)}
-      url: #{url}
-      body: #{inspect(body, pretty: true)}
-      headers: #{inspect(headers)}
-      options: #{inspect(http_options, pretty: true)}
-      """
-    )
-
     fn ->
-      http_adapter.patch(url, body, headers, http_options)
+      url
+      |> adapter!(options).patch(body, headers, http_options)
+      |> handle_response()
     end
-    |> maybe_retry_on_error(options)
-    |> handle_json_response(options)
+    |> maybe_retry(options)
+    |> deserialize_json_response(options)
   end
 
   @doc """
-  Executes a HTTP PUT request using the http adapter.
+  Executes a HTTP PUT request.
 
   ### Examples
 
-      iex> Uppy.HTTP.put("http://url.com", %{})
+      iex> Uppy.HTTP.put("http://url.com", "body")
   """
-  def put(url, headers, body, options \\ []) do
-    options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-
-    http_adapter = Keyword.get(options, :http_adapter, Config.http_adapter())
+  @spec put(url(), body(), headers(), options()) :: t_response()
+  def put(url, body, headers \\ [], options \\ []) do
     http_options = Keyword.get(options, :http_options, [])
 
     body = encode_json!(body, options)
 
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      action: PUT
-      encoding: JSON
-      adapter: #{inspect(http_adapter)}
-      url: #{url}
-      body: #{inspect(body, pretty: true)}
-      headers: #{inspect(headers)}
-      options: #{inspect(http_options, pretty: true)}
-      """
-    )
-
     fn ->
-      http_adapter.put(url, body, headers, http_options)
+      url
+      |> adapter!(options).put(body, headers, http_options)
+      |> handle_response()
     end
-    |> maybe_retry_on_error(options)
-    |> handle_json_response(options)
+    |> maybe_retry(options)
+    |> deserialize_json_response(options)
   end
 
-  defp maybe_retry_on_error(func, options) do
-    case options[:max_retries] do
-      0 ->
+  defp exponential_backoff(attempt, options) do
+    case options[:exponential_backoff_function] do
+      nil ->
+        max = options[:exponential_backoff_max] || @two_minutes_ms
+        delay = options[:exponential_backoff_delay] || @one_hundred
+        jitter = options[:exponential_backoff_jitter] || :rand.uniform_real()
+
+        unless jitter >= 0 and jitter <= 1 do
+          raise "Expected option `:exponential_backoff_jitter` to be a number between 0 and 1, got: #{inspect(jitter)}"
+        end
+
+        # Exponential backoff equation:
+        #
+        # b = x * 2^n * (1 + r)
+        #
+        # `b` - The total time to wait before the n-th retry attempt.
+        # `x` - The initial amount of time to wait.
+        # `n` - The number of retries that have been attempted.
+        # `r` - A random number between 0 and 1. The randomness is
+        #       recommended to avoid synchronized retries which
+        #       could cause a thundering herd problem.
+        #
+        (delay * :math.pow(2, attempt) * (1 + jitter)) |> min(max) |> round()
+
+      func when is_function(func, 2) ->
+        func.(attempt, options)
+
+      term ->
+        raise "Expected a 2-arity function for the option `:exponential_backoff_function`, got: #{inspect(term)}"
+    end
+  end
+
+  defp maybe_retry(func, attempt, options) do
+    case max_retries!(options) do
+      disabled when disabled in [false, 0] ->
         func.()
 
-      max_retries ->
-        # The retry with exponential backoff can take an unspecified amount
-        # of time to complete so we run it inside another task and await
-        # the response for a max amount of time.
-        fn ->
-          retry_with_backoff(func, max_retries)
+      max_retries when is_integer(max_retries) and max_retries > 0 ->
+        with {:error, _} = error <- func.() do
+          if attempt < max_retries do
+            Uppy.Utils.Logger.warn(
+              @logger_prefix,
+              """
+              [#{inspect(attempt + 1)}/#{inspect(max_retries)}] Request failed, got error:
+
+              #{inspect(error, pretty: true)}
+              """
+            )
+
+            backoff = exponential_backoff(attempt, options)
+
+            :timer.sleep(backoff)
+
+            maybe_retry(func, attempt + 1, options)
+          else
+            error
+          end
         end
-        |> Task.async()
-        |> Task.await(options[:max_timeout])
+
+      term ->
+        raise """
+        Option `:max_retries` must be `false`, `0`, or `pos_integer()`, got:
+
+        #{inspect(term)}
+        """
     end
   end
 
-  defp retry_with_backoff(fun, attempt \\ 0, max_retries) do
-    with {:error, error} <- fun.() do
-      if attempt < max_retries do
-        attempt = attempt + 1
+  defp maybe_retry(func, options) do
+    maybe_retry(func, 0, options)
+  end
 
-        Utils.Logger.warn(
-          @logger_prefix,
-          "Retrying failed HTTP request. Making attempt #{attempt} out of #{max_retries})."
-        )
-
-        timeout = round(10 * :math.pow(2, attempt)) + Enum.random(50..150)
-
-        :timer.sleep(timeout)
-
-        retry_with_backoff(fun, attempt, max_retries)
-      else
-        {:error, error}
-      end
-    end
+  defp max_retries!(options) do
+    Keyword.get(options, :max_retries, @default_max_retries)
   end
 
   defp encode_json!(body, options) do
     if options[:disable_json_encoding?] === true do
       body
     else
-      Encoder.encode_json!(body, options)
+      JSONEncoder.encode_json!(body, options)
     end
   end
 
-  defp handle_json_response({:ok, %{body: body}}, options) do
-    if options[:disable_json_decoding?] === true do
+  defp decode_json(body, options) do
+    if (body in [nil, ""]) or (options[:disable_json_decoding?] === true) do
       {:ok, body}
     else
-      with {:ok, data} <- Encoder.decode_json(body, options) do
+      with {:ok, data} <- JSONEncoder.decode_json(body, options) do
         {:ok, maybe_atomize_keys(data, options)}
       end
     end
   end
 
-  defp handle_json_response({:error, _} = e, _), do: e
-
-  defp maybe_atomize_keys(val, options) do
-    if Keyword.get(options, :atomize_keys?, Config.atomize_keys?()) do
-      Utils.atomize_keys(val)
+  defp maybe_atomize_keys(map, options) do
+    if Keyword.get(options, :atomize_keys?, true) do
+      Utils.atomize_keys(map)
     else
-      val
+      map
     end
+  end
+
+  defp deserialize_json_response({:ok, %{body: raw_body} = response}, options) do
+    with {:ok, body} <- decode_json(raw_body, options) do
+      {:ok, {body, response}}
+    end
+  end
+
+  defp deserialize_json_response({:error, _} = error, _options) do
+    error
+  end
+
+  defp handle_response({:ok, %{status: _, headers: _, body: _}} = ok), do: ok
+  defp handle_response({:error, _} = error), do: error
+  defp handle_response(term) do
+    raise """
+    Expected one of:
+
+    `{:ok, term()}`
+    `{:error, term()}`
+
+    got:
+
+    #{inspect(term, pretty: true)}
+    """
+  end
+
+  defp adapter!(options) do
+    options[:http_adapter] || Config.http_adapter() || @default_http_adapter
   end
 end

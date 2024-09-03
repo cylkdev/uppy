@@ -1,46 +1,252 @@
 defmodule Uppy.Core do
-  @moduledoc false
+  @moduledoc """
+
+  ### Definitions
+
+  This section provides information on terminology used through the documentation.
+
+  #### Temporary Object Keys
+
+  A temporary object key is a string considered in the "temporary path". The "temporary path" is the
+  location/folder in a `bucket` where users attempt to upload objects to. The objects uploaded to
+  this path are considered temporary as they are not expected to be persisted until the object is
+  moved to the "permanent path" and the database record is updated to reflect the new location and
+  metadata of the object. These object keys are managed the temporary object key adapter`. See the
+  `Uppy.Adapter.TemporaryObjectKey` module documentation for more information.
+
+  > Note: Objects uploaded to the temporary path can end in up incomplete state that cannot be
+  > recovered from. It is recommended to use a lifecycle rule or chron job to garbage collect objects
+  > that have not been completed for some time.
+
+  #### Permanent Object Keys
+
+  A permanent object key is a string considered in the "permanent path". The "permanent path" is the
+  location/folder in a`bucket` where objects are persisted. These object keys are managed the
+  temporary object key adapter`. See the `Uppy.Adapter.TemporaryObjectKey` module documentation for
+  more information.
+  """
 
   alias Uppy.{
-    Actions,
+    Action,
     Error,
+    PathBuilder,
     Pipeline,
+    Scheduler,
     Storage,
-    TemporaryScope,
     Utils
   }
 
-  @unique_identifier_bytes_size 32
+  @default_hash_size 32
+  @one_hour_seconds 3_600
 
-  def basename(unique_identifier, path) do
-    "#{unique_identifier}-#{path}"
+  @doc """
+  Returns a string in the format of `<unique_identifier>-<filename>`.
+
+  ### Examples
+
+      iex> Uppy.Core.basename("unique_identifier", "filename")
+      "unique_identifier-filename"
+  """
+  def basename(unique_identifier, filename) do
+    "#{unique_identifier}-#{filename}"
   end
 
-  def presigned_part(
-        action_adapter,
-        storage_adapter,
-        bucket,
-        temporary_scope_adapter,
-        schema,
-        params,
-        part_number,
-        options
-      ) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
-         {:ok, schema_data} <-
-           check_if_multipart_upload(
-             schema_data,
-             %{
-               schema: schema,
-               schema_data: schema_data,
-               params: params
-             }
-           ),
+  def basename(%{unique_identifier: unique_identifier, filename: filename}) do
+    basename(unique_identifier, filename)
+  end
+
+  @doc """
+  Returns a unique identifier string.
+
+  ### Examples
+
+      iex> Uppy.Core.generate_unique_identifier()
+  """
+  def generate_unique_identifier(options \\ []) do
+    byte_size = Keyword.get(options, :unique_identifier_byte_size, @default_hash_size)
+
+    Utils.generate_unique_identifier(byte_size)
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params and returns the record if the field `e_tag` is not nil.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_permanent_multipart_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.find_permanent_multipart_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.find_permanent_multipart_upload(YourSchema, %{id: 1})
+  """
+  def find_permanent_multipart_upload(schema, params, options \\ []) do
+    with {:ok, schema_data} <- find_permanent_upload(schema, params, options) do
+      check_if_multipart_upload(schema_data)
+    end
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params and returns the record if the field `e_tag` is not nil.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_completed_multipart_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.find_completed_multipart_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.find_completed_multipart_upload(YourSchema, %{id: 1})
+  """
+  def find_completed_multipart_upload(schema, params, options \\ []) do
+    with {:ok, schema_data} <- find_completed_upload(schema, params, options) do
+      check_if_multipart_upload(schema_data)
+    end
+  end
+
+  @doc """
+  Fetches the database record by params and returns the record if the field `key` is
+  in the temporary path.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_temporary_multipart_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.find_temporary_multipart_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.find_temporary_multipart_upload(YourSchema, %{id: 1})
+  """
+  def find_temporary_multipart_upload(schema, params, options \\ []) do
+    with {:ok, schema_data} <- find_temporary_upload(schema, params, options) do
+      check_if_multipart_upload(schema_data)
+    end
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params, completes the multipart upload and updates the
+  field `:e_tag` on the database record to the value of the field `:e_tag` on the metadata retrieved
+  from the function `&Storage.complete_multipart_upload/6`.
+
+  Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
+  function `&Uppy.Core.abort_upload/5`.
+
+  ### Options
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_parts("bucket", 1, {YourSchema, "source"}, %{id: 1}, nil, prefix: "prefix")
+      iex> Uppy.Core.find_parts("bucket", 1, {YourSchema, "source"}, %{id: 1}, "next_part_number_marker")
+      iex> Uppy.Core.find_parts("bucket", "unique_id", YourSchema, %{id: 1}, "next_part_number_marker")
+      iex> Uppy.Core.find_parts("bucket", "unique_id", YourSchema, %{id: 1})
+  """
+  def find_parts(
+    bucket,
+    _schema,
+    %_{} = schema_data,
+    next_part_number_marker,
+    options
+  ) do
+    with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
+      {:ok, schema_data} <- check_if_multipart_upload(schema_data),
+      {:ok, parts} <-
+        Storage.list_parts(
+          bucket,
+          schema_data.key,
+          schema_data.upload_id,
+          next_part_number_marker,
+          options
+        ) do
+      {:ok, %{
+        parts: parts,
+        schema_data: schema_data
+      }}
+    end
+  end
+
+  def find_parts(bucket, schema, params, next_part_number_marker, options) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      find_parts(bucket, schema, schema_data, next_part_number_marker, options)
+    end
+  end
+
+  def find_parts(
+    bucket,
+    schema,
+    params_or_schema_data,
+    next_part_number_marker
+  ) do
+    find_parts(
+      bucket,
+      schema,
+      params_or_schema_data,
+      next_part_number_marker,
+      []
+    )
+  end
+
+  def find_parts(
+    bucket,
+    schema,
+    params_or_schema_data
+  ) do
+    find_parts(
+      bucket,
+      schema,
+      params_or_schema_data,
+      nil
+    )
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params, completes the multipart upload and updates the
+  field `:e_tag` on the database record to the value of the field `:e_tag` on the metadata retrieved
+  from the function `&Storage.complete_multipart_upload/6`.
+
+  Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
+  function `&Uppy.Core.abort_upload/5`.
+
+  ### Options
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.presigned_part("bucket", 1, {YourSchema, "source"}, %{id: 1}, 1, prefix: "prefix")
+      iex> Uppy.Core.presigned_part("bucket", 1, {YourSchema, "source"}, %{id: 1}, 1)
+      iex> Uppy.Core.presigned_part("bucket", "unique_id", YourSchema, %{id: 1}, 1)
+  """
+  def presigned_part(bucket, _schema, %_{} = schema_data, part_number, options) do
+    http_method = upload_http_method(options)
+
+    with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
          {:ok, presigned_part} <-
            Storage.presigned_part_upload(
-             storage_adapter,
              bucket,
+             http_method,
              schema_data.key,
              schema_data.upload_id,
              part_number,
@@ -54,241 +260,415 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_parts(
-        action_adapter,
-        storage_adapter,
+  def presigned_part(bucket, schema, params, part_number, options) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      presigned_part(bucket, schema, schema_data, part_number, options)
+    end
+  end
+
+  def presigned_part(bucket, schema, params_or_schema_data, part_number) do
+    presigned_part(bucket, schema, params_or_schema_data, part_number, [])
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params, completes the multipart upload and updates the
+  field `:e_tag` on the database record to the value of the field `:e_tag` on the metadata returned
+  from the storage `&Storage.complete_multipart_upload/6` function.
+
+  Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
+  function `&Uppy.Core.abort_upload/5`.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.complete_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1}, [{1, "e_tag"}], prefix: "prefix")
+      iex> Uppy.Core.complete_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1}, [{1, "e_tag"}])
+      iex> Uppy.Core.complete_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1}, [{1, "e_tag"}])
+  """
+  def complete_multipart_upload(
         bucket,
-        temporary_scope_adapter,
+        resource,
+        nil_or_pipeline_module,
         schema,
-        params,
-        maybe_next_part_number_marker,
+        %_{} = schema_data,
+        update_params,
+        parts,
         options
       ) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
-         {:ok, schema_data} <-
-           check_if_multipart_upload(
-             schema_data,
-             %{
-               schema: schema,
-               schema_data: schema_data,
-               params: params
-             }
-           ),
-         {:ok, parts} <-
-           Storage.list_parts(
-             storage_adapter,
+    with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
+         {:ok, metadata} <-
+           head_completed_multipart_upload(
              bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             maybe_next_part_number_marker,
+             schema_data,
+             parts,
              options
            ) do
-      {:ok,
-       %{
-         parts: parts,
-         schema_data: schema_data
-       }}
+      update_params = Map.put(update_params, :e_tag, metadata.e_tag)
+
+      operation = fn ->
+        with {:ok, schema_data} <- Action.update(schema, schema_data, update_params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            with {:ok, job} <-
+                   Scheduler.queue_process_upload(
+                     nil_or_pipeline_module,
+                     bucket,
+                     resource,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:process_upload],
+                     options
+                   ) do
+              {:ok,
+               %{
+                 metadata: metadata,
+                 schema_data: schema_data,
+                 jobs: %{process_upload: job}
+               }}
+            end
+          else
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: schema_data
+             }}
+          end
+        end
+      end
+
+      Action.transaction(operation, options)
     end
   end
 
   def complete_multipart_upload(
-        action_adapter,
-        storage_adapter,
         bucket,
-        temporary_scope_adapter,
+        resource,
+        nil_or_pipeline_module,
         schema,
-        params,
+        find_params,
+        update_params,
         parts,
         options
       ) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
-         {:ok, schema_data} <-
-           check_if_multipart_upload(
-             schema_data,
-             %{
-               schema: schema,
-               schema_data: schema_data,
-               params: params
-             }
-           ),
-         {:ok, metadata} <-
-           Storage.complete_multipart_upload(
-             storage_adapter,
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             parts,
-             options
-           ),
-         {:ok, schema_data} <-
-           Actions.update(action_adapter, schema, schema_data, %{e_tag: metadata.e_tag}, options) do
-      {:ok,
-       %{
-         multipart: true,
-         metadata: metadata,
-         schema_data: schema_data
-       }}
-    end
-  end
-
-  def abort_multipart_upload(
-        action_adapter,
-        storage_adapter,
+    with {:ok, schema_data} <- Action.find(schema, find_params, options) do
+      complete_multipart_upload(
         bucket,
-        temporary_scope_adapter,
+        resource,
+        nil_or_pipeline_module,
         schema,
-        params,
+        schema_data,
+        update_params,
+        parts,
         options
-      ) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
-         {:ok, schema_data} <-
-           check_if_multipart_upload(
-             schema_data,
-             %{
-               schema: schema,
-               schema_data: schema_data,
-               params: params
-             }
-           ),
-         {:ok, abort_multipart_upload_payload} <-
-           handle_abort_multipart_upload(
-             storage_adapter,
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             options
-           ),
-         {:ok, schema_data} <- Actions.delete(action_adapter, schema_data, options) do
-      {:ok, Map.put(abort_multipart_upload_payload, :schema_data, schema_data)}
-    end
-  end
-
-  defp handle_abort_multipart_upload(storage, bucket, key, upload_id, options) do
-    case Storage.abort_multipart_upload(storage, bucket, key, upload_id, options) do
-      {:ok, metadata} -> {:ok, %{metadata: metadata}}
-      {:error, %{code: :not_found}} -> {:ok, %{}}
-      error -> error
-    end
-  end
-
-  def start_multipart_upload(
-        action_adapter,
-        storage_adapter,
-        bucket,
-        temporary_scope_adapter,
-        partition_id,
-        schema,
-        params,
-        options
-      ) do
-    filename = params.filename
-
-    unique_identifier =
-      Map.get(
-        params,
-        :unique_identifier,
-        Utils.generate_unique_identifier(@unique_identifier_bytes_size)
       )
+    end
+  end
 
+  def complete_multipart_upload(
+        bucket,
+        resource,
+        nil_or_pipeline_module,
+        schema,
+        find_params_or_schema_data,
+        update_params,
+        parts
+      ) do
+    complete_multipart_upload(
+      bucket,
+      resource,
+      nil_or_pipeline_module,
+      schema,
+      find_params_or_schema_data,
+      update_params,
+      parts,
+      []
+    )
+  end
+
+  defp head_completed_multipart_upload(
+         bucket,
+         schema_data,
+         parts,
+         options
+       ) do
+    case Storage.complete_multipart_upload(
+           bucket,
+           schema_data.key,
+           schema_data.upload_id,
+           parts,
+           options
+         ) do
+      {:ok, _} -> Storage.head_object(bucket, schema_data.key, options)
+      {:error, %{code: :not_found}} -> Storage.head_object(bucket, schema_data.key, options)
+      {:error, _} = error -> error
+    end
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params, aborts the multipart upload and deletes the record.
+
+  Returns an error if the database record field `:upload_id` is nil. For non multipart uploads use the
+  function `&Uppy.Core.abort_upload/5`.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.abort_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.abort_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.abort_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1})
+  """
+  def abort_multipart_upload(bucket, schema, %_{} = schema_data, options) do
+    with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
+         {:ok, schema_data} <- check_if_multipart_upload(schema_data),
+         {:ok, nil_or_metadata} <-
+           handle_abort_multipart_upload(
+             bucket,
+             schema_data.key,
+             schema_data.upload_id,
+             options
+           ) do
+      payload =
+        if is_nil(nil_or_metadata) do
+          %{schema_data: schema_data}
+        else
+          %{metadata: nil_or_metadata, schema_data: schema_data}
+        end
+
+      operation = fn ->
+        with {:ok, schema_data} <- Action.delete(schema_data, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            with {:ok, job} <-
+                   Scheduler.queue_delete_object_if_upload_not_found(
+                     bucket,
+                     schema,
+                     schema_data.key,
+                     options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok, Map.put(payload, :jobs, %{delete_object_if_upload_not_found: job})}
+            end
+          else
+            {:ok, payload}
+          end
+        end
+      end
+
+      Action.transaction(operation, options)
+    end
+  end
+
+  def abort_multipart_upload(bucket, schema, params, options) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      abort_multipart_upload(bucket, schema, schema_data, options)
+    end
+  end
+
+  def abort_multipart_upload(bucket, schema, params_or_schema_data) do
+    abort_multipart_upload(bucket, schema, params_or_schema_data, [])
+  end
+
+  defp handle_abort_multipart_upload(bucket, key, upload_id, options) do
+    case Storage.abort_multipart_upload(bucket, key, upload_id, options) do
+      {:ok, metadata} -> {:ok, metadata}
+      {:error, %{code: :not_found}} -> {:ok, nil}
+      {:error, _} = error -> error
+    end
+  end
+
+  @doc """
+  Initiates a multipart upload and creates a database record.
+
+  The process of starting an upload is as follows:
+
+      1. A unique identifier is generated and put into the `params` key `:unique_identifier`
+        if the key is not set.
+
+      2. A `basename` string is created using the `unique_identifier` and `filename`.
+
+      3. A `key` is generated for a temporary object by the `temporary_object_key_adapter` given
+        the `partition_id` and `basename`.
+
+      4. The `key` generated in the previous step is signed by the `storage_adapter`.
+
+      5. A multipart upload is initiated for the `key`.
+
+      6. A database record is created for the temporary upload and the keys `:unique_identifier`,
+        `filename`, and `:key` are set in the `params` map (These values are created in the
+        previous steps).
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.start_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.start_multipart_upload("bucket", 1, {YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.start_multipart_upload("bucket", "unique_id", YourSchema, %{id: 1})
+  """
+  def start_multipart_upload(bucket, partition_id, schema, params, options) when is_integer(partition_id) do
+    start_multipart_upload(bucket, Integer.to_string(partition_id), schema, params, options)
+  end
+
+  def start_multipart_upload(bucket, partition_id, schema, params, options) when is_binary(partition_id) do
+    filename = params.filename
+    unique_identifier = maybe_generate_unique_identifier(params[:unique_identifier], options)
     basename = basename(unique_identifier, filename)
 
     key =
-      TemporaryScope.prefix(
-        temporary_scope_adapter,
-        to_string(partition_id),
-        basename
+      PathBuilder.temporary_path(
+        %{
+          id: partition_id,
+          basename: basename
+        },
+        options
       )
 
     with {:ok, multipart_upload} <-
-           Storage.initiate_multipart_upload(storage_adapter, bucket, key, options),
-         {:ok, schema_data} <-
-           Actions.create(
-             action_adapter,
-             schema,
-             Map.merge(params, %{
-               upload_id: multipart_upload.upload_id,
-               unique_identifier: unique_identifier,
-               filename: filename,
-               key: key
-             }),
-             options
-           ) do
-      {:ok,
-       %{
-         unique_identifier: unique_identifier,
-         key: key,
-         multipart_upload: multipart_upload,
-         schema_data: schema_data
-       }}
-    end
-  end
+           Storage.initiate_multipart_upload(bucket, key, options) do
+      params =
+        Map.merge(params, %{
+          upload_id: multipart_upload.upload_id,
+          unique_identifier: unique_identifier,
+          filename: filename,
+          key: key
+        })
 
-  def run_pipeline(
-        pipeline,
-        context,
-        schema,
-        params,
-        options
-      ) do
-    with {:ok, schema_data} <-
-           find_completed_upload(
-             context.action_adapter,
-             context.temporary_scope_adapter,
-             schema,
-             params,
-             options
-           ) do
-      input = %{
-        value: schema_data,
-        context:
-          Map.merge(context, %{
-            schema: schema,
-            storage_adapter: context.storage_adapter,
-            bucket: context.bucket,
-            resource_name: context.resource_name,
-            permanent_scope_adapter: context.permanent_scope_adapter
-          }),
-        private: []
-      }
-
-      with {:ok, result, done} <- Pipeline.run(input, pipeline) do
-        {:ok,
-         %{
-           input: input,
-           result: result,
-           phases: done
-         }}
-      end
-    end
-  end
-
-  def complete_upload(
-        action_adapter,
-        storage_adapter,
-        bucket,
-        temporary_scope_adapter,
-        schema,
-        params,
-        options
-      ) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
-         {:ok, schema_data} <-
-           check_if_non_multipart_upload(
-             schema_data,
+      operation = fn ->
+        with {:ok, schema_data} <- Action.create(schema, params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            with {:ok, job} <-
+                   Scheduler.queue_abort_multipart_upload(
+                     bucket,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:abort_multipart_upload] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok,
+               %{
+                 unique_identifier: unique_identifier,
+                 basename: basename,
+                 key: key,
+                 multipart_upload: multipart_upload,
+                 schema_data: schema_data,
+                 jobs: %{abort_multipart_upload: job}
+               }}
+            end
+          else
+            {:ok,
              %{
-               schema: schema,
-               schema_data: schema_data,
-               params: params
-             }
-           ) do
-      find_object_and_update_upload_e_tag(
-        action_adapter,
-        storage_adapter,
+               unique_identifier: unique_identifier,
+               basename: basename,
+               key: key,
+               multipart_upload: multipart_upload,
+               schema_data: schema_data
+             }}
+          end
+        end
+      end
+
+      Action.transaction(operation, options)
+    end
+  end
+
+  def start_multipart_upload(bucket, partition_id, schema, params) do
+    start_multipart_upload(bucket, partition_id, schema, params, [])
+  end
+
+  @doc """
+  Executes a list of phases on a given database record.
+
+  The first phase in the pipeline is given the `input` argument specified to this function. The `input` is
+  expected to be a `map` that contains the specified fields specified below.
+
+  The required input fields are:
+
+      * `bucket` - The name of the bucket.
+
+      * `resource` - The name of the resource being uploaded to the bucket as a string, for eg. "avatars".
+
+      * `schema` - The `Ecto.Schema` module.
+
+      * `schema_data` - A `schema` named struct. This is the database record for the upload.
+
+      * `options` - A keyword list of runtime options.
+
+  See the `Uppy.Pipeline` module documentation for more information on the pipeline.
+  """
+  def process_upload(pipeline, %Uppy.Pipeline.Input{} = input) do
+    with {:ok, result, executed_phases} <- Pipeline.run(input, pipeline) do
+      {:ok, {result, executed_phases}}
+    end
+  end
+
+  def process_upload(nil, %Uppy.Pipeline.Input{} = input, options) do
+    process_upload(Uppy.Pipeline.for_post_processing(options), input)
+  end
+
+  def process_upload(module, %Uppy.Pipeline.Input{} = input, options) when is_atom(module) do
+    module
+    |> Pipeline.phases(options)
+    |> process_upload(input)
+  end
+
+  def process_upload(pipeline, %Uppy.Pipeline.Input{} = input, _options) do
+    process_upload(pipeline, input)
+  end
+
+  def process_upload(
+    pipeline_or_module,
+    bucket,
+    resource,
+    schema,
+    %_{} = schema_data,
+    options
+  ) do
+    {schema, nil_or_source} = schema_source(schema)
+
+    input = %Uppy.Pipeline.Input{
+      bucket: bucket,
+      resource: resource,
+      schema: schema,
+      source: nil_or_source,
+      schema_data: schema_data
+    }
+
+    process_upload(pipeline_or_module, input, options)
+  end
+
+  def process_upload(pipeline_or_module, bucket, resource, schema, params, options) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      process_upload(
+        pipeline_or_module,
         bucket,
+        resource,
         schema,
         schema_data,
         options
@@ -296,56 +676,47 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_object_and_update_upload_e_tag(
-        action_adapter,
-        storage_adapter,
-        bucket,
-        schema,
-        %_{} = schema_data,
-        options
-      ) do
-    with {:ok, metadata} <-
-           Storage.head_object(storage_adapter, bucket, schema_data.key, options),
-         {:ok, schema_data} <-
-           Actions.update(
-             action_adapter,
-             schema,
-             schema_data,
-             %{e_tag: metadata.e_tag},
-             options
-           ) do
-      {:ok,
-       %{
-         metadata: metadata,
-         schema_data: schema_data
-       }}
-    end
+  def process_upload(
+    pipeline_or_module,
+    bucket,
+    resource,
+    schema,
+    params
+  ) do
+    process_upload(
+      pipeline_or_module,
+      bucket,
+      resource,
+      schema,
+      params,
+      []
+    )
   end
 
-  def find_object_and_update_upload_e_tag(
-        action_adapter,
-        storage_adapter,
-        bucket,
-        schema,
-        params,
-        options
-      ) do
-    with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
-      find_object_and_update_upload_e_tag(
-        action_adapter,
-        storage_adapter,
-        bucket,
-        schema,
-        schema_data,
-        options
-      )
-    end
-  end
+  defp schema_source({schema, source}), do: {schema, source}
+  defp schema_source(schema), do: {schema, nil}
 
-  def garbage_collect_object(action_adapter, storage_adapter, bucket, schema, key, options) do
-    with :ok <- ensure_not_found(action_adapter, schema, %{key: key}, options),
-         {:ok, _} <- Storage.head_object(storage_adapter, bucket, key, options),
-         {:ok, _} <- Storage.delete_object(storage_adapter, bucket, key, options) do
+  @doc """
+  Deletes the object specified by `key` from storage if the database record does not exist.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.delete_object_if_upload_not_found("bucket", {YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.delete_object_if_upload_not_found("bucket", {YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.delete_object_if_upload_not_found("bucket", YourSchema, %{id: 1})
+  """
+  def delete_object_if_upload_not_found(bucket, schema, key, options \\ []) do
+    with :ok <- ensure_not_found(schema, %{key: key}, options),
+      {:ok, _} <- Storage.head_object(bucket, key, options),
+      {:ok, _} <- Storage.delete_object(bucket, key, options) do
       :ok
     else
       {:error, %{code: :not_found}} -> :ok
@@ -353,16 +724,14 @@ defmodule Uppy.Core do
     end
   end
 
-  defp ensure_not_found(action_adapter, schema, params, options) do
-    case Actions.find(action_adapter, schema, params, options) do
+  defp ensure_not_found(schema, params, options) do
+    case Action.find(schema, params, options) do
       {:ok, schema_data} ->
-        details = %{
+        {:error, Error.forbidden("cannot delete object due to existing record", %{
           schema: schema,
           params: params,
           schema_data: schema_data
-        }
-
-        {:error, Error.call(:forbidden, "record found", details)}
+        })}
 
       {:error, %{code: :not_found}} ->
         :ok
@@ -372,145 +741,500 @@ defmodule Uppy.Core do
     end
   end
 
-  def abort_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options),
-         {:ok, schema_data} <-
-           check_if_non_multipart_upload(
-             schema_data,
+  @doc """
+  Fetches a database record by params and returns the record if the field `key` is not in
+  a temporary path.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_permanent_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.find_permanent_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.find_permanent_upload(YourSchema, %{id: 1})
+  """
+  def find_permanent_upload(schema, params, options \\ []) do
+    with {:ok, schema_data} <- Action.find(schema, params, options),
+         {:ok, schema_data} <- check_e_tag_non_nil(schema_data) do
+      validate_permanent_object(schema_data, options)
+    end
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params and returns the record if the field `e_tag` is not nil.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_completed_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.find_completed_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.find_completed_upload(YourSchema, %{id: 1})
+  """
+  def find_completed_upload(schema, params, options \\ []) do
+    with {:ok, schema_data} <- find_temporary_upload(schema, params, options) do
+      check_e_tag_non_nil(schema_data)
+    end
+  end
+
+  @doc """
+  Fetches the database record by params and returns the record if the field `key` is
+  in the temporary path.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.find_temporary_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.find_temporary_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.find_temporary_upload(YourSchema, %{id: 1})
+  """
+  def find_temporary_upload(schema, params, options \\ []) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      validate_temporary_object(schema_data, options)
+    end
+  end
+
+  @doc """
+  ...
+  """
+  def delete_upload(bucket, schema, %_{} = schema_data, options) do
+    operation = fn ->
+      with {:ok, schema_data} <- validate_permanent_object(schema_data, options),
+           {:ok, schema_data} <- Action.delete(schema_data, options) do
+        if Keyword.get(options, :scheduler_enabled?, true) do
+          with {:ok, job} <-
+                 Scheduler.queue_delete_object_if_upload_not_found(
+                   bucket,
+                   schema,
+                   schema_data.key,
+                   options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
+                   options
+                 ) do
+            {:ok,
              %{
-               schema: schema,
                schema_data: schema_data,
-               params: params
-             }
-           ),
-         {:ok, schema_data} <- Actions.delete(action_adapter, schema_data, options) do
-      {:ok, %{schema_data: schema_data}}
-    end
-  end
-
-  def find_permanent_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
-    with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
-      if TemporaryScope.path?(temporary_scope_adapter, schema_data.key) === false do
-        {:ok, schema_data}
-      else
-        details = %{
-          schema: schema,
-          schema_data: schema_data,
-          params: params
-        }
-
-        {:error, Error.call(:forbidden, "not a permanent upload", details)}
+               jobs: %{delete_object_if_upload_not_found: job}
+             }}
+          end
+        else
+          {:ok, %{schema_data: schema_data}}
+        end
       end
     end
+
+    Action.transaction(operation, options)
   end
 
-  def find_completed_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
-    with {:ok, schema_data} <-
-           find_temporary_upload(
-             action_adapter,
-             temporary_scope_adapter,
-             schema,
-             params,
-             options
-           ) do
-      if is_nil(schema_data.e_tag) === false do
-        {:ok, schema_data}
-      else
-        details = %{
-          schema: schema,
-          schema_data: schema_data,
-          params: params
-        }
-
-        {:error, Error.call(:forbidden, "upload incomplete", details)}
-      end
+  def delete_upload(bucket, schema, params, options) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      delete_upload(bucket, schema, schema_data, options)
     end
   end
 
-  def find_temporary_upload(action_adapter, temporary_scope_adapter, schema, params, options) do
-    with {:ok, schema_data} <- Actions.find(action_adapter, schema, params, options) do
-      if TemporaryScope.path?(temporary_scope_adapter, schema_data.key) do
-        {:ok, schema_data}
-      else
-        details = %{
-          schema: schema,
-          schema_data: schema_data,
-          params: params
-        }
-
-        {:error, Error.call(:forbidden, "not a temporary upload", details)}
-      end
-    end
+  def delete_upload(bucket, schema, params_or_schema_data) do
+    delete_upload(bucket, schema, params_or_schema_data, [])
   end
 
-  def start_upload(
-        action_adapter,
-        storage_adapter,
+  @doc """
+  Fetches a temporary upload database record by params, then retrieves the metadata from
+  the object and updates the field `:e_tag` on the database record to the value of the
+  field `:e_tag` on the `metadata`.
+
+  Returns an error if the database record field `:upload_id` is not `nil`. For multipart uploads
+  use the function `&Uppy.Core.abort_multipart_upload/5`.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.complete_upload("bucket", {YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.complete_upload("bucket", {YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.complete_upload("bucket", {YourSchema, "source"}, %YourSchema{id: 1})
+      iex> Uppy.Core.complete_upload("bucket", YourSchema, %{id: 1})
+  """
+  def complete_upload(
         bucket,
-        temporary_scope_adapter,
-        partition_id,
+        resource,
+        nil_or_pipeline_module,
         schema,
-        params,
+        %_{} = schema_data,
+        update_params,
         options
       ) do
-    filename = params.filename
+    with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
+         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
+         {:ok, metadata} <-
+           Storage.head_object(bucket, schema_data.key, options) do
+      update_params = Map.put(update_params, :e_tag, metadata.e_tag)
 
-    unique_identifier =
-      Map.get(
-        params,
-        :unique_identifier,
-        Utils.generate_unique_identifier(@unique_identifier_bytes_size)
+      operation = fn ->
+        with {:ok, schema_data} <- Action.update(schema, schema_data, update_params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            with {:ok, job} <-
+                   Scheduler.queue_process_upload(
+                     nil_or_pipeline_module,
+                     bucket,
+                     resource,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:process_upload],
+                     options
+                   ) do
+              {:ok,
+               %{
+                 metadata: metadata,
+                 schema_data: schema_data,
+                 jobs: %{process_upload: job}
+               }}
+            end
+          else
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: schema_data
+             }}
+          end
+        end
+      end
+
+      Action.transaction(operation, options)
+    end
+  end
+
+  def complete_upload(
+        bucket,
+        resource,
+        nil_or_pipeline_module,
+        schema,
+        find_params,
+        update_params,
+        options
+      ) do
+    with {:ok, schema_data} <- Action.find(schema, find_params, options) do
+      complete_upload(
+        bucket,
+        resource,
+        nil_or_pipeline_module,
+        schema,
+        schema_data,
+        update_params,
+        options
       )
+    end
+  end
 
+  def complete_upload(
+        bucket,
+        resource,
+        nil_or_pipeline_module,
+        schema,
+        find_params_or_schema_data,
+        update_params
+      ) do
+    complete_upload(
+      bucket,
+      resource,
+      nil_or_pipeline_module,
+      schema,
+      find_params_or_schema_data,
+      update_params,
+      []
+    )
+  end
+
+  def complete_upload(
+        bucket,
+        resource,
+        nil_or_pipeline_module,
+        schema,
+        find_params_or_schema_data
+      ) do
+    complete_upload(
+      bucket,
+      resource,
+      nil_or_pipeline_module,
+      schema,
+      find_params_or_schema_data,
+      %{}
+    )
+  end
+
+  @doc """
+  Fetches a temporary upload database record by params and deletes the record.
+
+  Returns an error if the database record has the field `:upload_id` set. Multipart uploads
+  should be aborted using the `&Uppy.Core.abort_multipart_upload/5` function.
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.abort_upload({YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.abort_upload({YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.abort_upload(YourSchema, %{id: 1})
+  """
+  def abort_upload(bucket, schema, %_{} = schema_data, options) do
+    with {:ok, schema_data} <- validate_temporary_object(schema_data, options),
+         {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
+         {:ok, schema_data} <- check_e_tag_is_nil(schema_data) do
+      operation = fn ->
+        with {:ok, schema_data} <- Action.delete(schema_data, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            with {:ok, job} <-
+                   Scheduler.queue_delete_object_if_upload_not_found(
+                     bucket,
+                     schema,
+                     schema_data.key,
+                     options[:schedule][:delete_object_if_upload_not_found] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok,
+               %{
+                 schema_data: schema_data,
+                 jobs: %{delete_object_if_upload_not_found: job}
+               }}
+            end
+          else
+            {:ok, %{schema_data: schema_data}}
+          end
+        end
+      end
+
+      Action.transaction(operation, options)
+    end
+  end
+
+  def abort_upload(bucket, schema, params, options) do
+    with {:ok, schema_data} <- Action.find(schema, params, options) do
+      abort_upload(bucket, schema, schema_data, options)
+    end
+  end
+
+  def abort_upload(bucket, schema, params_or_schema_data) do
+    abort_upload(bucket, schema, params_or_schema_data, [])
+  end
+
+  @doc """
+  Creates a presigned url and a database record.
+
+  The process of starting an upload is as follows:
+
+      1. A unique identifier is generated and put into the `params` key `:unique_identifier`
+        if the key is not set.
+
+      2. A `basename` string is created using the `unique_identifier` and `filename`.
+
+      3. A `key` is generated for a temporary object by the `temporary_object_key_adapter` given
+        the `partition_id` and `basename`.
+
+      4. The `key` generated in the previous step is signed by the `storage_adapter`.
+
+      5. A database record is created for the temporary upload and the keys `:unique_identifier`,
+        `filename`, and `:key` are set in the `params` map (These values are created in the
+        previous steps).
+
+  ### Options
+
+      * `:action_adapter` - Sets the adapter for database operations. See `Uppy.Adapter.Action`
+        module documentation for more information.
+
+      * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
+        `Uppy.Adapter.Storage` module documentation for more information.
+
+      * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
+        manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
+        documentation for more information.
+
+  ### Examples
+
+      iex> Uppy.Core.start_upload("bucket", 1, {YourSchema, "source"}, %{id: 1}, prefix: "prefix")
+      iex> Uppy.Core.start_upload("bucket", 1, {YourSchema, "source"}, %{id: 1})
+      iex> Uppy.Core.start_upload("bucket", "unique_id", YourSchema, %{id: 1})
+  """
+  def start_upload(bucket, partition_id, schema, params, options) when is_integer(partition_id) do
+    start_upload(bucket, Integer.to_string(partition_id), schema, params, options)
+  end
+
+  def start_upload(bucket, partition_id, schema, params, options) when is_binary(partition_id) do
+    filename = params.filename
+    unique_identifier = maybe_generate_unique_identifier(params[:unique_identifier], options)
     basename = basename(unique_identifier, filename)
 
     key =
-      TemporaryScope.prefix(
-        temporary_scope_adapter,
-        to_string(partition_id),
-        basename
+      PathBuilder.temporary_path(
+        %{
+          id: partition_id,
+          basename: basename
+        },
+        options
       )
 
-    with {:ok, presigned_upload} <-
-           Storage.presigned_upload(storage_adapter, bucket, key, options),
-         {:ok, schema_data} <-
-           Actions.create(
-             action_adapter,
-             schema,
-             Map.merge(params, %{
+    params =
+      Map.merge(params, %{
+        unique_identifier: unique_identifier,
+        filename: filename,
+        key: key
+      })
+
+    http_method = upload_http_method(options)
+
+    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, http_method, key, options) do
+      operation = fn ->
+        with {:ok, schema_data} <- Action.create(schema, params, options) do
+          if Keyword.get(options, :scheduler_enabled?, true) do
+            with {:ok, job} <-
+                   Scheduler.queue_abort_upload(
+                     bucket,
+                     schema,
+                     schema_data.id,
+                     options[:schedule][:abort_upload] || @one_hour_seconds,
+                     options
+                   ) do
+              {:ok,
+               %{
+                 unique_identifier: unique_identifier,
+                 basename: basename,
+                 key: key,
+                 presigned_upload: presigned_upload,
+                 schema_data: schema_data,
+                 jobs: %{abort_upload: job}
+               }}
+            end
+          else
+            {:ok,
+             %{
                unique_identifier: unique_identifier,
-               filename: filename,
-               key: key
-             }),
-             options
-           ) do
-      {:ok,
-       %{
-         unique_identifier: unique_identifier,
-         key: key,
-         presigned_upload: presigned_upload,
-         schema_data: schema_data
-       }}
+               basename: basename,
+               key: key,
+               presigned_upload: presigned_upload,
+               schema_data: schema_data
+             }}
+          end
+        end
+      end
+
+      Action.transaction(operation, options)
     end
   end
 
-  defp check_if_multipart_upload(schema_data, details) do
-    if has_upload_id?(schema_data) do
-      {:ok, schema_data}
+  def start_upload(bucket, partition_id, schema, params) do
+    start_upload(bucket, partition_id, schema, params, [])
+  end
+
+  defp upload_http_method(options) do
+    options[:upload_http_method] || :post
+  end
+
+  defp maybe_generate_unique_identifier(nil, options), do: generate_unique_identifier(options)
+  defp maybe_generate_unique_identifier(unique_identifier, _options), do: unique_identifier
+
+  defp validate_permanent_object(schema_data, options) do
+    if Keyword.get(options, :validate?, true) do
+      with :ok <- PathBuilder.validate_permanent_path(schema_data.key, options) do
+        {:ok, schema_data}
+      end
     else
-      {:error, Error.call(:forbidden, "must be a multipart upload", details)}
+      {:ok, schema_data}
     end
   end
 
-  defp check_if_non_multipart_upload(schema_data, details) do
-    if has_upload_id?(schema_data) do
-      {:error, Error.call(:forbidden, "must be a non multipart upload", details)}
+  defp validate_temporary_object(schema_data, options) do
+    if Keyword.get(options, :validate?, true) do
+      with :ok <- PathBuilder.validate_temporary_path(schema_data.key, options) do
+        {:ok, schema_data}
+      end
     else
       {:ok, schema_data}
+    end
+  end
+
+  defp check_e_tag_is_nil(schema_data) do
+    if is_nil(schema_data.e_tag) do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.forbidden(
+         "Expected field `:e_tag` to be nil",
+         %{schema_data: schema_data}
+       )}
+    end
+  end
+
+  defp check_e_tag_non_nil(schema_data) do
+    if is_nil(schema_data.e_tag) === false do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.forbidden(
+         "Expected field `:e_tag` to be non-nil",
+         %{schema_data: schema_data}
+       )}
+    end
+  end
+
+  defp check_if_multipart_upload(schema_data) do
+    if has_upload_id?(schema_data) do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.forbidden(
+         "Expected `:upload_id` to be non-nil",
+         %{schema_data: schema_data}
+       )}
+    end
+  end
+
+  defp check_if_non_multipart_upload(schema_data) do
+    if has_upload_id?(schema_data) === false do
+      {:ok, schema_data}
+    else
+      {:error,
+       Error.forbidden(
+         "Expected `:upload_id` to be nil",
+         %{schema_data: schema_data}
+       )}
     end
   end
 
   defp has_upload_id?(%{upload_id: nil}), do: false
-  defp has_upload_id?(%{upload_id: _upload_id}), do: true
+  defp has_upload_id?(%{upload_id: _}), do: true
 end

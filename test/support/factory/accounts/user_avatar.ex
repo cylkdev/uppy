@@ -6,7 +6,7 @@ defmodule Uppy.Support.Factory.Accounts.UserAvatar do
   def schema, do: Uppy.Support.PG.Accounts.UserAvatar
 
   @impl FactoryEx
-  def repo, do: Uppy.Support.Repo
+  def repo, do: Uppy.Repo
 
   @impl FactoryEx
   def build(attrs \\ %{}) do

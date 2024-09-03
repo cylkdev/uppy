@@ -6,7 +6,7 @@ defmodule Uppy.Support.Factory.Accounts.User do
   def schema, do: Uppy.Support.PG.Accounts.User
 
   @impl FactoryEx
-  def repo, do: Uppy.Support.Repo
+  def repo, do: Uppy.Repo
 
   @impl FactoryEx
   def build(attrs \\ %{}) do

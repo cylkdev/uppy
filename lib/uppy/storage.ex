@@ -1,4 +1,10 @@
 defmodule Uppy.Storage do
+  @moduledoc """
+  ...
+  """
+
+  alias Uppy.Config
+
   @type t_res :: Uppy.Adapter.Storage.t_res()
 
   @type adapter :: Uppy.Adapter.Storage.adapter()
@@ -13,25 +19,49 @@ defmodule Uppy.Storage do
   @type part_number :: Uppy.Adapter.Storage.part_number()
   @type upload_id :: Uppy.Adapter.Storage.upload_id()
   @type marker :: Uppy.Adapter.Storage.marker()
-  @type maybe_marker :: Uppy.Adapter.Storage.maybe_marker()
   @type part :: Uppy.Adapter.Storage.part()
   @type parts :: Uppy.Adapter.Storage.parts()
 
+  @default_storage_adapter Uppy.Storages.S3
+
   @default_options [
-    storage: [
-      sandbox: Mix.env() === :test,
-      presigned_upload: [http_method: :put],
-      presigned_part_upload: [http_method: :put]
-    ]
+    storage: [sandbox: Mix.env() === :test]
   ]
 
+  def download_chunk_stream(bucket, object, chunk_size, options) do
+    options = Keyword.merge(@default_options, options)
+
+    sandbox? = options[:storage][:sandbox]
+
+    if sandbox? && !sandbox_disabled?() do
+      sandbox_download_chunk_stream_response(bucket, object, chunk_size, options)
+    else
+      bucket
+      |> adapter!(options).download_chunk_stream(object, chunk_size, options)
+      |> handle_response()
+    end
+  end
+
+  def get_chunk(bucket, object, start_byte, end_byte, options) do
+    options = Keyword.merge(@default_options, options)
+
+    sandbox? = options[:storage][:sandbox]
+
+    if sandbox? && !sandbox_disabled?() do
+      sandbox_get_chunk_response(bucket, object, start_byte, end_byte, options)
+    else
+      bucket
+      |> adapter!(options).get_chunk(object, start_byte, end_byte, options)
+      |> handle_response()
+    end
+  end
+
   @spec list_objects(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          prefix :: prefix(),
-          options :: options()
-        ) :: t_res()
-  def list_objects(adapter, bucket, prefix, options) do
+    bucket :: bucket(),
+    prefix :: prefix(),
+    options :: options()
+  ) :: t_res()
+  def list_objects(bucket, prefix, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -40,8 +70,8 @@ defmodule Uppy.Storage do
       sandbox_list_objects_response(bucket, prefix, options)
     else
       bucket
-      |> adapter.list_objects(prefix, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).list_objects(prefix, options)
+      |> handle_response()
     end
   end
 
@@ -49,12 +79,11 @@ defmodule Uppy.Storage do
   ...
   """
   @spec get_object(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          options :: options()
-        ) :: t_res()
-  def get_object(adapter, bucket, object, options) do
+    bucket :: bucket(),
+    object :: object(),
+    options :: options()
+  ) :: t_res()
+  def get_object(bucket, object, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -63,8 +92,8 @@ defmodule Uppy.Storage do
       sandbox_get_object_response(bucket, object, options)
     else
       bucket
-      |> adapter.get_object(object, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).get_object(object, options)
+      |> handle_response()
     end
   end
 
@@ -72,12 +101,11 @@ defmodule Uppy.Storage do
   ...
   """
   @spec head_object(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          options :: options()
-        ) :: t_res()
-  def head_object(adapter, bucket, object, options) do
+    bucket :: bucket(),
+    object :: object(),
+    options :: options()
+  ) :: t_res()
+  def head_object(bucket, object, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -86,8 +114,8 @@ defmodule Uppy.Storage do
       sandbox_head_object_response(bucket, object, options)
     else
       bucket
-      |> adapter.head_object(object, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).head_object(object, options)
+      |> handle_response()
     end
   end
 
@@ -95,36 +123,35 @@ defmodule Uppy.Storage do
   ...
   """
   @spec presigned_download(
-          adapter :: adapter(),
           bucket :: bucket(),
           object :: object(),
           options :: options()
         ) :: t_res()
-  def presigned_download(adapter, bucket, object, options \\ []) do
+  def presigned_download(bucket, object, options \\ []) do
     options = Keyword.merge(@default_options, options)
 
-    presigned_url(adapter, bucket, :get, object, options)
+    presigned_url(bucket, :get, object, options)
   end
 
   @doc """
   ...
   """
   @spec presigned_part_upload(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          upload_id :: upload_id(),
-          part_number :: part_number(),
-          options :: options()
-        ) :: t_res()
+    bucket :: bucket(),
+    http_method :: http_method(),
+    object :: object(),
+    upload_id :: upload_id(),
+    part_number :: part_number(),
+    options :: options()
+  ) :: t_res()
   def presigned_part_upload(
-        adapter,
-        bucket,
-        object,
-        upload_id,
-        part_number,
-        options \\ []
-      ) do
+    bucket,
+    http_method,
+    object,
+    upload_id,
+    part_number,
+    options \\ []
+  ) do
     query_params = %{
       "uploadId" => upload_id,
       "partNumber" => part_number
@@ -135,47 +162,34 @@ defmodule Uppy.Storage do
       |> Keyword.merge(options)
       |> Keyword.update(:query_params, query_params, &Map.merge(&1, query_params))
 
-    http_method = upload_http_method(options, :presigned_part_upload)
-
-    presigned_url(adapter, bucket, http_method, object, options)
+    presigned_upload(bucket, http_method, object, options)
   end
 
   @doc """
   ...
   """
   @spec presigned_upload(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          options :: options()
-        ) :: t_res()
-  def presigned_upload(adapter, bucket, object, options \\ []) do
+    bucket :: bucket(),
+    http_method :: http_method(),
+    object :: object(),
+    options :: options()
+  ) :: t_res()
+  def presigned_upload(bucket, http_method, object, options \\ []) do
     options = Keyword.merge(@default_options, options)
 
-    http_method = upload_http_method(options, :presigned_upload)
-
-    presigned_url(adapter, bucket, http_method, object, options)
-  end
-
-  defp upload_http_method(options, action) do
-    case options[:storage][action][:http_method] do
-      :post -> :post
-      :put -> :put
-      term -> raise ArgumentError, "expected `:put` or `:put`, got: #{inspect(term)}"
-    end
+    presigned_url(bucket, http_method, object, options)
   end
 
   @doc """
   ...
   """
   @spec presigned_url(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          http_method :: http_method(),
-          object :: object(),
-          options :: options()
-        ) :: t_res()
-  def presigned_url(adapter, bucket, http_method, object, options) do
+    bucket :: bucket(),
+    http_method :: http_method(),
+    object :: object(),
+    options :: options()
+  ) :: t_res()
+  def presigned_url(bucket, http_method, object, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -184,8 +198,8 @@ defmodule Uppy.Storage do
       sandbox_presigned_url_response(bucket, http_method, object, options)
     else
       bucket
-      |> adapter.presigned_url(http_method, object, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).presigned_url(http_method, object, options)
+      |> handle_response()
       |> handle_presigned_url_response()
     end
   end
@@ -199,7 +213,7 @@ defmodule Uppy.Storage do
     raise """
     Expected one of:
 
-    {:ok, %{url: String.t(), expires_at: DateTime.t()}}
+    {:ok, %{url: binary(), expires_at: DateTime.t()}}
     {:error, term()}
 
     got:
@@ -215,12 +229,8 @@ defmodule Uppy.Storage do
   @doc """
   ...
   """
-  @spec list_multipart_uploads(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          options :: options()
-        ) :: t_res()
-  def list_multipart_uploads(adapter, bucket, options) do
+  @spec list_multipart_uploads(bucket :: bucket(), options :: options()) :: t_res()
+  def list_multipart_uploads(bucket, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -229,8 +239,8 @@ defmodule Uppy.Storage do
       sandbox_list_multipart_uploads_response(bucket, options)
     else
       bucket
-      |> adapter.list_multipart_uploads(options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).list_multipart_uploads(options)
+      |> handle_response()
     end
   end
 
@@ -238,12 +248,11 @@ defmodule Uppy.Storage do
   ...
   """
   @spec initiate_multipart_upload(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          options :: options()
-        ) :: t_res()
-  def initiate_multipart_upload(adapter, bucket, object, options) do
+    bucket :: bucket(),
+    object :: object(),
+    options :: options()
+  ) :: t_res()
+  def initiate_multipart_upload(bucket, object, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -252,8 +261,8 @@ defmodule Uppy.Storage do
       sandbox_initiate_multipart_upload_response(bucket, object, options)
     else
       bucket
-      |> adapter.initiate_multipart_upload(object, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).initiate_multipart_upload(object, options)
+      |> handle_response()
     end
   end
 
@@ -261,14 +270,13 @@ defmodule Uppy.Storage do
   ...
   """
   @spec list_parts(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          upload_id :: upload_id(),
-          next_part_number_marker :: maybe_marker(),
-          options :: options()
-        ) :: t_res()
-  def list_parts(adapter, bucket, object, upload_id, next_part_number_marker, options) do
+    bucket :: bucket(),
+    object :: object(),
+    upload_id :: upload_id(),
+    next_part_number_marker :: marker() | nil,
+    options :: options()
+  ) :: t_res()
+  def list_parts(bucket, object, upload_id, next_part_number_marker, options \\ []) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -277,8 +285,8 @@ defmodule Uppy.Storage do
       sandbox_list_parts_response(bucket, object, upload_id, next_part_number_marker, options)
     else
       bucket
-      |> adapter.list_parts(object, upload_id, next_part_number_marker, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).list_parts(object, upload_id, next_part_number_marker, options)
+      |> handle_response()
     end
   end
 
@@ -286,13 +294,12 @@ defmodule Uppy.Storage do
   ...
   """
   @spec abort_multipart_upload(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          upload_id :: upload_id(),
-          options :: options()
-        ) :: t_res()
-  def abort_multipart_upload(adapter, bucket, object, upload_id, options) do
+    bucket :: bucket(),
+    object :: object(),
+    upload_id :: upload_id(),
+    options :: options()
+  ) :: t_res()
+  def abort_multipart_upload(bucket, object, upload_id, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -301,8 +308,8 @@ defmodule Uppy.Storage do
       sandbox_abort_multipart_upload_response(bucket, object, upload_id, options)
     else
       bucket
-      |> adapter.abort_multipart_upload(object, upload_id, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).abort_multipart_upload(object, upload_id, options)
+      |> handle_response()
     end
   end
 
@@ -310,14 +317,13 @@ defmodule Uppy.Storage do
   ...
   """
   @spec complete_multipart_upload(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          upload_id :: upload_id(),
-          parts :: parts(),
-          options :: options()
-        ) :: t_res()
-  def complete_multipart_upload(adapter, bucket, object, upload_id, parts, options) do
+    bucket :: bucket(),
+    object :: object(),
+    upload_id :: upload_id(),
+    parts :: parts(),
+    options :: options()
+  ) :: t_res()
+  def complete_multipart_upload(bucket, object, upload_id, parts, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -326,8 +332,8 @@ defmodule Uppy.Storage do
       sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, options)
     else
       bucket
-      |> adapter.complete_multipart_upload(object, upload_id, parts, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).complete_multipart_upload(object, upload_id, parts, options)
+      |> handle_response()
     end
   end
 
@@ -335,21 +341,19 @@ defmodule Uppy.Storage do
   ...
   """
   @spec put_object_copy(
-          adapter :: adapter(),
-          dest_bucket :: bucket(),
-          destination_object :: object(),
-          src_bucket :: bucket(),
-          source_object :: object(),
-          options :: options()
-        ) :: t_res()
+    dest_bucket :: bucket(),
+    destination_object :: object(),
+    src_bucket :: bucket(),
+    source_object :: object(),
+    options :: options()
+  ) :: t_res()
   def put_object_copy(
-        adapter,
-        dest_bucket,
-        destination_object,
-        src_bucket,
-        source_object,
-        options
-      ) do
+    dest_bucket,
+    destination_object,
+    src_bucket,
+    source_object,
+    options
+  ) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -364,8 +368,13 @@ defmodule Uppy.Storage do
       )
     else
       dest_bucket
-      |> adapter.put_object_copy(destination_object, src_bucket, source_object, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).put_object_copy(
+        destination_object,
+        src_bucket,
+        source_object,
+        options
+      )
+      |> handle_response()
     end
   end
 
@@ -373,13 +382,12 @@ defmodule Uppy.Storage do
   ...
   """
   @spec put_object(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          body :: body(),
-          options :: options()
-        ) :: t_res()
-  def put_object(adapter, bucket, object, body, options) do
+    bucket :: bucket(),
+    object :: object(),
+    body :: body(),
+    options :: options()
+  ) :: t_res()
+  def put_object(bucket, object, body, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -388,8 +396,8 @@ defmodule Uppy.Storage do
       sandbox_put_object_response(bucket, object, body, options)
     else
       bucket
-      |> adapter.put_object(object, body, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).put_object(object, body, options)
+      |> handle_response()
     end
   end
 
@@ -397,12 +405,11 @@ defmodule Uppy.Storage do
   ...
   """
   @spec delete_object(
-          adapter :: adapter(),
-          bucket :: bucket(),
-          object :: object(),
-          options :: options()
-        ) :: t_res()
-  def delete_object(adapter, bucket, object, options) do
+    bucket :: bucket(),
+    object :: object(),
+    options :: options()
+  ) :: t_res()
+  def delete_object(bucket, object, options) do
     options = Keyword.merge(@default_options, options)
 
     sandbox? = options[:storage][:sandbox]
@@ -411,20 +418,24 @@ defmodule Uppy.Storage do
       sandbox_delete_object_response(bucket, object, options)
     else
       bucket
-      |> adapter.delete_object(object, options)
-      |> ensure_status_tuple!()
+      |> adapter!(options).delete_object(object, options)
+      |> handle_response()
     end
   end
 
-  defp ensure_status_tuple!({:ok, _} = ok), do: ok
-  defp ensure_status_tuple!({:error, _} = error), do: error
+  defp adapter!(options) do
+    options[:storage_adapter] || Config.storage_adapter() || @default_storage_adapter
+  end
 
-  defp ensure_status_tuple!(term) do
+  defp handle_response({:ok, _} = ok), do: ok
+  defp handle_response({:error, %{code: _, message: _, details: _}} = error), do: error
+
+  defp handle_response(term) do
     raise """
     Expected one of:
 
-    {:ok, term()}
-    {:error, term()}
+    `{:ok, term()}`
+    `{:error, %{code: term(), message: term(), details: term()}}`
 
     got:
 
@@ -433,6 +444,14 @@ defmodule Uppy.Storage do
   end
 
   if Mix.env() === :test do
+    defdelegate sandbox_download_chunk_stream_response(bucket, object, chunk_size, options),
+      to: Uppy.Support.StorageSandbox,
+      as: :download_chunk_stream_response
+
+    defdelegate sandbox_get_chunk_response(bucket, object, start_byte, end_byte, options),
+      to: Uppy.Support.StorageSandbox,
+      as: :get_chunk_response
+
     defdelegate sandbox_list_objects_response(bucket, prefix, options),
       to: Uppy.Support.StorageSandbox,
       as: :list_objects_response
@@ -458,38 +477,38 @@ defmodule Uppy.Storage do
       as: :initiate_multipart_upload_response
 
     defdelegate sandbox_list_parts_response(
-                  bucket,
-                  object,
-                  upload_id,
-                  next_part_number_marker,
-                  options
-                ),
-                to: Uppy.Support.StorageSandbox,
-                as: :list_parts_response
+      bucket,
+      object,
+      upload_id,
+      next_part_number_marker,
+      options
+    ),
+    to: Uppy.Support.StorageSandbox,
+    as: :list_parts_response
 
     defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, options),
       to: Uppy.Support.StorageSandbox,
       as: :abort_multipart_upload_response
 
     defdelegate sandbox_complete_multipart_upload_response(
-                  bucket,
-                  object,
-                  upload_id,
-                  parts,
-                  options
-                ),
-                to: Uppy.Support.StorageSandbox,
-                as: :complete_multipart_upload_response
+      bucket,
+      object,
+      upload_id,
+      parts,
+      options
+    ),
+    to: Uppy.Support.StorageSandbox,
+    as: :complete_multipart_upload_response
 
     defdelegate sandbox_put_object_copy_response(
-                  dest_bucket,
-                  destination_object,
-                  src_bucket,
-                  source_object,
-                  options
-                ),
-                to: Uppy.Support.StorageSandbox,
-                as: :put_object_copy_response
+      dest_bucket,
+      destination_object,
+      src_bucket,
+      source_object,
+      options
+    ),
+    to: Uppy.Support.StorageSandbox,
+    as: :put_object_copy_response
 
     defdelegate sandbox_put_object_response(bucket, object, body, options),
       to: Uppy.Support.StorageSandbox,
@@ -501,6 +520,29 @@ defmodule Uppy.Storage do
 
     defdelegate sandbox_disabled?, to: Uppy.Support.StorageSandbox
   else
+    defp sandbox_download_chunk_stream_response(bucket, object, chunk_size, options) do
+      raise """
+      Cannot use StorageSandbox outside of test
+
+      bucket: #{inspect(bucket)}
+      object: #{inspect(object)}
+      chunk_size: #{inspect(chunk_size)}
+      options: #{inspect(options, pretty: true)}
+      """
+    end
+
+    defp sandbox_get_chunk_response(bucket, object, start_byte, end_byte, options) do
+      raise """
+      Cannot use StorageSandbox outside of test
+
+      bucket: #{inspect(bucket)}
+      object: #{inspect(object)}
+      start_byte: #{inspect(start_byte)}
+      end_byte: #{inspect(end_byte)}
+      options: #{inspect(options, pretty: true)}
+      """
+    end
+
     defp sandbox_list_objects_response(bucket, prefix, options) do
       raise """
       Cannot use StorageSandbox outside of test

@@ -26,7 +26,11 @@ allowed_imports = []
           "src/",
           "test/"
         ],
-        excluded: [~r"/_build/", ~r"/deps/"]
+        excluded: [
+          ~r"/_build/",
+          ~r"/deps/",
+          ~r"/test/support/"
+        ]
       },
       plugins: [],
       requires: [
@@ -40,7 +44,7 @@ allowed_imports = []
           #
           ## BlitzCredoChecks
           #
-          {BlitzCredoChecks.SetWarningsAsErrorsInTest, false},
+          {BlitzCredoChecks.SetWarningsAsErrorInTest, false},
           {BlitzCredoChecks.DocsBeforeSpecs, []},
           {BlitzCredoChecks.DoctestIndent, []},
           {BlitzCredoChecks.NoAsyncFalse, []},
