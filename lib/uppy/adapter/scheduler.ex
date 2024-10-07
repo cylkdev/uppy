@@ -8,7 +8,7 @@ defmodule Uppy.Adapter.Scheduler do
   @type resource :: binary()
   @type queryable :: Ecto.Queryable.t()
   @type key :: binary()
-  @type options :: keyword()
+  @type opts :: keyword()
 
   @type schedule_at :: DateTime.t()
   @type schedule_in :: non_neg_integer()
@@ -18,12 +18,12 @@ defmodule Uppy.Adapter.Scheduler do
   @doc """
   Enqueues a job to delete an object from storage if the database record does not exist.
   """
-  @callback queue_delete_object_if_upload_not_found(
+  @callback queue_garbage_collect_object(
               bucket :: bucket(),
               schema :: queryable(),
               key :: key(),
               schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(term())
 
   @doc """
@@ -34,7 +34,7 @@ defmodule Uppy.Adapter.Scheduler do
               schema :: queryable(),
               id :: id(),
               schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(term())
 
   @doc """
@@ -45,7 +45,7 @@ defmodule Uppy.Adapter.Scheduler do
               schema :: queryable(),
               id :: id(),
               schedule_at_or_schedule_in :: schedule_at() | schedule_in(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(term())
 
   @doc """
@@ -58,6 +58,6 @@ defmodule Uppy.Adapter.Scheduler do
               schema :: queryable(),
               id :: id(),
               nil_or_schedule_at_or_schedule_in :: schedule_at() | schedule_in() | nil,
-              options :: options()
+              opts :: opts()
             ) :: t_res(term())
 end

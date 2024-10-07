@@ -1,4 +1,4 @@
-defmodule Uppy.Support.PG.Objects.UserAvatarObject do
+defmodule Uppy.Support.PG.UserAvatarObject do
   @moduledoc false
   use Ecto.Schema
 

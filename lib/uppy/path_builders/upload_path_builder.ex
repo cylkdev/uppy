@@ -4,7 +4,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   """
   alias Uppy.Error
 
-  @type options :: Uppy.options()
+  @type opts :: Uppy.opts()
   @type permanent_path_params :: Uppy.Adapter.PathBuilder.permanent_path_params()
   @type permanent_path_descriptor :: Uppy.Adapter.PathBuilder.permanent_path_descriptor()
   @type temporary_path_params :: Uppy.Adapter.PathBuilder.temporary_path_params()
@@ -163,7 +163,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
       "permanent/21-"
   """
   @impl true
-  @spec permanent_path(params :: permanent_path_params(), opts :: options()) :: binary()
+  @spec permanent_path(params :: permanent_path_params(), opts :: opts()) :: binary()
   def permanent_path(params, opts \\ [])
 
   def permanent_path(%{id: id, resource: resource, basename: basename}, opts) do
@@ -256,7 +256,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
       "temp/21-user/%3Cunique_identifier%3E-%3Cfilename%3E.%3Cextension%3E"
   """
   @impl true
-  @spec temporary_path(params :: temporary_path_params(), opts :: options()) :: binary()
+  @spec temporary_path(params :: temporary_path_params(), opts :: opts()) :: binary()
   def temporary_path(%{id: id, basename: basename}, opts) do
     path = temporary_path(%{id: id}, opts)
 

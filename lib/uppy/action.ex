@@ -6,39 +6,44 @@ defmodule Uppy.Action do
 
   @default_action_adapter Uppy.Actions.EctoAction
 
-  def create(schema, params, options) do
-    adapter!(options).create(schema, params, options)
+  def create(schema, params, opts \\ []) do
+    adapter!(opts).create(schema, params, opts)
   end
 
-  def find(schema, params, options) do
-    adapter!(options).find(schema, params, options)
+  def find(schema, params, opts \\ []) do
+    adapter!(opts).find(schema, params, opts)
   end
 
-  def update(schema, %_{} = schema_data, params, options) do
-    adapter!(options).update(schema, schema_data, params, options)
+  def update(schema, id_or_schema_data, params, opts \\ [])
+
+  def update(schema, %_{} = schema_data, params, opts) do
+    adapter!(opts).update(schema, schema_data, params, opts)
   end
 
-  def update(schema, id, params, options) do
-    adapter!(options).update(schema, id, params, options)
+  def update(schema, id, params, opts) do
+    adapter!(opts).update(schema, id, params, opts)
   end
 
-  def delete(schema, id, options) do
-    adapter!(options).delete(schema, id, options)
+  def delete(schema, id, opts) do
+    adapter!(opts).delete(schema, id, opts)
   end
 
-  def delete(schema_data, options) do
-    adapter!(options).delete(schema_data, options)
+  def delete(schema_data, opts) do
+    adapter!(opts).delete(schema_data, opts)
   end
 
   def delete(schema_data) do
     delete(schema_data, [])
   end
 
-  def transaction(func, options) do
-    adapter!(options).transaction(func, options)
+  def transaction(func, opts \\ []) do
+    adapter!(opts).transaction(func, opts)
   end
 
-  defp adapter!(options) do
-    Keyword.get(options, :action_adapter, Config.action_adapter()) || @default_action_adapter
+  defp adapter!(opts) do
+    with nil <- opts[:action_adapter],
+      nil <- Config.action_adapter() do
+      @default_action_adapter
+    end
   end
 end

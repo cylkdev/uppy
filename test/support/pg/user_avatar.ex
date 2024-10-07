@@ -7,7 +7,7 @@ defmodule Uppy.Support.PG.Accounts.UserAvatar do
   schema "user_avatars" do
     belongs_to :user_profile, Uppy.Support.PG.Accounts.UserProfile
 
-    has_one :object, {"user_avatar_objects", Uppy.Support.PG.Objects.Object}
+    has_one :object, {"user_avatar_objects", Uppy.Support.PG.Object}
 
     field :name, :string
     field :description, :string

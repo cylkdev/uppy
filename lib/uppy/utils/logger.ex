@@ -3,51 +3,62 @@ defmodule Uppy.Utils.Logger do
   require Logger
 
   @doc false
-  @spec debug(binary, binary, keyword) :: :ok
-  def debug(identifier, message, options \\ []) do
+  @spec debug(
+    identifier :: binary(),
+    message :: binary(),
+    opts :: keyword()
+  ) :: :ok
+  def debug(identifier, message, opts \\ []) do
     identifier
-    |> format_message(message, options[:binding])
-    |> Logger.debug(options[:metadata] || [])
+    |> format_message(message)
+    |> Logger.debug(opts)
   end
 
   @doc false
-  @spec warning(binary, binary, keyword) :: :ok
-  def warning(identifier, message, options \\ []) do
+  @spec info(
+    identifier :: binary(),
+    message :: binary(),
+    opts :: keyword()
+  ) :: :ok
+  def info(identifier, message, opts \\ []) do
     identifier
-    |> format_message(message, options[:binding])
-    |> Logger.warning(options[:metadata] || [])
+    |> format_message(message)
+    |> Logger.info(opts)
   end
 
   @doc false
-  @spec warn(binary, binary, keyword) :: :ok
-  def warn(identifier, message, options \\ []) do
-    warning(identifier, message, options)
+  @spec warning(
+    identifier :: binary(),
+    message :: binary(),
+    opts :: keyword()
+  ) :: :ok
+  if Code.ensure_loaded?(:logger) and function_exported?(:logger, :warning, 2) do
+    def warning(identifier, message, opts \\ []) do
+      identifier
+      |> format_message(message)
+      |> Logger.warning(opts)
+    end
+  else
+    def warning(identifier, message, opts \\ []) do
+      identifier
+      |> format_message(message)
+      |> Logger.warn(opts)
+    end
   end
 
   @doc false
-  @spec error(binary, binary, keyword) :: :ok
-  def error(identifier, message, options \\ []) do
+  @spec error(
+    identifier :: binary(),
+    message :: binary(),
+    opts :: keyword()
+  ) :: :ok
+  def error(identifier, message, opts \\ []) do
     identifier
-    |> format_message(message, options[:binding])
-    |> Logger.error(options[:metadata] || [])
+    |> format_message(message)
+    |> Logger.error(opts)
   end
 
   defp format_message(identifier, message) do
     "[#{identifier}] #{message}"
-  end
-
-  defp format_message(identifier, message, binding) do
-    message =
-      if binding do
-        message <> " " <> join_binding(binding)
-      else
-        message
-      end
-
-    format_message(identifier, message)
-  end
-
-  defp join_binding(binding) do
-    Enum.map_join(binding, ", ", fn {k, v} -> "#{to_string(k)}=#{inspect(v)}" end)
   end
 end

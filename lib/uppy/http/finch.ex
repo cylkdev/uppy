@@ -2,7 +2,7 @@ if Uppy.Utils.application_loaded?(:finch) do
   defmodule Uppy.HTTP.Finch do
     @default_name :uppy_http_finch
     @default_pool_config [size: 10]
-    @default_options [
+    @default_opts [
       name: @default_name,
       pools: [default: @default_pool_config]
     ]
@@ -38,8 +38,8 @@ if Uppy.Utils.application_loaded?(:finch) do
 
       @impl true
       def start(_type, _args) do
-        options = [strategy: :one_for_one, name: YourApp.Supervisor]
-        Supervisor.start_link(children(), options)
+        opts = [strategy: :one_for_one, name: YourApp.Supervisor]
+        Supervisor.start_link(children(), opts)
       end
 
       def children do
@@ -67,8 +67,8 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec start_link() :: GenServer.on_start()
     @spec start_link(atom) :: GenServer.on_start()
     @spec start_link(atom, keyword()) :: GenServer.on_start()
-    def start_link(name \\ @default_name, options \\ []) do
-      options
+    def start_link(name \\ @default_name, opts \\ []) do
+      opts
       |> Keyword.put(:name, name)
       |> NimbleOptions.validate!(@definition)
       |> Keyword.update!(:pools, &ensure_default_pool_exists/1)
@@ -94,81 +94,81 @@ if Uppy.Utils.application_loaded?(:finch) do
       }
     end
 
-    def child_spec({name, options}) do
+    def child_spec({name, opts}) do
       %{
         id: name,
-        start: {Uppy.HTTP.Finch, :start_link, [name, options]}
+        start: {Uppy.HTTP.Finch, :start_link, [name, opts]}
       }
     end
 
-    def child_spec(options) do
-      options = Keyword.put_new(options, :name, @default_name)
+    def child_spec(opts) do
+      opts = Keyword.put_new(opts, :name, @default_name)
 
       %{
-        id: options[:name],
-        start: {Uppy.HTTP.Finch, :start_link, [options[:name], options]}
+        id: opts[:name],
+        start: {Uppy.HTTP.Finch, :start_link, [opts[:name], opts]}
       }
     end
 
     @doc false
     @spec make_head_request(binary, list, keyword) :: t_res
-    def make_head_request(url, headers, options) do
+    def make_head_request(url, headers, opts) do
       request = Finch.build(:head, url, headers)
 
-      make_request(request, options)
+      make_request(request, opts)
     end
 
     @doc false
     @spec make_get_request(binary, list, keyword) :: t_res
-    def make_get_request(url, headers, options) do
+    def make_get_request(url, headers, opts) do
       request = Finch.build(:get, url, headers)
 
-      make_request(request, options)
+      make_request(request, opts)
     end
 
     @doc false
     @spec make_delete_request(binary, list, keyword) :: t_res
-    def make_delete_request(url, headers, options) do
+    def make_delete_request(url, headers, opts) do
       request = Finch.build(:delete, url, headers)
 
-      make_request(request, options)
+      make_request(request, opts)
     end
 
     @doc false
     @spec make_patch_request(binary, nil | term, list, keyword) :: t_res
-    def make_patch_request(url, body, headers, options) do
+    def make_patch_request(url, body, headers, opts) do
       request = Finch.build(:patch, url, headers, body)
 
-      make_request(request, options)
+      make_request(request, opts)
     end
 
     @doc false
     @spec make_post_request(binary, nil | term, list, keyword) :: t_res
-    def make_post_request(url, body, headers, options) do
+    def make_post_request(url, body, headers, opts) do
       request = Finch.build(:post, url, headers, body)
 
-      make_request(request, options)
+      make_request(request, opts)
     end
 
     @doc false
     @spec make_put_request(binary, nil | term, list, keyword) :: t_res
-    def make_put_request(url, body, headers, options) do
+    def make_put_request(url, body, headers, opts) do
       request = Finch.build(:put, url, headers, body)
 
-      make_request(request, options)
+      make_request(request, opts)
     end
 
-    defp make_request(request, options) do
-      if options[:stream] do
+    defp make_request(request, opts) do
+      if opts[:stream] do
         Finch.stream(
           request,
-          options[:name],
-          options[:stream_acc] || [],
-          options[:stream],
-          options
+          opts[:name],
+          opts[:stream_acc] || [],
+          opts[:stream],
+          opts
         )
       else
-        with {:ok, response} <- Finch.request(request, options[:name], options) do
+        with {:ok, response} <- Finch.request(request, opts[:name], opts) do
           {:ok,
            %Response{
              request: request,
@@ -205,19 +205,19 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec patch(binary, map | binary) :: t_res
     @spec patch(binary, map | binary, headers) :: t_res
     @spec patch(binary, map | binary, headers, keyword()) :: t_res
-    def patch(url, body, headers \\ [], options \\ []) do
+    def patch(url, body, headers \\ [], opts \\ []) do
       Utils.Logger.debug(@logger_prefix, "PATCH", binding: binding())
 
-      options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-      http_patch = options[:http][:patch] || (&make_patch_request/4)
+      opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
+      http_patch = opts[:http][:patch] || (&make_patch_request/4)
 
       fn ->
         url
-        |> append_query_params(options[:params])
-        |> http_patch.(body, headers, options)
+        |> append_query_params(opts[:params])
+        |> http_patch.(body, headers, opts)
       end
-      |> run_and_measure(headers, "PATCH", options)
-      |> handle_response(options)
+      |> run_and_measure(headers, "PATCH", opts)
+      |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
       RuntimeError -> {:error, Error.service_unavailable("Out of HTTP workers")}
@@ -241,19 +241,19 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec post(binary, map | binary) :: t_res
     @spec post(binary, map | binary, headers) :: t_res
     @spec post(binary, map | binary, headers, keyword()) :: t_res
-    def post(url, body, headers \\ [], options \\ []) do
+    def post(url, body, headers \\ [], opts \\ []) do
       Utils.Logger.debug(@logger_prefix, "POST", binding: binding())
 
-      options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-      http_post = options[:http][:post] || (&make_post_request/4)
+      opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
+      http_post = opts[:http][:post] || (&make_post_request/4)
 
       fn ->
         url
-        |> append_query_params(options[:params])
-        |> http_post.(body, headers, options)
+        |> append_query_params(opts[:params])
+        |> http_post.(body, headers, opts)
       end
-      |> run_and_measure(headers, "POST", options)
-      |> handle_response(options)
+      |> run_and_measure(headers, "POST", opts)
+      |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
       RuntimeError -> {:error, Error.service_unavailable("Out of HTTP workers")}
@@ -277,19 +277,19 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec put(binary, map | binary) :: t_res
     @spec put(binary, map | binary, headers) :: t_res
     @spec put(binary, map | binary, headers, keyword()) :: t_res
-    def put(url, body, headers \\ [], options \\ []) do
+    def put(url, body, headers \\ [], opts \\ []) do
       Utils.Logger.debug(@logger_prefix, "PUT", binding: binding())
 
-      options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-      http_put = options[:http][:put] || (&make_put_request/4)
+      opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
+      http_put = opts[:http][:put] || (&make_put_request/4)
 
       fn ->
         url
-        |> append_query_params(options[:params])
-        |> http_put.(body, headers, options)
+        |> append_query_params(opts[:params])
+        |> http_put.(body, headers, opts)
       end
-      |> run_and_measure(headers, "PUT", options)
-      |> handle_response(options)
+      |> run_and_measure(headers, "PUT", opts)
+      |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
       RuntimeError -> {:error, Error.service_unavailable("Out of HTTP workers")}
@@ -313,19 +313,19 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec head(binary) :: t_res
     @spec head(binary, headers) :: t_res
     @spec head(binary, headers, keyword()) :: t_res
-    def head(url, headers \\ [], options \\ []) do
+    def head(url, headers \\ [], opts \\ []) do
       Utils.Logger.debug(@logger_prefix, "HEAD", binding: binding())
 
-      options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-      http_head = options[:http][:head] || (&make_head_request/3)
+      opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
+      http_head = opts[:http][:head] || (&make_head_request/3)
 
       fn ->
         url
-        |> append_query_params(options[:params])
-        |> http_head.(headers, options)
+        |> append_query_params(opts[:params])
+        |> http_head.(headers, opts)
       end
-      |> run_and_measure(headers, "HEAD", options)
-      |> handle_response(options)
+      |> run_and_measure(headers, "HEAD", opts)
+      |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
       RuntimeError -> {:error, Error.service_unavailable("Out of HTTP workers")}
@@ -349,20 +349,20 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec get(binary) :: t_res
     @spec get(binary, headers) :: t_res
     @spec get(binary, headers, keyword()) :: t_res
-    def get(url, headers \\ [], options \\ []) do
+    def get(url, headers \\ [], opts \\ []) do
       Utils.Logger.debug(@logger_prefix, "GET", binding: binding())
 
-      options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
+      opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
 
-      http_get = options[:http][:get] || (&make_get_request/3)
+      http_get = opts[:http][:get] || (&make_get_request/3)
 
       fn ->
         url
-        |> append_query_params(options[:params])
-        |> http_get.(headers, options)
+        |> append_query_params(opts[:params])
+        |> http_get.(headers, opts)
       end
-      |> run_and_measure(headers, "GET", options)
-      |> handle_response(options)
+      |> run_and_measure(headers, "GET", opts)
+      |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
       RuntimeError -> {:error, Error.service_unavailable("Out of HTTP workers")}
@@ -386,19 +386,19 @@ if Uppy.Utils.application_loaded?(:finch) do
     @spec delete(binary) :: t_res
     @spec delete(binary, headers) :: t_res
     @spec delete(binary, headers, keyword()) :: t_res
-    def delete(url, headers \\ [], options \\ []) do
+    def delete(url, headers \\ [], opts \\ []) do
       Utils.Logger.debug(@logger_prefix, "DELETE", binding: binding())
 
-      options = @default_options |> Keyword.merge(options) |> NimbleOptions.validate!(@definition)
-      http_delete = options[:http][:delete] || (&make_delete_request/3)
+      opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
+      http_delete = opts[:http][:delete] || (&make_delete_request/3)
 
       fn ->
         url
-        |> append_query_params(options[:params])
-        |> http_delete.(headers, options)
+        |> append_query_params(opts[:params])
+        |> http_delete.(headers, opts)
       end
-      |> run_and_measure(headers, "DELETE", options)
-      |> handle_response(options)
+      |> run_and_measure(headers, "DELETE", opts)
+      |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
       RuntimeError -> {:error, Error.service_unavailable("Out of HTTP workers")}
@@ -412,7 +412,7 @@ if Uppy.Utils.application_loaded?(:finch) do
          )}
     end
 
-    defp run_and_measure(fnc, headers, method, options) do
+    defp run_and_measure(fnc, headers, method, opts) do
       start_time = System.monotonic_time()
 
       response = fnc.()
@@ -424,22 +424,22 @@ if Uppy.Utils.application_loaded?(:finch) do
           headers: headers
         },
         response: response,
-        options: options
+        opts: opts
       }
 
       end_time = System.monotonic_time()
       measurements = %{elapsed_time: end_time - start_time}
-      :telemetry.execute([:http, Keyword.get(options, :name)], measurements, metadata)
+      :telemetry.execute([:http, Keyword.get(opts, :name)], measurements, metadata)
 
       response
     end
 
-    defp handle_response({:ok, %Response{status: status}} = res, _options)
+    defp handle_response({:ok, %Response{status: status}} = res, _opts)
          when status in 200..299,
          do: res
 
-    defp handle_response({:ok, %Response{status: code} = res}, options) do
-      api_name = options[:name]
+    defp handle_response({:ok, %Response{status: code} = res}, opts) do
+      api_name = opts[:name]
       details = %{response: res, http_code: code, api_name: api_name}
       error_code_map = error_code_map(api_name)
 
@@ -452,28 +452,28 @@ if Uppy.Utils.application_loaded?(:finch) do
       end
     end
 
-    defp handle_response({:error, e}, options) when is_binary(e) or is_atom(e) do
-      message = "#{options[:name]}: #{e}"
+    defp handle_response({:error, e}, opts) when is_binary(e) or is_atom(e) do
+      message = "#{opts[:name]}: #{e}"
       {:error, Error.internal_server_error(message, %{error: e})}
     end
 
-    defp handle_response({:error, %Mint.TransportError{reason: :timeout} = e}, options) do
-      message = "#{options[:name]}: Endpoint timeout."
+    defp handle_response({:error, %Mint.TransportError{reason: :timeout} = e}, opts) do
+      message = "#{opts[:name]}: Endpoint timeout."
       {:error, Error.request_timeout(message, %{error: e})}
     end
 
-    defp handle_response({:error, %Mint.TransportError{reason: :econnrefused} = e}, options) do
-      message = "#{options[:name]}: HTTP connection refused."
+    defp handle_response({:error, %Mint.TransportError{reason: :econnrefused} = e}, opts) do
+      message = "#{opts[:name]}: HTTP connection refused."
       {:error, Error.service_unavailable(message, %{error: e})}
     end
 
-    defp handle_response({:error, e}, options) do
-      message = unknown_error_message(options[:name])
+    defp handle_response({:error, e}, opts) do
+      message = unknown_error_message(opts[:name])
       {:error, Error.internal_server_error(message, %{error: e})}
     end
 
-    defp handle_response(e, options) do
-      message = unknown_error_message(options[:name])
+    defp handle_response(e, opts) do
+      message = unknown_error_message(opts[:name])
       {:error, Error.internal_server_error(message, %{error: e})}
     end
 

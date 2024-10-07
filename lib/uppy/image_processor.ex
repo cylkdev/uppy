@@ -3,7 +3,7 @@ defmodule Uppy.ImageProcessor do
   ...
   """
 
-  @default_options [
+  @default_opts [
     image_processor: [sandbox: Mix.env() === :test]
   ]
 
@@ -14,31 +14,31 @@ defmodule Uppy.ImageProcessor do
     source_object,
     params,
     destination_object,
-    options \\ []
+    opts \\ []
   ) do
-    options = Keyword.merge(@default_options, options)
+    opts = Keyword.merge(@default_opts, opts)
 
-    sandbox? = options[:image_processor][:sandbox]
+    sandbox? = opts[:image_processor][:sandbox]
 
     if sandbox? && !sandbox_disabled?() do
-      sandbox_put_result_response(bucket, source_object, params, destination_object, options)
+      sandbox_put_result_response(bucket, source_object, params, destination_object, opts)
     else
-      adapter!(options).put_result(bucket, source_object, params, destination_object, options)
+      adapter!(opts).put_result(bucket, source_object, params, destination_object, opts)
     end
   end
 
-  defp adapter!(options) do
-    options[:image_processor_adapter] || @default_adapter
+  defp adapter!(opts) do
+    opts[:image_processor_adapter] || @default_adapter
   end
 
   if Mix.env() === :test do
-    defdelegate sandbox_put_result_response(bucket, source_object, params, destination_object, options),
+    defdelegate sandbox_put_result_response(bucket, source_object, params, destination_object, opts),
       to: Uppy.Support.ImageProcessorSandbox,
       as: :put_result_response
 
     defdelegate sandbox_disabled?, to: Uppy.Support.ImageProcessorSandbox
   else
-    defp sandbox_put_result_response(bucket, source_object, params, destination_object, options) do
+    defp sandbox_put_result_response(bucket, source_object, params, destination_object, opts) do
       raise """
       Cannot use ImageProcessorSandbox outside of test
 
@@ -46,7 +46,7 @@ defmodule Uppy.ImageProcessor do
       source_object: #{inspect(source_object)}
       destination_object: #{inspect(destination_object)}
       params: #{inspect(params)}
-      options: #{inspect(options, pretty: true)}
+      opts: #{inspect(opts, pretty: true)}
       """
     end
 

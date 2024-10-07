@@ -7,7 +7,7 @@ defmodule Uppy.Adapter.Storage do
 
   @type adapter :: Uppy.adapter()
 
-  @type options :: Uppy.options()
+  @type opts :: Uppy.opts()
 
   @type bucket :: binary()
 
@@ -37,7 +37,7 @@ defmodule Uppy.Adapter.Storage do
   @callback list_objects(
     bucket :: bucket(),
     prefix :: prefix(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -46,7 +46,7 @@ defmodule Uppy.Adapter.Storage do
   @callback get_object(
     bucket :: bucket(),
     object :: object(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -55,7 +55,7 @@ defmodule Uppy.Adapter.Storage do
   @callback head_object(
     bucket :: bucket(),
     object :: object(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -65,7 +65,7 @@ defmodule Uppy.Adapter.Storage do
     bucket :: bucket(),
     http_method :: http_method(),
     object :: object(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -73,7 +73,7 @@ defmodule Uppy.Adapter.Storage do
   """
   @callback list_multipart_uploads(
     bucket :: bucket(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -82,7 +82,7 @@ defmodule Uppy.Adapter.Storage do
   @callback initiate_multipart_upload(
     bucket :: bucket(),
     object :: object(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -92,7 +92,7 @@ defmodule Uppy.Adapter.Storage do
     bucket :: bucket(),
     object :: object(),
     upload_id :: upload_id(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -102,7 +102,7 @@ defmodule Uppy.Adapter.Storage do
     bucket :: bucket(),
     object :: object(),
     upload_id :: upload_id(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -113,7 +113,7 @@ defmodule Uppy.Adapter.Storage do
     object :: object(),
     upload_id :: upload_id(),
     parts :: parts(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -124,7 +124,7 @@ defmodule Uppy.Adapter.Storage do
     destination_object :: object(),
     src_bucket :: bucket(),
     source_object :: object(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -134,7 +134,7 @@ defmodule Uppy.Adapter.Storage do
     bucket :: bucket(),
     object :: object(),
     body :: body(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 
   @doc """
@@ -143,6 +143,6 @@ defmodule Uppy.Adapter.Storage do
   @callback delete_object(
     bucket :: bucket(),
     object :: object(),
-    options :: options()
+    opts :: opts()
   ) :: t_res()
 end

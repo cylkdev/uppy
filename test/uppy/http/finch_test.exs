@@ -1,6 +1,7 @@
 defmodule Uppy.HTTP.FinchTest do
   use ExUnit.Case, async: true
 
+  # tested via kennethreitz/httpbin
   @moduletag :external
 
   describe "head/3: " do

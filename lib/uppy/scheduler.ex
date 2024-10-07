@@ -7,19 +7,19 @@ defmodule Uppy.Scheduler do
 
   @default_scheduler_adapter Uppy.Schedulers.Oban
 
-  def queue_delete_object_if_upload_not_found(
+  def queue_garbage_collect_object(
         bucket,
         schema,
         key,
         schedule_at_or_schedule_in,
-        options
+        opts
       ) do
     bucket
-    |> adapter!(options).queue_delete_object_if_upload_not_found(
+    |> adapter!(opts).queue_garbage_collect_object(
       schema,
       key,
       schedule_at_or_schedule_in,
-      options
+      opts
     )
     |> handle_response()
   end
@@ -29,14 +29,14 @@ defmodule Uppy.Scheduler do
         schema,
         id,
         schedule_at_or_schedule_in,
-        options
+        opts
       ) do
     bucket
-    |> adapter!(options).queue_abort_multipart_upload(
+    |> adapter!(opts).queue_abort_multipart_upload(
       schema,
       id,
       schedule_at_or_schedule_in,
-      options
+      opts
     )
     |> handle_response()
   end
@@ -46,14 +46,14 @@ defmodule Uppy.Scheduler do
         schema,
         id,
         schedule_at_or_schedule_in,
-        options
+        opts
       ) do
     bucket
-    |> adapter!(options).queue_abort_upload(
+    |> adapter!(opts).queue_abort_upload(
       schema,
       id,
       schedule_at_or_schedule_in,
-      options
+      opts
     )
     |> handle_response()
   end
@@ -65,22 +65,22 @@ defmodule Uppy.Scheduler do
         schema,
         id,
         nil_or_schedule_at_or_schedule_in,
-        options
+        opts
       ) do
     pipeline_module
-    |> adapter!(options).queue_process_upload(
+    |> adapter!(opts).queue_process_upload(
       bucket,
       resource,
       schema,
       id,
       nil_or_schedule_at_or_schedule_in,
-      options
+      opts
     )
     |> handle_response()
   end
 
-  defp adapter!(options) do
-    Keyword.get(options, :scheduler_adapter, Config.scheduler_adapter()) ||
+  defp adapter!(opts) do
+    Keyword.get(opts, :scheduler_adapter, Config.scheduler_adapter()) ||
       @default_scheduler_adapter
   end
 

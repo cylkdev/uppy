@@ -51,7 +51,7 @@ defmodule Uppy do
               ),
               to: Uppy.Core
 
-  defdelegate delete_object_if_upload_not_found(bucket, schema, key, options \\ []), to: Uppy.Core
+  defdelegate garbage_collect_object(bucket, schema, key, options \\ []), to: Uppy.Core
 
   ## Multipart Upload API
 

@@ -2,46 +2,38 @@ defmodule Uppy.Phases.FileHolder do
   @moduledoc """
   Loads the holder association of the schema data if the `holder` is nil.
   """
-  alias Uppy.{Action, Utils}
+  alias Uppy.{Action, EctoHelpers, Utils}
 
-  @type input :: map()
-  @type schema :: Ecto.Queryable.t()
-  @type schema_data :: Ecto.Schema.t()
-  @type params :: map()
-  @type options :: keyword()
-
-  @type t_res(t) :: {:ok, t} | {:error, term()}
-
-  @behaviour Uppy.Adapter.Phase
+  @behaviour Uppy.Phase
 
   @logger_prefix "Uppy.Phases.FileHolder"
 
-  @impl Uppy.Adapter.Phase
+  @impl Uppy.Phase
   @doc """
-  Implementation for `c:Uppy.Adapter.Phase.run/2`
+  Implementation for `c:Uppy.Phase.run/2`
   """
-  @spec run(input(), options()) :: t_res(input())
-  def run(input, options \\ [])
+  def run(resolution, opts \\ [])
 
   def run(
-    %Uppy.Pipeline.Input{
-      schema: schema,
-      schema_data: schema_data,
-      holder: nil
-    } = input,
-    options
+    %Uppy.Resolution{
+      query: query,
+      context: context,
+      value: schema_data
+    } = resolution,
+    opts
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    with {:ok, holder} <- find_holder(schema, schema_data, options) do
-      {:ok, %{input | holder: holder}}
+    with {:ok, holder} <- find_holder(query, schema_data, opts) do
+      Utils.Logger.debug(@logger_prefix, "run OK")
+
+      {:ok, %{resolution | context: Map.put(context, :holder, holder)}}
+    else
+      error ->
+        Utils.Logger.debug(@logger_prefix, "run ERROR")
+
+        error
     end
-  end
-
-  def run(%Uppy.Pipeline.Input{} = input, _options) do
-    Utils.Logger.debug(@logger_prefix, "run BEGIN")
-
-    {:ok, input}
   end
 
   @doc """
@@ -65,36 +57,25 @@ defmodule Uppy.Phases.FileHolder do
 
       iex> Uppy.Phases.FileHolder.find_holder(YourSchema, %{id: 1})
   """
-  @spec find_holder(schema(), schema_data() | params(), options()) :: t_res(schema_data())
-  def find_holder(schema, %_{} = schema_data, options) do
-    assoc_source = Keyword.get(options, :holder_association_source, :user)
-    ecto_assoc = fetch_ecto_association!(schema, assoc_source)
+  def find_holder(query, find_params_or_schema_data, opts \\ [])
 
-    holder_schema = ecto_assoc.queryable
-    holder_owner_key = ecto_assoc.owner_key
-    holder_primary_key = Keyword.get(options, :holder_primary_key_source, ecto_assoc.related_key)
+  def find_holder(query, %_{} = schema_data, opts) do
+    assoc_source = Keyword.get(opts, :holder_association_source, :user)
 
-    holder_id = Map.fetch!(schema_data, holder_owner_key)
+    with {:ok, ecto_assoc} <- EctoHelpers.find_ecto_association(query, assoc_source) do
+      schema = ecto_assoc.queryable
+      owner_key = ecto_assoc.owner_key
+      primary_key = Keyword.get(opts, :holder_primary_key_source, ecto_assoc.related_key)
 
-    params = %{holder_primary_key => holder_id}
+      id = Map.fetch!(schema_data, owner_key)
 
-    Action.find(holder_schema, params, options)
-  end
-
-  def find_holder(schema, params, options) do
-    with {:ok, schema_data} <- Action.find(schema, params, options) do
-      find_holder(schema, schema_data, options)
+      Action.find(schema, %{primary_key => id}, opts)
     end
   end
 
-  @spec find_holder(schema(), params() | schema_data()) :: t_res(schema_data())
-  def find_holder(schema, params_or_schema_data) do
-    find_holder(schema, params_or_schema_data, [])
-  end
-
-  defp fetch_ecto_association!(schema, assoc) do
-    with nil <- schema.__schema__(:association, assoc) do
-      raise "Expected an association for schema #{inspect(schema)}, got: #{inspect(assoc)}"
+  def find_holder(schema, params, opts) do
+    with {:ok, schema_data} <- Action.find(schema, params, opts) do
+      find_holder(schema, schema_data, opts)
     end
   end
 end

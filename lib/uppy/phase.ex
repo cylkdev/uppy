@@ -5,37 +5,38 @@ defmodule Uppy.Phase do
   A phase is responsible for a specific task. The output
   of one phase serves as the input for the next phase.
 
-  See `Uppy.Adapter.Phase` for information on building a phase.
+  See `Uppy.Phase` for information on building a phase.
   """
 
-  @type phase :: Uppy.Adapter.Phase.t()
+  @type input :: term()
+  @type opts :: keyword()
+  @type phase :: module() | {module(), opts()}
+  @type phase_response :: {:ok, term()} | {:error, term()}
 
-  @type input :: Uppy.Adapter.Phase.input()
-
-  @type options :: Uppy.Adapter.Phase.options()
+  @callback run(input :: input(), opts :: opts()) :: term()
 
   @doc """
-  Executes the callback function `c:Uppy.Adapter.Phase.run/2`.
+  Executes the callback function `c:Uppy.Phase.run/2`.
 
   Raises if the phase does not define the function `run/2`.
 
   ### Examples
 
       iex> defmodule EchoPhase do
-      ...>   @behaviour Uppy.Adapter.Phase
+      ...>   @behaviour Uppy.Phase
       ...>
       ...>   @impl true
-      ...>   def run(input, opts), do: {:ok, %{input: input, options: opts}}
+      ...>   def run(input, opts), do: {:ok, %{input: input, opts: opts}}
       ...> end
       ...> Uppy.Phase.run(EchoPhase, %{likes: 10})
-      {:ok, %{input: %{likes: 10}, options: []}}
+      {:ok, %{input: %{likes: 10}, opts: []}}
   """
   @spec run(
     phase :: phase(),
     input :: input(),
-    options :: options()
+    opts :: opts()
   ) :: term()
-  def run(phase, input, options \\ []) do
-    phase.run(input, options)
+  def run(phase, input, opts \\ []) do
+    phase.run(input, opts)
   end
 end

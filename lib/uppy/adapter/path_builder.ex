@@ -3,7 +3,7 @@ defmodule Uppy.Adapter.PathBuilder do
   ...
   """
 
-  @type options :: Uppy.options()
+  @type opts :: Uppy.opts()
 
   @type id :: binary()
   @type basename :: binary()
@@ -52,34 +52,34 @@ defmodule Uppy.Adapter.PathBuilder do
   @doc """
   ...
   """
-  @callback decode_permanent_path(path :: path(), opts :: options()) ::
+  @callback decode_permanent_path(path :: path(), opts :: opts()) ::
     {:ok, permanent_path_descriptor()} | {:error, term()}
 
   @doc """
   ...
   """
-  @callback validate_permanent_path(path :: path(), opts :: options()) ::
+  @callback validate_permanent_path(path :: path(), opts :: opts()) ::
     :ok | {:error, term()}
 
   @doc """
   ...
   """
-  @callback permanent_path(params :: permanent_path_params(), opts :: options()) :: binary()
+  @callback permanent_path(params :: permanent_path_params(), opts :: opts()) :: binary()
 
   @doc """
   ...
   """
-  @callback decode_temporary_path(path :: path(), opts :: options()) ::
+  @callback decode_temporary_path(path :: path(), opts :: opts()) ::
     {:ok, temporary_path_descriptor()} | {:error, term()}
 
   @doc """
   ...
   """
-  @callback validate_temporary_path(path :: path(), opts :: options()) ::
+  @callback validate_temporary_path(path :: path(), opts :: opts()) ::
     :ok | {:error, term()}
 
   @doc """
   ...
   """
-  @callback temporary_path(params :: temporary_path_params(), opts :: options()) :: binary()
+  @callback temporary_path(params :: temporary_path_params(), opts :: opts()) :: binary()
 end

@@ -1,7 +1,7 @@
 defmodule Uppy.Support.Phases.EchoPhase do
   @moduledoc false
 
-  @behaviour Uppy.Adapter.Phase
+  @behaviour Uppy.Phase
 
   @doc false
   @impl true

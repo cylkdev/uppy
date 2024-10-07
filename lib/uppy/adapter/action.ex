@@ -9,7 +9,7 @@ defmodule Uppy.Adapter.Action do
   @type queryable :: Ecto.Queryable.t()
   @type schema_data :: Ecto.Schema.t()
   @type params :: map()
-  @type options :: keyword()
+  @type opts :: keyword()
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
@@ -19,7 +19,7 @@ defmodule Uppy.Adapter.Action do
   @callback all(
               query :: query(),
               params :: params(),
-              options :: options()
+              opts :: opts()
             ) :: list(schema_data())
 
   @doc """
@@ -28,7 +28,7 @@ defmodule Uppy.Adapter.Action do
   @callback create(
               schema :: queryable(),
               params :: params(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(schema_data())
 
   @doc """
@@ -37,7 +37,7 @@ defmodule Uppy.Adapter.Action do
   @callback find(
               schema :: queryable(),
               params :: params(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(schema_data())
 
   @doc """
@@ -47,14 +47,14 @@ defmodule Uppy.Adapter.Action do
               schema :: queryable(),
               id :: id(),
               params :: params(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(schema_data())
 
   @callback update(
               schema :: queryable(),
               schema_data :: schema_data(),
               params :: params,
-              options :: options()
+              opts :: opts()
             ) :: t_res(schema_data())
 
   @doc """
@@ -63,16 +63,16 @@ defmodule Uppy.Adapter.Action do
   @callback delete(
               schema :: queryable(),
               id :: id(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(schema_data())
 
   @callback delete(
               schema_data :: struct(),
-              options :: options()
+              opts :: opts()
             ) :: t_res(schema_data())
 
   @doc """
   Executes the function inside a transaction.
   """
-  @callback transaction(func :: function(), options :: options()) :: t_res(term())
+  @callback transaction(func :: function(), opts :: opts()) :: t_res(term())
 end

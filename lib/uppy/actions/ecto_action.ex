@@ -25,162 +25,41 @@ if Uppy.Utils.application_loaded?(:ecto_shorts) do
     """
     @behaviour Uppy.Adapter.Action
 
-    @type adapter :: Uppy.Adapter.Action.adapter()
-    @type id :: Uppy.Adapter.Action.id()
-    @type query :: Uppy.Adapter.Action.query()
-    @type queryable :: Uppy.Adapter.Action.queryable()
-    @type schema_data :: Uppy.Adapter.Action.schema_data()
-    @type params :: Uppy.Adapter.Action.params()
-    @type options :: Uppy.Adapter.Action.options()
-
-    @type t_res(t) :: Uppy.Adapter.Action.t_res(t)
+    alias EctoShorts.Actions
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.all/3`.
-
-    See `EctoShorts.Actions.all/3` for documentation.
-    """
-    @spec all(
-      query :: query(),
-      params :: params(),
-      options :: options()
-    ) :: list(schema_data())
-    def all(query, params, options) do
-      EctoShorts.Actions.all(query, params, options)
+    def all(query, params, opts) do
+      Actions.all(query, params, opts)
     end
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.create/3`.
-
-    See `EctoShorts.Actions.create/3` for documentation.
-    """
-    @spec create(
-      schema :: queryable(),
-      params :: params(),
-      options :: options()
-    ) :: t_res(schema_data())
-    def create(schema, params, options) do
-      EctoShorts.Actions.create(schema, params, options)
+    def create(schema, params, opts) do
+      Actions.create(schema, params, opts)
     end
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.find/3`.
-
-    See `EctoShorts.Actions.find/3` for documentation.
-    """
-    @spec find(
-      schema :: queryable(),
-      params :: params(),
-      options :: options()
-    ) :: t_res(schema_data())
-    def find(schema, params, options) do
-      EctoShorts.Actions.find(schema, params, options)
+    def find(schema, params, opts) do
+      Actions.find(schema, params, opts)
     end
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.update/4`.
-
-    See `EctoShorts.Actions.update/4` for documentation.
-    """
-    @spec update(
-      schema :: queryable(),
-      id_or_schema_data :: id() | schema_data(),
-      params :: params(),
-      options :: options()
-    ) :: t_res(schema_data())
-    def update(schema, id_or_schema_data, params, options) do
-      EctoShorts.Actions.update(schema, id_or_schema_data, params, options)
+    def update(schema, id_or_schema_data, params, opts) do
+      Actions.update(schema, id_or_schema_data, params, opts)
     end
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.delete/2`.
-
-    See `EctoShorts.Actions.delete/2` for documentation.
-    """
-    @spec delete(
-      schema_data :: struct(),
-      options :: options()
-    ) :: t_res(schema_data())
-    def delete(%_{} = schema_data, options) do
-      EctoShorts.Actions.delete(schema_data, options)
+    def delete(%_{} = schema_data, opts) do
+      Actions.delete(schema_data, opts)
     end
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.delete/2`.
-
-    See `EctoShorts.Actions.delete/3` for documentation.
-    """
-    @spec delete(
-      schema :: queryable(),
-      id :: id(),
-      options :: options()
-    ) :: t_res(schema_data())
-    def delete(schema, id, options) do
-      EctoShorts.Actions.delete(schema, id, options)
+    def delete(schema, id, opts) do
+      Actions.delete(schema, id, opts)
     end
 
     @impl Uppy.Adapter.Action
-    @doc """
-    Implementation for `c:Uppy.Adapter.Action.transaction/2`.
-
-    Executes a repo transaction.
-    """
-    @spec transaction(
-      func :: function(),
-      options :: options()
-    ) :: t_res(schema_data())
-    def transaction(func, options) when is_function(func, 1) or is_function(func, 0) do
-      fn repo ->
-        func
-        |> execute_transaction(repo)
-        |> maybe_rollback_on_error(repo, options)
-      end
-      |> repo!(options).transaction(options)
-      |> handle_transaction_response()
-    end
-
-    defp execute_transaction(func, repo) when is_function(func, 1), do: func.(repo)
-    defp execute_transaction(func, _repo) when is_function(func, 0), do: func.()
-
-    defp maybe_rollback_on_error(response, repo, options) do
-      if Keyword.get(options, :rollback_on_error, true) do
-        case response do
-          {:error, _} = error -> repo.rollback(error)
-          :error -> repo.rollback(:error)
-          res -> res
-        end
-      else
-        response
-      end
-    end
-
-    defp handle_transaction_response({:ok, {:ok, _} = ok}), do: ok
-    defp handle_transaction_response({:ok, {:error, _} = error}), do: error
-    defp handle_transaction_response({:error, {:error, _} = error}), do: error
-    defp handle_transaction_response(term), do: term
-
-    defp repo!(options) do
-      with nil <- Keyword.get(options, :repo, Uppy.Config.repo()) do
-        raise """
-        The option `:repo` cannot be nil.
-
-        To fix this error you can:
-
-        - Pass a repo module to the option `:repo`.
-
-        - Add the `:repo` option to the `:ecto_shorts` application configuration, for example:
-
-          ```
-          config :ecto_shorts, :repo, YourApp.Repo
-          ```
-        """
-      end
+    def transaction(func, opts) do
+      Actions.transaction(func, opts)
     end
   end
 else

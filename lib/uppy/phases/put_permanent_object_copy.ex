@@ -8,48 +8,49 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
     Utils
   }
 
-  @type input :: map()
+  @type resolution :: map()
   @type schema :: Ecto.Queryable.t()
   @type schema_data :: Ecto.Schema.t()
   @type params :: map()
-  @type options :: keyword()
+  @type opts :: keyword()
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Phase
+  @behaviour Uppy.Phase
 
   @logger_prefix "Uppy.Phases.PutPermanentObjectCopy"
 
   @default_resource "uploads"
 
-  @impl Uppy.Adapter.Phase
+  @impl Uppy.Phase
   @doc """
-  Implementation for `c:Uppy.Adapter.Phase.run/2`
+  Implementation for `c:Uppy.Phase.run/2`
   """
-  @spec run(input(), options()) :: t_res(input())
+  @spec run(resolution(), opts()) :: t_res(resolution())
   def run(
-    %Uppy.Pipeline.Input{
+    %Uppy.Resolution{
       bucket: bucket,
-      schema_data: schema_data,
-      holder: holder,
+      value: schema_data,
       context: context
-    } = input,
-    options
+    } = resolution,
+    opts
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
+
+    holder = context.holder
 
     if phase_completed?(context) do
       Utils.Logger.debug(@logger_prefix, "run - skipping execution")
 
-      {:ok, input}
+      {:ok, resolution}
     else
       Utils.Logger.debug(@logger_prefix, "run - copying image")
 
       with {:ok, destination_object} <-
-        put_permanent_object_copy(bucket, holder, schema_data, options) do
+        put_permanent_object_copy(bucket, holder, schema_data, opts) do
         Utils.Logger.debug(@logger_prefix, "run - copied image to #{inspect(destination_object)}")
 
-        {:ok, %{input | context: Map.put(context, :destination_object, destination_object)}}
+        {:ok, %{resolution | context: Map.put(context, :destination_object, destination_object)}}
       end
     end
   end
@@ -57,9 +58,9 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   defp phase_completed?(%{destination_object: _}), do: true
   defp phase_completed?(_), do: false
 
-  def put_permanent_object_copy(bucket, %_{} = holder, %_{} = schema_data, options) do
-    holder_id = Uppy.Holder.fetch_id!(holder, options)
-    resource = resource!(options)
+  def put_permanent_object_copy(bucket, %_{} = holder, %_{} = schema_data, opts) do
+    holder_id = Uppy.Holder.fetch_id!(holder, opts)
+    resource = resource!(opts)
     basename = Uppy.Core.basename(schema_data)
 
     source_object = schema_data.key
@@ -71,24 +72,24 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
           resource: resource,
           basename: basename
         },
-        options
+        opts
       )
 
-    with :ok <- PathBuilder.validate_temporary_path(source_object, options),
+    with :ok <- PathBuilder.validate_temporary_path(source_object, opts),
       {:ok, _} <-
         Storage.put_object_copy(
           bucket,
           destination_object,
           bucket,
           source_object,
-          options
+          opts
         ) do
       {:ok, destination_object}
     end
   end
 
-  defp resource!(options) do
-    with nil <- Keyword.get(options, :resource, @default_resource) do
+  defp resource!(opts) do
+    with nil <- Keyword.get(opts, :resource, @default_resource) do
       raise "option `:resource` cannot be `nil` for phase #{__MODULE__}"
     end
   end

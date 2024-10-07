@@ -7,36 +7,36 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @behaviour Uppy.Adapter.Storage
 
-    @default_options [
+    @default_opts [
       http_client: Uppy.Storages.S3.HTTP
     ]
 
     @one_minute_seconds 60
 
-    def download_chunk_stream(bucket, object, chunk_size, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def download_chunk_stream(bucket, object, chunk_size, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
-      with {:ok, metadata} <- head_object(bucket, object, options) do
+      with {:ok, metadata} <- head_object(bucket, object, opts) do
         {:ok, ExAws.S3.Download.chunk_stream(metadata.content_length, chunk_size)}
       end
     end
 
-    def get_chunk(bucket, object, start_byte, end_byte, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def get_chunk(bucket, object, start_byte, end_byte, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
-      request_options = Keyword.put(options, :range, "bytes=#{start_byte}-#{end_byte}")
+      request_opts = Keyword.put(opts, :range, "bytes=#{start_byte}-#{end_byte}")
 
       with {:ok, body} <-
         bucket
-        |> ExAws.S3.get_object(object, request_options)
-        |> ExAws.request(options)
+        |> ExAws.S3.get_object(object, request_opts)
+        |> ExAws.request(opts)
         |> deserialize_response() do
         {:ok, {start_byte, body}}
       end
     end
 
-    def get_chunk!(bucket, object, start_byte, end_byte, options \\ []) do
-      {:ok, chunk} = get_chunk(bucket, object, start_byte, end_byte, options)
+    def get_chunk!(bucket, object, start_byte, end_byte, opts \\ []) do
+      {:ok, chunk} = get_chunk(bucket, object, start_byte, end_byte, opts)
 
       chunk
     end
@@ -45,19 +45,19 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.list_objects/2`.
     """
-    def list_objects(bucket, prefix \\ nil, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def list_objects(bucket, prefix \\ nil, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
-      options =
+      opts =
         if prefix in [nil, ""] do
-          Keyword.delete(options, :prefix)
+          Keyword.delete(opts, :prefix)
         else
-          Keyword.put(options, :prefix, prefix)
+          Keyword.put(opts, :prefix, prefix)
         end
 
       bucket
-      |> ExAws.S3.list_objects_v2(options)
-      |> ExAws.request(options)
+      |> ExAws.S3.list_objects_v2(opts)
+      |> ExAws.request(opts)
       |> deserialize_response()
     end
 
@@ -65,12 +65,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.get_object/3`.
     """
-    def get_object(bucket, object, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def get_object(bucket, object, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
-      |> ExAws.S3.get_object(object, options)
-      |> ExAws.request(options)
+      |> ExAws.S3.get_object(object, opts)
+      |> ExAws.request(opts)
       |> deserialize_response()
     end
 
@@ -78,12 +78,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.head_object/3`.
     """
-    def head_object(bucket, object, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def head_object(bucket, object, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
-      |> ExAws.S3.head_object(object, options)
-      |> ExAws.request(options)
+      |> ExAws.S3.head_object(object, opts)
+      |> ExAws.request(opts)
       |> deserialize_headers()
     end
 
@@ -91,20 +91,20 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.presigned_url/4`.
     """
-    def presigned_url(bucket, http_method, object, options \\ []) do
-      options =
-        @default_options
-        |> Keyword.merge(options)
+    def presigned_url(bucket, http_method, object, opts \\ []) do
+      opts =
+        @default_opts
+        |> Keyword.merge(opts)
         |> s3_accelerate(http_method)
 
-      options = Keyword.put_new(options, :expires_in, @one_minute_seconds)
+      opts = Keyword.put_new(opts, :expires_in, @one_minute_seconds)
 
-      expires_in = options[:expires_in]
+      expires_in = opts[:expires_in]
 
       with {:ok, url} <-
         :s3
-        |> ExAws.Config.new(options)
-        |> ExAws.S3.presigned_url(http_method, bucket, object, options)
+        |> ExAws.Config.new(opts)
+        |> ExAws.S3.presigned_url(http_method, bucket, object, opts)
         |> handle_response() do
         {:ok,
          %{
@@ -115,13 +115,13 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       end
     end
 
-    defp s3_accelerate(options, http_method) do
+    defp s3_accelerate(opts, http_method) do
       if http_method in [:post, :put] do
-        s3_accelerate = options[:s3_accelerate] === true
+        s3_accelerate = opts[:s3_accelerate] === true
 
-        Keyword.put_new(options, :s3_accelerate, s3_accelerate)
+        Keyword.put_new(opts, :s3_accelerate, s3_accelerate)
       else
-        options
+        opts
       end
     end
 
@@ -129,12 +129,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.list_multipart_uploads/2`.
     """
-    def list_multipart_uploads(bucket, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def list_multipart_uploads(bucket, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
-      |> ExAws.S3.list_multipart_uploads(options)
-      |> ExAws.request(options)
+      |> ExAws.S3.list_multipart_uploads(opts)
+      |> ExAws.request(opts)
       |> deserialize_response()
     end
 
@@ -142,12 +142,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.initiate_multipart_upload/3`.
     """
-    def initiate_multipart_upload(bucket, object, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def initiate_multipart_upload(bucket, object, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
       |> ExAws.S3.initiate_multipart_upload(object)
-      |> ExAws.request(options)
+      |> ExAws.request(opts)
       |> deserialize_response()
     end
 
@@ -155,21 +155,21 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.list_parts/4`.
     """
-    def list_parts(bucket, object, upload_id, next_part_number_marker \\ nil, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def list_parts(bucket, object, upload_id, next_part_number_marker \\ nil, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
-      options =
+      opts =
         if next_part_number_marker do
           query_params = %{"part-number-marker" => next_part_number_marker}
 
-          Keyword.update(options, :query_params, query_params, &Map.merge(&1, query_params))
+          Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
         else
-          options
+          opts
         end
 
       bucket
-      |> ExAws.S3.list_parts(object, upload_id, options)
-      |> ExAws.request(options)
+      |> ExAws.S3.list_parts(object, upload_id, opts)
+      |> ExAws.request(opts)
       |> deserialize_response()
     end
 
@@ -177,12 +177,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.abort_multipart_upload/4`.
     """
-    def abort_multipart_upload(bucket, object, upload_id, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
       |> ExAws.S3.abort_multipart_upload(object, upload_id)
-      |> ExAws.request(options)
+      |> ExAws.request(opts)
       |> handle_response()
     end
 
@@ -190,12 +190,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.complete_multipart_upload/5`.
     """
-    def complete_multipart_upload(bucket, object, upload_id, parts, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
       |> ExAws.S3.complete_multipart_upload(object, upload_id, parts)
-      |> ExAws.request(options)
+      |> ExAws.request(opts)
       |> deserialize_response()
     end
 
@@ -203,12 +203,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.put_object_copy/5`.
     """
-    def put_object_copy(dest_bucket, destination_object, src_bucket, source_object, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def put_object_copy(dest_bucket, destination_object, src_bucket, source_object, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       dest_bucket
-      |> ExAws.S3.put_object_copy(destination_object, src_bucket, source_object, options)
-      |> ExAws.request(options)
+      |> ExAws.S3.put_object_copy(destination_object, src_bucket, source_object, opts)
+      |> ExAws.request(opts)
       |> handle_response()
     end
 
@@ -216,12 +216,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.put_object/4`.
     """
-    def put_object(bucket, object, body, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def put_object(bucket, object, body, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
-      |> ExAws.S3.put_object(object, body, options)
-      |> ExAws.request(options)
+      |> ExAws.S3.put_object(object, body, opts)
+      |> ExAws.request(opts)
       |> handle_response()
     end
 
@@ -229,12 +229,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Adapter.Storage.delete_object/3`.
     """
-    def delete_object(bucket, object, options \\ []) do
-      options = Keyword.merge(@default_options, options)
+    def delete_object(bucket, object, opts \\ []) do
+      opts = Keyword.merge(@default_opts, opts)
 
       bucket
-      |> ExAws.S3.delete_object(object, options)
-      |> ExAws.request(options)
+      |> ExAws.S3.delete_object(object, opts)
+      |> ExAws.request(opts)
       |> handle_response()
     end
 

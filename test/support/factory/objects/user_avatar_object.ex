@@ -3,13 +3,15 @@ defmodule Uppy.Support.Factory.Objects.UserAvatarObject do
   @behaviour FactoryEx
 
   @impl FactoryEx
-  def schema, do: Uppy.Support.PG.Objects.UserAvatarObject
+  def schema, do: Uppy.Support.PG.UserAvatarObject
 
   @impl FactoryEx
   def repo, do: Uppy.Repo
 
   @impl FactoryEx
   def build(attrs \\ %{}) do
-    Map.merge(%{}, attrs)
+    Map.merge(%{
+      unique_identifier: "unique_identifier_#{FactoryEx.SchemaCounter.next("user_avatar_object_unique_identifier")}"
+    }, attrs)
   end
 end
