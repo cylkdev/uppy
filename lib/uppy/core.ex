@@ -27,7 +27,7 @@ defmodule Uppy.Core do
   """
 
   alias Uppy.{
-    Action,
+    DBAction,
     Error,
     PathBuilder,
     Pipeline,
@@ -142,7 +142,7 @@ defmodule Uppy.Core do
   ### Options
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
   ### Examples
 
@@ -184,7 +184,7 @@ defmodule Uppy.Core do
   end
 
   def find_parts(bucket, query, find_params, next_part_number_marker, opts) do
-    with {:ok, schema_data} <- Action.find(query, find_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       find_parts(bucket, query, schema_data, next_part_number_marker, opts)
     end
   end
@@ -200,7 +200,7 @@ defmodule Uppy.Core do
   ### Options
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
   ### Examples
 
@@ -232,7 +232,7 @@ defmodule Uppy.Core do
   end
 
   def presigned_part(bucket, query, params, part_number, opts) do
-    with {:ok, schema_data} <- Action.find(query, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
       presigned_part(bucket, query, schema_data, part_number, opts)
     end
   end
@@ -251,7 +251,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
   ### Examples
 
@@ -292,7 +292,7 @@ defmodule Uppy.Core do
       update_params = Map.put(update_params, :e_tag, metadata.e_tag)
 
       operation = fn ->
-        with {:ok, schema_data} <- Action.update(query, schema_data, update_params, opts) do
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           case queue_process_upload(
             pipeline,
             bucket,
@@ -321,7 +321,7 @@ defmodule Uppy.Core do
         end
       end
 
-      Action.transaction(operation, opts)
+      DBAction.transaction(operation, opts)
     end
   end
 
@@ -335,7 +335,7 @@ defmodule Uppy.Core do
     parts,
     opts
   ) do
-    with {:ok, schema_data} <- Action.find(query, find_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
         resource,
@@ -380,7 +380,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -413,7 +413,7 @@ defmodule Uppy.Core do
         end
 
       operation = fn ->
-        with {:ok, schema_data} <- Action.delete(schema_data, opts) do
+        with {:ok, schema_data} <- DBAction.delete(schema_data, opts) do
           case queue_garbage_collect_object(
             bucket,
             query,
@@ -438,12 +438,12 @@ defmodule Uppy.Core do
         end
       end
 
-      Action.transaction(operation, opts)
+      DBAction.transaction(operation, opts)
     end
   end
 
   def abort_multipart_upload(bucket, query, params, opts) do
-    with {:ok, schema_data} <- Action.find(query, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
       abort_multipart_upload(bucket, query, schema_data, opts)
     end
   end
@@ -483,7 +483,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -512,7 +512,7 @@ defmodule Uppy.Core do
         })
 
       operation = fn ->
-        with {:ok, schema_data} <- Action.create(query, create_params, opts) do
+        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
           case queue_abort_multipart_upload(
             bucket,
             query,
@@ -545,7 +545,7 @@ defmodule Uppy.Core do
         end
       end
 
-      Action.transaction(operation, opts)
+      DBAction.transaction(operation, opts)
     end
   end
 
@@ -597,7 +597,7 @@ defmodule Uppy.Core do
     params,
     opts
   ) do
-    with {:ok, schema_data} <- Action.find(query, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
       process_upload(
         bucket,
         pipeline,
@@ -651,7 +651,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
   ### Examples
 
@@ -683,7 +683,7 @@ defmodule Uppy.Core do
   end
 
   defp validate_garbage_collection(query, params, opts) do
-    case Action.find(query, params, opts) do
+    case DBAction.find(query, params, opts) do
       {:ok, schema_data} ->
         {:error, Error.forbidden("cannot garbage collect existing record", %{
           query: query,
@@ -719,7 +719,7 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_permanent_upload(YourSchema, %{id: 1})
   """
   def find_permanent_upload(query, params, opts \\ []) do
-    with {:ok, schema_data} <- Action.find(query, params, opts),
+    with {:ok, schema_data} <- DBAction.find(query, params, opts),
       :ok <- PathBuilder.validate_permanent_path(schema_data.key, opts),
       {:ok, schema_data} <- check_e_tag_non_nil(schema_data) do
       {:ok, schema_data}
@@ -770,7 +770,7 @@ defmodule Uppy.Core do
       iex> Uppy.Core.find_temporary_upload(YourSchema, %{id: 1})
   """
   def find_temporary_upload(query, params, opts \\ []) do
-    with {:ok, schema_data} <- Action.find(query, params, opts),
+    with {:ok, schema_data} <- DBAction.find(query, params, opts),
       :ok <- PathBuilder.validate_temporary_path(schema_data.key, opts) do
       {:ok, schema_data}
     end
@@ -784,7 +784,7 @@ defmodule Uppy.Core do
   def delete_upload(bucket, query, %_{} = schema_data, opts) do
     operation = fn ->
       with :ok <- PathBuilder.validate_permanent_path(schema_data.key, opts),
-        {:ok, schema_data} <- Action.delete(schema_data, opts) do
+        {:ok, schema_data} <- DBAction.delete(schema_data, opts) do
         case queue_garbage_collect_object(
           bucket,
           query,
@@ -809,11 +809,11 @@ defmodule Uppy.Core do
       end
     end
 
-    Action.transaction(operation, opts)
+    DBAction.transaction(operation, opts)
   end
 
   def delete_upload(bucket, query, params, opts) do
-    with {:ok, schema_data} <- Action.find(query, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
       delete_upload(bucket, query, schema_data, opts)
     end
   end
@@ -832,7 +832,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -870,7 +870,7 @@ defmodule Uppy.Core do
       update_params = Map.put(update_params, :e_tag, metadata.e_tag)
 
       operation = fn ->
-        with {:ok, schema_data} <- Action.update(query, schema_data, update_params, opts) do
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           case queue_process_upload(
             pipeline,
             bucket,
@@ -899,7 +899,7 @@ defmodule Uppy.Core do
         end
       end
 
-      Action.transaction(operation, opts)
+      DBAction.transaction(operation, opts)
     end
   end
 
@@ -912,7 +912,7 @@ defmodule Uppy.Core do
     update_params,
     opts
   ) do
-    with {:ok, schema_data} <- Action.find(query, find_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_upload(
         bucket,
         resource,
@@ -953,7 +953,7 @@ defmodule Uppy.Core do
          {:ok, schema_data} <- check_if_non_multipart_upload(schema_data),
          {:ok, schema_data} <- check_e_tag_is_nil(schema_data) do
       operation = fn ->
-        with {:ok, schema_data} <- Action.delete(schema_data, opts) do
+        with {:ok, schema_data} <- DBAction.delete(schema_data, opts) do
           case queue_garbage_collect_object(
             bucket,
             query,
@@ -978,12 +978,12 @@ defmodule Uppy.Core do
         end
       end
 
-      Action.transaction(operation, opts)
+      DBAction.transaction(operation, opts)
     end
   end
 
   def abort_upload(bucket, query, params, opts) do
-    with {:ok, schema_data} <- Action.find(query, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
       abort_upload(bucket, query, schema_data, opts)
     end
   end
@@ -1013,7 +1013,7 @@ defmodule Uppy.Core do
         module documentation for more information.
 
       * `:storage_adapter` - Sets the adapter for interfacing with a storage service. See
-        `Uppy.Adapter.Storage` module documentation for more information.
+        `Uppy.Storage` module documentation for more information.
 
       * `:temporary_object_key_adapter` - Sets the adapter to use for temporary objects. This adapter
         manages the location of temporary object keys. See `Uppy.Adapter.TemporaryObjectKey` module
@@ -1043,7 +1043,7 @@ defmodule Uppy.Core do
 
     with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, http_method, key, opts) do
       operation = fn ->
-        with {:ok, schema_data} <- Action.create(query, create_params, opts) do
+        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
           case queue_abort_upload(
             bucket,
             query,
@@ -1076,7 +1076,7 @@ defmodule Uppy.Core do
         end
       end
 
-      Action.transaction(operation, opts)
+      DBAction.transaction(operation, opts)
     end
   end
 

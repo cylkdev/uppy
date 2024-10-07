@@ -3,16 +3,17 @@ defmodule Uppy.CoreSchemaTest do
 
   alias Uppy.{
     Core,
-    Action,
+    DBAction,
     Schedulers.Oban.ObanUtil
   }
 
   alias Uppy.Support.{
     Factory,
-    PG,
+    Schemas,
     StorageSandbox,
     Testing,
-    TestPipeline
+    TestPipeline,
+    Phases
   }
 
   @bucket "uppy-test"
@@ -69,7 +70,7 @@ defmodule Uppy.CoreSchemaTest do
           @bucket,
           TestPipeline,
           "user-avatars",
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           schema_data
         )
 
@@ -77,7 +78,7 @@ defmodule Uppy.CoreSchemaTest do
         bucket: "uppy-test",
         context: %{},
         private: %{},
-        query: Uppy.Support.PG.UserAvatarObject,
+        query: Uppy.Support.Schemas.UserAvatarObject,
         resource: "user-avatars",
         state: :resolved,
         value: processed_schema_data
@@ -85,7 +86,7 @@ defmodule Uppy.CoreSchemaTest do
 
       schema_data_id = schema_data.id
 
-      complete_upload_phase_params = TestPipeline.CompleteUploadPhase.params()
+      complete_upload_phase_params = Phases.CompleteUploadPhase.params()
 
       assert %{
         content_length: 5,
@@ -93,7 +94,7 @@ defmodule Uppy.CoreSchemaTest do
         last_modified: ~U[2024-07-24 01:00:00Z]
       } === complete_upload_phase_params
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         content_length: 5,
         content_type: "image/jpeg",
         last_modified: ~U[2024-07-24 01:00:00Z],
@@ -109,7 +110,7 @@ defmodule Uppy.CoreSchemaTest do
         user_id: ^user_id
       } = processed_schema_data
 
-      assert [Uppy.Support.TestPipeline.CompleteUploadPhase] = done
+      assert [Uppy.Support.Phases.CompleteUploadPhase] = done
     end
   end
 
@@ -133,7 +134,7 @@ defmodule Uppy.CoreSchemaTest do
       assert {:error, error_message} =
         Core.garbage_collect_object(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           key
         )
 
@@ -142,7 +143,7 @@ defmodule Uppy.CoreSchemaTest do
         message: "cannot garbage collect existing record",
         details: %{
           params: %{key: "key"},
-          query: Uppy.Support.PG.UserAvatarObject,
+          query: Uppy.Support.Schemas.UserAvatarObject,
           schema_data: ^schema_data
         }
       } = error_message
@@ -166,7 +167,7 @@ defmodule Uppy.CoreSchemaTest do
 
       schema_data_id = schema_data.id
 
-      assert {:ok, %{id: ^schema_data_id}} = Action.delete(schema_data)
+      assert {:ok, %{id: ^schema_data_id}} = DBAction.delete(schema_data)
 
       sandbox_head_object_payload = %{
         content_length: 11,
@@ -198,7 +199,7 @@ defmodule Uppy.CoreSchemaTest do
       assert {:ok, garbage_collect_object_metadata}=
         Core.garbage_collect_object(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{key: key}
         )
 
@@ -223,7 +224,7 @@ defmodule Uppy.CoreSchemaTest do
 
       schema_data_id = schema_data.id
 
-      assert {:ok, %{id: ^schema_data_id}} = Action.delete(schema_data)
+      assert {:ok, %{id: ^schema_data_id}} = DBAction.delete(schema_data)
 
       sandbox_head_object_payload = %{
         content_length: 11,
@@ -255,7 +256,7 @@ defmodule Uppy.CoreSchemaTest do
       assert {:ok, garbage_collect_object_metadata}=
         Core.garbage_collect_object(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           key
         )
 
@@ -280,7 +281,7 @@ defmodule Uppy.CoreSchemaTest do
 
       schema_data_id = schema_data.id
 
-      assert {:ok, %{id: ^schema_data_id}} = Action.delete(schema_data)
+      assert {:ok, %{id: ^schema_data_id}} = DBAction.delete(schema_data)
 
       StorageSandbox.set_head_object_responses([
         {@bucket, fn -> {:error, %{code: :not_found}} end}
@@ -289,7 +290,7 @@ defmodule Uppy.CoreSchemaTest do
       assert {:ok, nil}=
         Core.garbage_collect_object(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           key
         )
     end
@@ -319,7 +320,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:ok, %{id: ^schema_data_id}} =
         Core.find_permanent_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
     end
@@ -346,7 +347,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:error, error_message} =
         Core.find_permanent_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
@@ -381,7 +382,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:error, error_message} =
         Core.find_permanent_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
@@ -416,7 +417,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:ok, %{id: ^schema_data_id}} =
         Core.find_completed_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
     end
@@ -442,7 +443,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:error, error_message} =
         Core.find_completed_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
@@ -478,7 +479,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:error, error_message} =
         Core.find_completed_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
@@ -512,7 +513,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:ok, %{id: ^schema_data_id}} =
         Core.find_temporary_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
     end
@@ -539,7 +540,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert {:error, error_message} =
         Core.find_temporary_upload(
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
@@ -581,11 +582,11 @@ defmodule Uppy.CoreSchemaTest do
       }} =
         Core.delete_upload(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         archived: false,
         archived_at: nil,
         content_length: nil,
@@ -638,7 +639,7 @@ defmodule Uppy.CoreSchemaTest do
         worker: "Uppy.Schedulers.Oban.GarbageCollectionWorker"
       } = garbage_collect_object_job
 
-      assert Uppy.Support.PG.UserAvatarObject = ObanUtil.decode_binary_to_term(garbage_collect_object_job_query)
+      assert Uppy.Support.Schemas.UserAvatarObject = ObanUtil.decode_binary_to_term(garbage_collect_object_job_query)
     end
 
     test "deleted record if key in permanent path and does not schedule garbage collection job when scheduler disabled", context do
@@ -667,12 +668,12 @@ defmodule Uppy.CoreSchemaTest do
       } = delete_upload_response} =
         Core.delete_upload(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id},
           scheduler_enabled: false
         )
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         archived: false,
         archived_at: nil,
         content_length: nil,
@@ -736,13 +737,13 @@ defmodule Uppy.CoreSchemaTest do
           @bucket,
           "user-avatars",
           Uppy.Support.TestPipeline,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
       assert sandbox_head_object_payload === complete_upload_metadata
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         archived: false,
         archived_at: nil,
         content_length: nil,
@@ -797,7 +798,7 @@ defmodule Uppy.CoreSchemaTest do
         worker: "Uppy.Schedulers.Oban.PostProcessingWorker"
       } = process_upload_job
 
-      assert Uppy.Support.PG.UserAvatarObject = ObanUtil.decode_binary_to_term(process_upload_job_query)
+      assert Uppy.Support.Schemas.UserAvatarObject = ObanUtil.decode_binary_to_term(process_upload_job_query)
     end
 
     test "updates e_tag of record and does not create post processing job when scheduler disabled", context do
@@ -838,7 +839,7 @@ defmodule Uppy.CoreSchemaTest do
           @bucket,
           "user-avatars",
           Uppy.Support.TestPipeline,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id},
           %{},
           scheduler_enabled: false
@@ -846,7 +847,7 @@ defmodule Uppy.CoreSchemaTest do
 
       assert sandbox_head_object_payload === complete_upload_metadata
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         archived: false,
         archived_at: nil,
         content_length: nil,
@@ -897,13 +898,13 @@ defmodule Uppy.CoreSchemaTest do
       }} =
         Core.abort_upload(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id}
         )
 
       assert schema_data.id === abort_upload_schema_data.id
 
-      assert {:error, %{code: :not_found}} = Action.find(PG.UserAvatarObject, %{id: schema_data_id})
+      assert {:error, %{code: :not_found}} = DBAction.find(Schemas.UserAvatarObject, %{id: schema_data_id})
 
       assert %Oban.Job{
         args: %{
@@ -942,7 +943,7 @@ defmodule Uppy.CoreSchemaTest do
         worker: "Uppy.Schedulers.Oban.GarbageCollectionWorker"
       } = garbage_collect_object_job
 
-      assert Uppy.Support.PG.UserAvatarObject = ObanUtil.decode_binary_to_term(garbage_collect_object_job_query)
+      assert Uppy.Support.Schemas.UserAvatarObject = ObanUtil.decode_binary_to_term(garbage_collect_object_job_query)
     end
 
     test "deletes temporary record and does not schedule garbage collection when scheduler disabled", context do
@@ -957,7 +958,7 @@ defmodule Uppy.CoreSchemaTest do
         Core.start_upload(
           @bucket,
           user_id,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{
             filename: "image.jpeg",
             user_id: user_id,
@@ -974,14 +975,14 @@ defmodule Uppy.CoreSchemaTest do
       } = abort_upload_response} =
         Core.abort_upload(
           @bucket,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{id: schema_data_id},
           scheduler_enabled: false
         )
 
       assert schema_data.id === abort_upload_schema_data.id
 
-      assert {:error, %{code: :not_found}} = Action.find(PG.UserAvatarObject, %{id: schema_data_id})
+      assert {:error, %{code: :not_found}} = DBAction.find(Schemas.UserAvatarObject, %{id: schema_data_id})
 
       assert %{
         schema_data: abort_upload_schema_data
@@ -1007,7 +1008,7 @@ defmodule Uppy.CoreSchemaTest do
         Core.start_upload(
           @bucket,
           user_id,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{
             filename: "image.jpeg",
             user_id: user_id,
@@ -1028,7 +1029,7 @@ defmodule Uppy.CoreSchemaTest do
       assert is_binary(presigned_upload_url)
       assert %DateTime{} = expires_at
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         archived: false,
         archived_at: nil,
         content_length: nil,
@@ -1081,7 +1082,7 @@ defmodule Uppy.CoreSchemaTest do
         worker: "Uppy.Schedulers.Oban.AbortUploadWorker"
       } = abort_upload_job
 
-      assert Uppy.Support.PG.UserAvatarObject = ObanUtil.decode_binary_to_term(abort_upload_job_query)
+      assert Uppy.Support.Schemas.UserAvatarObject = ObanUtil.decode_binary_to_term(abort_upload_job_query)
     end
 
     test "creates record, creates presigned upload, and does not create job when scheduler disabled", context do
@@ -1098,7 +1099,7 @@ defmodule Uppy.CoreSchemaTest do
         Core.start_upload(
           @bucket,
           user_id,
-          PG.UserAvatarObject,
+          Schemas.UserAvatarObject,
           %{
             filename: "image.jpeg",
             user_id: user_id,
@@ -1120,7 +1121,7 @@ defmodule Uppy.CoreSchemaTest do
       assert is_binary(presigned_upload_url)
       assert %DateTime{} = expires_at
 
-      assert %Uppy.Support.PG.UserAvatarObject{
+      assert %Uppy.Support.Schemas.UserAvatarObject{
         archived: false,
         archived_at: nil,
         content_length: nil,

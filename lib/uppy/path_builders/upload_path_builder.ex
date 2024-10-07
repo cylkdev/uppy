@@ -5,12 +5,12 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   alias Uppy.Error
 
   @type opts :: Uppy.opts()
-  @type permanent_path_params :: Uppy.Adapter.PathBuilder.permanent_path_params()
-  @type permanent_path_descriptor :: Uppy.Adapter.PathBuilder.permanent_path_descriptor()
-  @type temporary_path_params :: Uppy.Adapter.PathBuilder.temporary_path_params()
-  @type temporary_path_descriptor :: Uppy.Adapter.PathBuilder.temporary_path_descriptor()
+  @type permanent_path_params :: Uppy.PathBuilder.permanent_path_params()
+  @type permanent_path_descriptor :: Uppy.PathBuilder.permanent_path_descriptor()
+  @type temporary_path_params :: Uppy.PathBuilder.temporary_path_params()
+  @type temporary_path_descriptor :: Uppy.PathBuilder.temporary_path_descriptor()
 
-  @behaviour Uppy.Adapter.PathBuilder
+  @behaviour Uppy.PathBuilder
 
   @permanent_path_prefix ""
 

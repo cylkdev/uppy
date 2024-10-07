@@ -10,6 +10,9 @@ if Uppy.Utils.application_loaded?(:oban) do
       PostProcessingWorker
     }
 
+    @behaviour Uppy.Scheduler
+
+    @impl Uppy.Scheduler
     defdelegate queue_garbage_collect_object(
       bucket,
       query,
@@ -18,6 +21,7 @@ if Uppy.Utils.application_loaded?(:oban) do
       opts
     ), to: GarbageCollectionWorker
 
+    @impl Uppy.Scheduler
     defdelegate queue_abort_multipart_upload(
       bucket,
       query,
@@ -26,6 +30,7 @@ if Uppy.Utils.application_loaded?(:oban) do
       opts
     ), to: AbortUploadWorker
 
+    @impl Uppy.Scheduler
     defdelegate queue_abort_upload(
       bucket,
       query,
@@ -34,6 +39,7 @@ if Uppy.Utils.application_loaded?(:oban) do
       opts
     ), to: AbortUploadWorker
 
+    @impl Uppy.Scheduler
     defdelegate queue_process_upload(
       pipeline_module,
       bucket,

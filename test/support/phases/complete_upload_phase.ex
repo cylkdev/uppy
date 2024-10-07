@@ -1,4 +1,4 @@
-defmodule Uppy.Support.TestPipeline.CompleteUploadPhase do
+defmodule Uppy.Support.Phases.CompleteUploadPhase do
   @moduledoc false
 
   @behaviour Uppy.Phase

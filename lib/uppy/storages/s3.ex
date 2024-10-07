@@ -1,11 +1,11 @@
 if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
   defmodule Uppy.Storages.S3 do
     @moduledoc """
-    Implements the `Uppy.Adapter.Storage` behaviour.
+    Implements the `Uppy.Storage` behaviour.
     """
     alias Uppy.{Error, Utils}
 
-    @behaviour Uppy.Adapter.Storage
+    @behaviour Uppy.Storage
 
     @default_opts [
       http_client: Uppy.Storages.S3.HTTP
@@ -43,7 +43,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.list_objects/2`.
+    Implementation for `c:Uppy.Storage.list_objects/2`.
     """
     def list_objects(bucket, prefix \\ nil, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -63,7 +63,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.get_object/3`.
+    Implementation for `c:Uppy.Storage.get_object/3`.
     """
     def get_object(bucket, object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -76,7 +76,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.head_object/3`.
+    Implementation for `c:Uppy.Storage.head_object/3`.
     """
     def head_object(bucket, object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -89,7 +89,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.presigned_url/4`.
+    Implementation for `c:Uppy.Storage.presigned_url/4`.
     """
     def presigned_url(bucket, http_method, object, opts \\ []) do
       opts =
@@ -127,7 +127,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.list_multipart_uploads/2`.
+    Implementation for `c:Uppy.Storage.list_multipart_uploads/2`.
     """
     def list_multipart_uploads(bucket, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -140,7 +140,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.initiate_multipart_upload/3`.
+    Implementation for `c:Uppy.Storage.initiate_multipart_upload/3`.
     """
     def initiate_multipart_upload(bucket, object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -153,7 +153,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.list_parts/4`.
+    Implementation for `c:Uppy.Storage.list_parts/4`.
     """
     def list_parts(bucket, object, upload_id, next_part_number_marker \\ nil, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -175,7 +175,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.abort_multipart_upload/4`.
+    Implementation for `c:Uppy.Storage.abort_multipart_upload/4`.
     """
     def abort_multipart_upload(bucket, object, upload_id, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -188,7 +188,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.complete_multipart_upload/5`.
+    Implementation for `c:Uppy.Storage.complete_multipart_upload/5`.
     """
     def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -201,7 +201,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.put_object_copy/5`.
+    Implementation for `c:Uppy.Storage.put_object_copy/5`.
     """
     def put_object_copy(dest_bucket, destination_object, src_bucket, source_object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -214,7 +214,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.put_object/4`.
+    Implementation for `c:Uppy.Storage.put_object/4`.
     """
     def put_object(bucket, object, body, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
@@ -227,7 +227,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Adapter.Storage.delete_object/3`.
+    Implementation for `c:Uppy.Storage.delete_object/3`.
     """
     def delete_object(bucket, object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)

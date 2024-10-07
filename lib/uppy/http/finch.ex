@@ -24,7 +24,7 @@ if Uppy.Utils.application_loaded?(:finch) do
     @moduledoc """
     Defines a Finch based HTTP adapter.
 
-    This module implements `Uppy.Adapter.HTTP`
+    This module implements `Uppy.HTTP`
 
     ### Getting started
 

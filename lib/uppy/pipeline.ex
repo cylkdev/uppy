@@ -38,11 +38,11 @@ defmodule Uppy.Pipeline do
 
   ### Examples
 
-      iex> Uppy.Pipeline.run("input", [Uppy.Support.Phases.EchoPhase])
-      {:ok, %{input: "input", opts: []}, [Uppy.Support.Phases.EchoPhase]}
+      Uppy.Pipeline.run("input", [YourPhase])
+      {:ok, %{input: "input", opts: []}, [YourPhase]}
 
-      iex> Uppy.Pipeline.run("input", [{Uppy.Support.Phases.EchoPhase, resource: "resource"}])
-      {:ok, %{input: "input", opts: [resource: "resource"]}, [Uppy.Support.Phases.EchoPhase]}
+      Uppy.Pipeline.run("input", [{YourPhase, resource: "resource"}])
+      {:ok, %{input: "input", opts: [resource: "resource"]}, [YourPhase]}
   """
   def run(input, pipeline) do
     pipeline
@@ -55,7 +55,7 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.before([A, B, C], B)
+      Uppy.Pipeline.before([A, B, C], B)
       [A]
   """
   @spec before(pipeline :: phases(), phase :: phase()) :: phases()
@@ -78,7 +78,7 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.from([A, B, C], B)
+      Uppy.Pipeline.from([A, B, C], B)
       [B, C]
   """
   @spec from(pipeline :: phases(), phase :: phase()) :: phases()
@@ -104,17 +104,17 @@ defmodule Uppy.Pipeline do
 
   Replace a simple phase (without opts):
 
-      iex> Uppy.Pipeline.replace([A, B, C], B, X)
+      Uppy.Pipeline.replace([A, B, C], B, X)
       [A, X, C]
 
   Replace a phase with opts, retaining them:
 
-      iex> Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, X)
+      Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, X)
       [A, {X, [name: "Thing"]}, C]
 
   Replace a phase with opts, overriding them:
 
-      iex> Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, {X, [name: "Nope"]})
+      Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, {X, [name: "Nope"]})
       [A, {X, [name: "Nope"]}, C]
 
   """
@@ -163,7 +163,7 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.upto([A, B, C], B)
+      Uppy.Pipeline.upto([A, B, C], B)
       [A, B]
   """
   @spec upto(pipeline :: phases(), phase :: phase()) :: phases()
@@ -182,7 +182,7 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.without([A, B, C], B)
+      Uppy.Pipeline.without([A, B, C], B)
       [A, C]
   """
   @spec without(pipeline :: phases(), phase :: phase()) :: phases()
@@ -200,12 +200,12 @@ defmodule Uppy.Pipeline do
 
   Add one phase before another:
 
-      iex> Uppy.Pipeline.insert_before([A, C, D], C, B)
+      Uppy.Pipeline.insert_before([A, C, D], C, B)
       [A, B, C, D]
 
   Add list of phase before another:
 
-      iex> Uppy.Pipeline.insert_before([A, D, E], D, [B, C])
+      Uppy.Pipeline.insert_before([A, D, E], D, [B, C])
       [A, B, C, D, E]
 
   """
@@ -228,12 +228,12 @@ defmodule Uppy.Pipeline do
 
   Add one phase after another:
 
-      iex> Uppy.Pipeline.insert_after([A, C, D], A, B)
+      Uppy.Pipeline.insert_after([A, C, D], A, B)
       [A, B, C, D]
 
   Add list of phases after another:
 
-      iex> Uppy.Pipeline.insert_after([A, D, E], A, [B, C])
+      Uppy.Pipeline.insert_after([A, D, E], A, [B, C])
       [A, B, C, D, E]
 
   """
@@ -253,7 +253,7 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.reject([A, B, C], ~r/A|B/)
+      Uppy.Pipeline.reject([A, B, C], ~r/A|B/)
       [C]
   """
   @spec reject(
@@ -277,8 +277,8 @@ defmodule Uppy.Pipeline do
   Executes phases with the given input.
 
   ### Examples
-      iex> Uppy.Pipeline.run_phase([Uppy.Support.Phases.EchoPhase], %{likes: 10})
-      {:ok, %{input: %{likes: 10}, opts: []}, [Uppy.Support.Phases.EchoPhase]}
+
+      Uppy.Pipeline.run_phase([YourPhase], %{})
   """
   @spec run_phase(
     phase :: phase() | phases(),

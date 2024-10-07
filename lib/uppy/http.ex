@@ -38,12 +38,53 @@ defmodule Uppy.HTTP do
   """
   alias Uppy.{Config, JSONEncoder, Utils}
 
-  @type url :: Uppy.Adapter.HTTP.url()
-  @type headers :: Uppy.Adapter.HTTP.headers()
-  @type body :: Uppy.Adapter.HTTP.body()
-  @type opts :: Uppy.Adapter.HTTP.opts()
-  @type status :: Uppy.Adapter.HTTP.status()
-  @type t_response :: Uppy.Adapter.HTTP.t_response()
+  @type url :: binary()
+  @type headers :: list(binary())
+  @type body :: any()
+  @type opts :: keyword()
+  @type status :: non_neg_integer()
+
+  @type http_response :: {
+    body(),
+    %{
+      optional(atom()) => any(),
+      body: body(),
+      status: status(),
+      headers: headers()
+    }
+  }
+
+  @type t_res :: {:ok, http_response()} | {:error, any()}
+
+  @doc """
+  Executes a HTTP HEAD request.
+  """
+  @callback head(url(), headers(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP GET request.
+  """
+  @callback get(url(), headers(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP DELETE request.
+  """
+  @callback delete(url(), headers(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP POST request.
+  """
+  @callback post(url(), headers(), body(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP PATCH request.
+  """
+  @callback patch(url(), headers(), body(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP PUT request.
+  """
+  @callback put(url(), headers(), body(), opts()) :: t_res()
 
   @logger_prefix "Uppy.HTTP"
 
@@ -51,7 +92,7 @@ defmodule Uppy.HTTP do
   @one_hundred 100
   @two_minutes_ms 120_000
 
-  @default_http_adapter Uppy.HTTP.Finch
+  @default_adapter Uppy.HTTP.Finch
 
   @doc """
   Executes a HTTP HEAD request.
@@ -60,7 +101,7 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.head("http://url.com")
   """
-  @spec head(url(), headers(), opts()) :: t_response()
+  @spec head(url(), headers(), opts()) :: t_res()
   def head(url, headers \\ [], opts \\ []) do
     http_opts = Keyword.get(opts, :http_opts, [])
 
@@ -80,7 +121,7 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.get("http://url.com")
   """
-  @spec get(url(), headers(), opts()) :: t_response()
+  @spec get(url(), headers(), opts()) :: t_res()
   def get(url, headers \\ [], opts \\ []) do
     http_opts = Keyword.get(opts, :http_opts, [])
 
@@ -100,7 +141,7 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.delete("http://url.com")
   """
-  @spec delete(url(), headers(), opts()) :: t_response()
+  @spec delete(url(), headers(), opts()) :: t_res()
   def delete(url, headers \\ [], opts \\ []) do
     http_opts = Keyword.get(opts, :http_opts, [])
 
@@ -120,7 +161,7 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.post("http://url.com", "body")
   """
-  @spec post(url(), body(), headers(), opts()) :: t_response()
+  @spec post(url(), body(), headers(), opts()) :: t_res()
   def post(url, body, headers \\ [], opts \\ []) do
     http_opts = Keyword.get(opts, :http_opts, [])
 
@@ -142,7 +183,7 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.patch("http://url.com", "body")
   """
-  @spec patch(url(), body(), headers(), opts()) :: t_response()
+  @spec patch(url(), body(), headers(), opts()) :: t_res()
   def patch(url, body, headers \\ [], opts \\ []) do
     http_opts = Keyword.get(opts, :http_opts, [])
 
@@ -164,7 +205,7 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.put("http://url.com", "body")
   """
-  @spec put(url(), body(), headers(), opts()) :: t_response()
+  @spec put(url(), body(), headers(), opts()) :: t_res()
   def put(url, body, headers \\ [], opts \\ []) do
     http_opts = Keyword.get(opts, :http_opts, [])
 
@@ -307,6 +348,6 @@ defmodule Uppy.HTTP do
   end
 
   defp adapter!(opts) do
-    opts[:http_adapter] || Config.http_adapter() || @default_http_adapter
+    opts[:http_adapter] || Config.http_adapter() || @default_adapter
   end
 end
