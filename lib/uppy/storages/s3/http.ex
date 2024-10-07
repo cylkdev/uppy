@@ -4,48 +4,48 @@ defmodule Uppy.Storages.S3.HTTP do
   """
   alias Uppy.HTTP
 
-  @default_options [
+  @default_opts [
     disable_json_encoding?: true,
     disable_json_decoding?: true
   ]
 
-  def request(:get, url, _body, headers, options) do
-    options = Keyword.merge(@default_options, options)
+  def request(:get, url, _body, headers, opts) do
+    opts = Keyword.merge(@default_opts, opts)
 
     url
-    |> HTTP.get(headers, options)
+    |> HTTP.get(headers, opts)
     |> handle_response()
   end
 
-  def request(:head, url, _body, headers, options) do
-    options = Keyword.merge(@default_options, options)
+  def request(:head, url, _body, headers, opts) do
+    opts = Keyword.merge(@default_opts, opts)
 
     url
-    |> HTTP.head(headers, options)
+    |> HTTP.head(headers, opts)
     |> handle_response()
   end
 
-  def request(:delete, url, _body, headers, options) do
-    options = Keyword.merge(@default_options, options)
+  def request(:delete, url, _body, headers, opts) do
+    opts = Keyword.merge(@default_opts, opts)
 
     url
-    |> HTTP.delete(headers, options)
+    |> HTTP.delete(headers, opts)
     |> handle_response()
   end
 
-  def request(:post, url, body, headers, options) do
-    options = Keyword.merge(@default_options, options)
+  def request(:post, url, body, headers, opts) do
+    opts = Keyword.merge(@default_opts, opts)
 
     url
-    |> HTTP.post(body, headers, options)
+    |> HTTP.post(body, headers, opts)
     |> handle_response()
   end
 
-  def request(:put, url, body, headers, options) do
-    options = Keyword.merge(@default_options, options)
+  def request(:put, url, body, headers, opts) do
+    opts = Keyword.merge(@default_opts, opts)
 
     url
-    |> HTTP.put(body, headers, options)
+    |> HTTP.put(body, headers, opts)
     |> handle_response()
   end
 

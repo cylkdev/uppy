@@ -3,6 +3,9 @@ defmodule Uppy.Pipelines.PostProcessingPipeline do
   ...
   """
 
+  @behaviour Uppy.Pipeline
+
+  @impl Uppy.Pipeline
   @doc """
   Returns the list of phases for processing completed file uploads.
 

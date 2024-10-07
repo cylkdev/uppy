@@ -3,9 +3,86 @@ defmodule Uppy.PathBuilder do
   ...
   """
 
-  @type permanent_path_descriptor :: Uppy.Adapter.PathBuilder.permanent_path_descriptor()
+  @type opts :: keyword()
+  @type id :: binary()
+  @type basename :: binary()
+  @type path :: binary()
+  @type resource :: binary()
+  @type prefix :: binary()
+  @type postfix :: binary()
 
-  @default_path_builder Uppy.PathBuilders.UploadPathBuilder
+  @typedoc """
+  ...
+  """
+  @type permanent_path_params :: %{
+    optional(:basename) => basename(),
+    optional(:resource) => resource(),
+    id: id()
+  }
+
+  @typedoc """
+  ...
+  """
+  @type permanent_path_descriptor :: %{
+    optional(:prefix) => binary(),
+    id: binary(),
+    resource: binary(),
+    basename: binary()
+  }
+
+  @typedoc """
+  ...
+  """
+  @type temporary_path_params :: %{
+    optional(:basename) => basename(),
+    id: id()
+  }
+
+  @typedoc """
+  ...
+  """
+  @type temporary_path_descriptor :: %{
+    id: id(),
+    postfix: postfix(),
+    prefix: prefix(),
+    basename: basename()
+  }
+
+  @doc """
+  ...
+  """
+  @callback decode_permanent_path(path :: path(), opts :: opts()) ::
+    {:ok, permanent_path_descriptor()} |
+    {:error, term()}
+
+  @doc """
+  ...
+  """
+  @callback validate_permanent_path(path :: path(), opts :: opts()) :: :ok | {:error, term()}
+
+  @doc """
+  ...
+  """
+  @callback permanent_path(params :: permanent_path_params(), opts :: opts()) :: binary()
+
+  @doc """
+  ...
+  """
+  @callback decode_temporary_path(path :: path(), opts :: opts()) ::
+    {:ok, temporary_path_descriptor()} |
+    {:error, term()}
+
+  @doc """
+  ...
+  """
+  @callback validate_temporary_path(path :: path(), opts :: opts()) :: :ok | {:error, term()}
+
+  @doc """
+  ...
+  """
+  @callback temporary_path(params :: temporary_path_params(), opts :: opts()) :: binary()
+
+  @default_adapter Uppy.PathBuilders.UploadPathBuilder
 
   @spec encode_id(id :: binary(), opts :: keyword()) :: binary()
   def encode_id(id, opts \\ []) do
@@ -139,6 +216,6 @@ defmodule Uppy.PathBuilder do
   end
 
   defp adapter!(opts) do
-    opts[:permanent_path_builder] || @default_path_builder
+    opts[:permanent_path_builder] || @default_adapter
   end
 end

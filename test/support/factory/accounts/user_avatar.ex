@@ -3,7 +3,7 @@ defmodule Uppy.Support.Factory.Accounts.UserAvatar do
   @behaviour FactoryEx
 
   @impl FactoryEx
-  def schema, do: Uppy.Support.PG.Accounts.UserAvatar
+  def schema, do: Uppy.Support.Schemas.Accounts.UserAvatar
 
   @impl FactoryEx
   def repo, do: Uppy.Repo

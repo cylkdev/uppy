@@ -8,52 +8,34 @@ defmodule Uppy.Pipeline do
   Pipelines are used to perform operations on objects
   existing in storage.
 
-    * See `Uppy.Adapter.Phase` for information on building a phase.
+    * See `Uppy.Phase` for information on building a phase.
   """
   alias Uppy.Phase
 
-  @type phase :: Uppy.Phase.phase()
-
-  @type input :: Uppy.Phase.input()
-
-  @type options :: Uppy.options()
-
   @type error_message :: Uppy.Error.error_message()
-
+  @type opts :: keyword()
+  @type input :: term()
+  @type phase :: module()
   @type phases :: list(phase())
-
-  @type pipeline :: phases()
-
-  @type pipeline_response ::
-    {:ok, result :: result(), done :: phases()} |
-    {:error, error_message :: error_message(), done :: phases()}
+  @type phase_options :: {phase :: phase(), opts :: opts()}
+  @type phase_params :: phase() | phase_options()
+  @type pipeline :: list(phase_params())
+  @type pipeline_response ::  {:ok, result :: result(), done :: phases()} |
+                              {:error, error_message :: error_message(), done :: phases()}
 
   @type result :: term()
 
   @doc """
-  Returns the list of phases for processing completed file uploads.
-
-  ### Examples
-
-      iex> Uppy.Pipeline.for_post_processing()
-      [
-        {Uppy.Phases.ValidateObjectTemporaryPath, []},
-        {Uppy.Phases.HeadTemporaryObject, []},
-        {Uppy.Phases.FileHolder, []},
-        {Uppy.Phases.FileInfo, []},
-        {Uppy.Phases.PutImageProcessorResult, []},
-        {Uppy.Phases.PutPermanentObjectCopy, []},
-        {Uppy.Phases.UpdateSchemaMetadata, []},
-        {Uppy.Phases.ValidateObjectPermanentPath, []}
-      ]
+  ...
   """
-  @spec for_post_processing(options :: options()) :: phases()
-  defdelegate for_post_processing(opts \\ []),
-    to: Uppy.Pipelines.PostProcessingPipeline,
-    as: :phases
+  @callback phases(opts :: opts()) :: pipeline()
 
-  @spec phases(adapter :: module(), opts :: options()) :: list()
-  def phases(adapter, opts) do
+  @doc """
+  Returns a list of phases.
+  """
+  @spec phases(adapter :: module(), opts :: opts()) :: pipeline()
+  @spec phases(adapter :: module()) :: list()
+  def phases(adapter, opts \\ []) do
     adapter.phases(opts)
   end
 
@@ -63,13 +45,13 @@ defmodule Uppy.Pipeline do
 
   ### Examples
 
-      iex> Uppy.Pipeline.run("input", [Uppy.Support.Phases.EchoPhase])
-      {:ok, %{input: "input", options: []}, [Uppy.Support.Phases.EchoPhase]}
+      Uppy.Pipeline.run("input", [YourPhase])
+      {:ok, %{input: "input", opts: []}, [YourPhase]}
 
-      iex> Uppy.Pipeline.run("input", [{Uppy.Support.Phases.EchoPhase, resource: "resource"}])
-      {:ok, %{input: "input", options: [resource: "resource"]}, [Uppy.Support.Phases.EchoPhase]}
+      Uppy.Pipeline.run("input", [{YourPhase, resource: "resource"}])
+      {:ok, %{input: "input", opts: [resource: "resource"]}, [YourPhase]}
   """
-  @spec run(input :: input(), pipeline :: phases()) :: pipeline_response()
+  @spec run(input :: input(), pipeline :: pipeline()) :: pipeline_response()
   def run(input, pipeline) do
     pipeline
     |> List.flatten()
@@ -81,10 +63,10 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.before([A, B, C], B)
+      Uppy.Pipeline.before([A, B, C], B)
       [A]
   """
-  @spec before(pipeline :: phases(), phase :: phase()) :: phases()
+  @spec before(pipeline :: pipeline(), phase :: phase_params()) :: pipeline()
   def before(pipeline, phase) do
     result =
       pipeline
@@ -104,10 +86,10 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.from([A, B, C], B)
+      Uppy.Pipeline.from([A, B, C], B)
       [B, C]
   """
-  @spec from(pipeline :: phases(), phase :: phase()) :: phases()
+  @spec from(pipeline :: pipeline(), phase :: phase_params()) :: pipeline()
   def from(pipeline, phase) do
     result =
       pipeline
@@ -124,31 +106,31 @@ defmodule Uppy.Pipeline do
 
   @doc """
   Replace a phase in a pipeline with another, supporting reusing the same
-  options.
+  opts.
 
   ## Examples
 
-  Replace a simple phase (without options):
+  Replace a simple phase (without opts):
 
-      iex> Uppy.Pipeline.replace([A, B, C], B, X)
+      Uppy.Pipeline.replace([A, B, C], B, X)
       [A, X, C]
 
-  Replace a phase with options, retaining them:
+  Replace a phase with opts, retaining them:
 
-      iex> Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, X)
+      Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, X)
       [A, {X, [name: "Thing"]}, C]
 
-  Replace a phase with options, overriding them:
+  Replace a phase with opts, overriding them:
 
-      iex> Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, {X, [name: "Nope"]})
+      Uppy.Pipeline.replace([A, {B, [name: "Thing"]}, C], B, {X, [name: "Nope"]})
       [A, {X, [name: "Nope"]}, C]
 
   """
   @spec replace(
-    pipeline :: phases(),
-    phase :: phase(),
-    replacement :: phase()
-  ) :: phases()
+    pipeline :: pipeline(),
+    phase :: phase_params(),
+    replacement :: phase_params()
+  ) :: pipeline()
   def replace(pipeline, phase, replacement) do
     Enum.map(pipeline, fn candidate ->
       case match_phase?(phase, candidate) do
@@ -163,17 +145,17 @@ defmodule Uppy.Pipeline do
       {_, []} ->
         replacement
 
-      {_, options} ->
+      {_, opts} ->
         if is_atom(replacement) do
-          {replacement, options}
+          {replacement, opts}
         else
           replacement
         end
     end
   end
 
-  defp phase_invocation({phase, options}) when is_list(options) do
-    {phase, options}
+  defp phase_invocation({phase, opts}) when is_list(opts) do
+    {phase, opts}
   end
 
   defp phase_invocation(phase) do
@@ -189,10 +171,10 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.upto([A, B, C], B)
+      Uppy.Pipeline.upto([A, B, C], B)
       [A, B]
   """
-  @spec upto(pipeline :: phases(), phase :: phase()) :: phases()
+  @spec upto(pipeline :: pipeline(), phase :: phase_params()) :: pipeline()
   def upto(pipeline, phase) do
     beginning = before(pipeline, phase)
 
@@ -208,10 +190,10 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.without([A, B, C], B)
+      Uppy.Pipeline.without([A, B, C], B)
       [A, C]
   """
-  @spec without(pipeline :: phases(), phase :: phase()) :: phases()
+  @spec without(pipeline :: pipeline(), phase :: phase_params()) :: pipeline()
   def without(pipeline, phase) do
     Enum.filter(pipeline, fn existing_phase ->
       match_phase?(phase, existing_phase) === false
@@ -226,20 +208,20 @@ defmodule Uppy.Pipeline do
 
   Add one phase before another:
 
-      iex> Uppy.Pipeline.insert_before([A, C, D], C, B)
+      Uppy.Pipeline.insert_before([A, C, D], C, B)
       [A, B, C, D]
 
   Add list of phase before another:
 
-      iex> Uppy.Pipeline.insert_before([A, D, E], D, [B, C])
+      Uppy.Pipeline.insert_before([A, D, E], D, [B, C])
       [A, B, C, D, E]
 
   """
   @spec insert_before(
-    pipeline :: phases(),
-    phase :: phase(),
-    additional :: phases()
-  ) :: phases()
+    pipeline :: pipeline(),
+    phase :: phase_params(),
+    additional :: pipeline()
+  ) :: pipeline()
   def insert_before(pipeline, phase, additional) do
     beginning = before(pipeline, phase)
 
@@ -254,20 +236,20 @@ defmodule Uppy.Pipeline do
 
   Add one phase after another:
 
-      iex> Uppy.Pipeline.insert_after([A, C, D], A, B)
+      Uppy.Pipeline.insert_after([A, C, D], A, B)
       [A, B, C, D]
 
   Add list of phases after another:
 
-      iex> Uppy.Pipeline.insert_after([A, D, E], A, [B, C])
+      Uppy.Pipeline.insert_after([A, D, E], A, [B, C])
       [A, B, C, D, E]
 
   """
   @spec insert_after(
-    pipeline :: phases(),
-    phase :: phase(),
-    additional :: phases()
-  ) :: phases()
+    pipeline :: pipeline(),
+    phase :: phase_params(),
+    additional :: pipeline()
+  ) :: pipeline()
   def insert_after(pipeline, phase, additional) do
     beginning = upto(pipeline, phase)
 
@@ -279,13 +261,13 @@ defmodule Uppy.Pipeline do
 
   ## Examples
 
-      iex> Uppy.Pipeline.reject([A, B, C], ~r/A|B/)
+      Uppy.Pipeline.reject([A, B, C], ~r/A|B/)
       [C]
   """
   @spec reject(
-    pipeline :: phases(),
+    pipeline :: pipeline(),
     pattern_or_function :: Regex.t() | function()
-  ) :: phases()
+  ) :: pipeline()
   def reject(pipeline, %Regex{} = pattern) do
     reject(pipeline, fn phase ->
       Regex.match?(pattern, Atom.to_string(phase))
@@ -303,11 +285,11 @@ defmodule Uppy.Pipeline do
   Executes phases with the given input.
 
   ### Examples
-      iex> Uppy.Pipeline.run_phase([Uppy.Support.Phases.EchoPhase], %{likes: 10})
-      {:ok, %{input: %{likes: 10}, options: []}, [Uppy.Support.Phases.EchoPhase]}
+
+      Uppy.Pipeline.run_phase([YourPhase], %{})
   """
   @spec run_phase(
-    phase :: phase() | phases(),
+    pipeline :: pipeline(),
     input :: input(),
     done :: phases()
   ) :: pipeline_response()
@@ -318,9 +300,9 @@ defmodule Uppy.Pipeline do
   end
 
   def run_phase([phase | todo] = all_phases, input, done) do
-    {phase, options} = phase_config(phase)
+    {phase, opts} = phase_config(phase)
 
-    case Phase.run(phase, input, options) do
+    case Phase.run(phase, input, opts) do
       {:record_phases, result, fun} ->
         result = fun.(result, all_phases)
 
@@ -376,6 +358,6 @@ defmodule Uppy.Pipeline do
     run_phase([phase], input, done)
   end
 
-  defp phase_config({phase, options}) when is_atom(phase) and is_list(options), do: {phase, options}
+  defp phase_config({phase, opts}) when is_atom(phase) and is_list(opts), do: {phase, opts}
   defp phase_config(phase), do: phase_config({phase, []})
 end

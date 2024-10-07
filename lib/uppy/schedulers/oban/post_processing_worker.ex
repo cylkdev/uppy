@@ -8,81 +8,53 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.Oban.Global
     alias Uppy.{Core, Utils}
+    alias Uppy.Schedulers.Oban.{
+      EventName,
+      ObanUtil
+    }
 
-    @event_prefix "uppy.post_processing_worker"
-    @event_process_upload "#{@event_prefix}.process_upload"
-
-    def perform(%Oban.Job{
-          args: %{
-            "event" => @event_process_upload,
-            "pipeline" => pipeline_module,
-            "bucket" => bucket,
-            "resource" => resource,
-            "schema" => schema,
-            "source" => source,
-            "id" => id
-          }
-        }) do
-      pipeline_module = Utils.string_to_existing_module!(pipeline_module)
-      schema = Utils.string_to_existing_module!(schema)
-
-      Core.process_upload(pipeline_module, bucket, resource, {schema, source}, %{id: id})
-    end
+    @event_process_upload EventName.process_upload()
 
     def perform(%Oban.Job{
-          args: %{
-            "event" => @event_process_upload,
-            "pipeline" => pipeline_module,
-            "bucket" => bucket,
-            "resource" => resource,
-            "schema" => schema,
-            "id" => id
-          }
-        }) do
-      pipeline_module = Utils.string_to_existing_module!(pipeline_module)
-      schema = Utils.string_to_existing_module!(schema)
-
-      Core.process_upload(pipeline_module, bucket, resource, schema, %{id: id})
+      args: %{
+        "event" => @event_process_upload,
+        "bucket" => bucket,
+        "pipeline" => pipeline,
+        "resource" => resource,
+        "query" => query,
+        "id" => id
+      }
+    }) do
+      pipeline
+      |> Utils.string_to_existing_module!()
+      |> Core.process_upload(
+        bucket,
+        resource,
+        ObanUtil.decode_binary_to_term(query),
+        %{id: id}
+      )
     end
 
     def queue_process_upload(
-          pipeline_module,
-          bucket,
-          resource,
-          schema,
-          id,
-          nil_or_schedule_at_or_schedule_in,
-          options
-        ) do
-      options = ensure_schedule_opt(options, nil_or_schedule_at_or_schedule_in)
-
-      changeset =
-        schema
-        |> Global.convert_schema_to_arguments()
-        |> Map.merge(%{
-          event: @event_process_upload,
-          pipeline: Utils.module_to_string(pipeline_module),
-          bucket: bucket,
-          resource: resource,
-          id: id
-        })
-        |> new()
-
-      Global.insert(changeset, options)
-    end
-
-    defp ensure_schedule_opt(options, nil) do
-      options
-    end
-
-    defp ensure_schedule_opt(options, %DateTime{} = schedule_at) do
-      Keyword.put(options, :schedule_at, schedule_at)
-    end
-
-    defp ensure_schedule_opt(options, schedule_in) when is_integer(schedule_in) do
-      Keyword.put(options, :schedule_in, schedule_in)
+      pipeline,
+      bucket,
+      resource,
+      query,
+      id,
+      schedule,
+      opts
+    ) do
+      %{
+        event: @event_process_upload,
+        pipeline: Utils.module_to_string(pipeline),
+        bucket: bucket,
+        resource: resource,
+        query: ObanUtil.encode_term_to_binary(query),
+        id: id
+      }
+      |> new()
+      |> ObanUtil.insert(schedule, opts)
     end
   end
 end

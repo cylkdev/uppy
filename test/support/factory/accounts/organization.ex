@@ -3,7 +3,7 @@ defmodule Uppy.Support.Factory.Accounts.Organization do
   @behaviour FactoryEx
 
   @impl FactoryEx
-  def schema, do: Uppy.Support.PG.Accounts.Organization
+  def schema, do: Uppy.Support.Schemas.Accounts.Organization
 
   @impl FactoryEx
   def repo, do: Uppy.Repo

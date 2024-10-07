@@ -1,8 +1,12 @@
 ExUnit.start()
 
-Code.put_compiler_option(:warnings_as_errors, true)
+if System.get_env("CI") do
+  Code.put_compiler_option(:warnings_as_errors, true)
+end
 
-for app <- [:ecto, :hackney, :oban, :postgrex] do
+:ok = FactoryEx.SchemaCounter.start()
+
+for app <- [:ecto, :oban, :postgrex] do
   Application.ensure_all_started(app)
 end
 

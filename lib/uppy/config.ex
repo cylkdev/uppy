@@ -7,13 +7,13 @@ defmodule Uppy.Config do
   def app, do: @app
 
   @doc false
-  @spec repo :: module()
+  @spec repo :: module() | nil
   def repo do
     Application.get_env(@app, :repo) || Uppy.Repo
   end
 
   @doc false
-  @spec error_message_adapter :: module()
+  @spec error_message_adapter :: module() | nil
   def error_message_adapter do
     Application.get_env(@app, :error_message_adapter) || ErrorMessage
   end

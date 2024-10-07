@@ -1,11 +1,11 @@
-defmodule Uppy.Support.PG.Accounts.UserProfile do
+defmodule Uppy.Support.Schemas.Accounts.UserProfile do
   @moduledoc false
   use Ecto.Schema
 
   import Ecto.Changeset
 
   schema "user_profiles" do
-    belongs_to :user, Uppy.Support.PG.Accounts.User
+    belongs_to :user, Uppy.Support.Schemas.Accounts.User
 
     field :display_name, :string
 

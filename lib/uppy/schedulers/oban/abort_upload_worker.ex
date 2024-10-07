@@ -8,105 +8,57 @@ if Uppy.Utils.application_loaded?(:oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.Oban.Global
-    alias Uppy.{Core, Utils}
+    alias Uppy.Core
+    alias Uppy.Schedulers.Oban.{
+      EventName,
+      ObanUtil
+    }
 
-    @event_prefix "uppy.abort_upload_worker"
-    @event_abort_upload "#{@event_prefix}.abort_upload"
-    @event_abort_multipart_upload "#{@event_prefix}.abort_multipart_upload"
-
-    def perform(%Oban.Job{
-          args: %{
-            "event" => @event_abort_multipart_upload,
-            "bucket" => bucket,
-            "schema" => schema,
-            "source" => source,
-            "id" => id
-          }
-        }) do
-      schema = Utils.string_to_existing_module!(schema)
-
-      Core.abort_multipart_upload(bucket, {schema, source}, %{id: id})
-    end
+    @event_abort_multipart_upload EventName.abort_multipart_upload()
+    @event_abort_upload EventName.abort_upload()
 
     def perform(%Oban.Job{
-          args: %{
-            "event" => @event_abort_multipart_upload,
-            "bucket" => bucket,
-            "schema" => schema,
-            "id" => id
-          }
-        }) do
-      schema = Utils.string_to_existing_module!(schema)
-
-      Core.abort_multipart_upload(bucket, schema, %{id: id})
+      args: %{
+        "event" => @event_abort_multipart_upload,
+        "bucket" => bucket,
+        "id" => id,
+        "query" => query
+      }
+    }) do
+      Core.abort_multipart_upload(bucket, ObanUtil.decode_binary_to_term(query), %{id: id})
     end
 
     def perform(%Oban.Job{
-          args: %{
-            "event" => @event_abort_upload,
-            "bucket" => bucket,
-            "schema" => schema,
-            "source" => source,
-            "id" => id
-          }
-        }) do
-      schema = Utils.string_to_existing_module!(schema)
-
-      Core.abort_upload(bucket, {schema, source}, %{id: id})
+      args: %{
+        "event" => @event_abort_upload,
+        "bucket" => bucket,
+        "id" => id,
+        "query" => query
+      }
+    }) do
+      Core.abort_upload(bucket, ObanUtil.decode_binary_to_term(query), %{id: id})
     end
 
-    def perform(%Oban.Job{
-          args: %{
-            "event" => @event_abort_upload,
-            "bucket" => bucket,
-            "schema" => schema,
-            "id" => id
-          }
-        }) do
-      schema = Utils.string_to_existing_module!(schema)
-
-      Core.abort_upload(bucket, schema, %{id: id})
+    def queue_abort_multipart_upload(bucket, query, id, schedule, opts) do
+      %{
+        event: @event_abort_multipart_upload,
+        bucket: bucket,
+        id: id,
+        query: ObanUtil.encode_term_to_binary(query)
+      }
+      |> new()
+      |> ObanUtil.insert(schedule, opts)
     end
 
-    def queue_abort_multipart_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
-      options = ensure_schedule_opt(options, schedule_at_or_schedule_in)
-
-      changeset =
-        schema
-        |> Global.convert_schema_to_arguments()
-        |> Map.merge(%{
-          event: @event_abort_multipart_upload,
-          bucket: bucket,
-          id: id
-        })
-        |> new()
-
-      Global.insert(changeset, options)
-    end
-
-    def queue_abort_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
-      options = ensure_schedule_opt(options, schedule_at_or_schedule_in)
-
-      changeset =
-        schema
-        |> Global.convert_schema_to_arguments()
-        |> Map.merge(%{
-          event: @event_abort_upload,
-          bucket: bucket,
-          id: id
-        })
-        |> new()
-
-      Global.insert(changeset, options)
-    end
-
-    defp ensure_schedule_opt(options, %DateTime{} = schedule_at) do
-      Keyword.put(options, :schedule_at, schedule_at)
-    end
-
-    defp ensure_schedule_opt(options, schedule_in) when is_integer(schedule_in) do
-      Keyword.put(options, :schedule_in, schedule_in)
+    def queue_abort_upload(bucket, query, id, schedule, opts) do
+      %{
+        event: @event_abort_upload,
+        bucket: bucket,
+        id: id,
+        query: ObanUtil.encode_term_to_binary(query)
+      }
+      |> new()
+      |> ObanUtil.insert(schedule, opts)
     end
   end
 end

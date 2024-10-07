@@ -2,86 +2,61 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   @moduledoc """
   ...
   """
-  alias Uppy.{Action, Utils}
+  alias Uppy.{DBAction, Utils}
 
-  @type input :: map()
+  @type resolution :: map()
   @type schema :: Ecto.Queryable.t()
   @type schema_data :: Ecto.Schema.t()
   @type params :: map()
-  @type options :: keyword()
+  @type opts :: keyword()
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @behaviour Uppy.Adapter.Phase
+  @behaviour Uppy.Phase
 
   @logger_prefix "Uppy.Phases.UpdateSchemaMetadata"
 
   def run(
-    %Uppy.Pipeline.Input{
-      schema: schema,
-      schema_data: schema_data,
+    %Uppy.Resolution{
+      query: query,
+      value: schema_data,
       context: context
-    } = input,
-    options
+    } = resolution,
+    opts
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    file_info = context.file_info
-    metadata = context.metadata
-    destination_object = context.destination_object
+    file_info           = context.file_info
+    metadata            = context.metadata
+    destination_object  = context.destination_object
 
     with {:ok, schema_data} <-
       update_metadata(
-        schema,
+        query,
         schema_data,
         destination_object,
         file_info,
         metadata,
-        options
+        opts
       ) do
-        Utils.Logger.debug(@logger_prefix, "Updated schema data:\n\n#{inspect(schema_data, pretty: true)}")
+        Utils.Logger.debug(@logger_prefix, "Updated record metadata")
 
-      {:ok, %{input | schema_data: schema_data}}
+      {:ok, %{resolution | value: schema_data}}
     end
   end
 
   def update_metadata(
-    schema,
+    query,
     schema_data,
     destination_object,
     file_info,
     metadata,
-    options
+    opts
   ) do
-    Utils.Logger.debug(
-      @logger_prefix,
-      """
-      Updating schema data:
+    Utils.Logger.debug(@logger_prefix, "updating record metadata")
 
-      schema:
-
-      #{inspect(schema)}
-
-      schema data:
-
-      #{inspect(schema_data, pretty: true)}
-
-      destination object:
-
-      #{inspect(destination_object, pretty: true)}
-
-      file info:
-
-      #{inspect(file_info, pretty: true)}
-
-      storage metadata:
-
-      #{inspect(metadata, pretty: true)}
-      """
-    )
-
-    Action.update(
-      schema,
+    DBAction.update(
+      query,
       schema_data,
       %{
         key: destination_object,
@@ -91,7 +66,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
         content_length: metadata.content_length,
         last_modified: metadata.last_modified
       },
-      options
+      opts
     )
   end
 

@@ -22,10 +22,10 @@ defmodule Uppy.HTTP do
     * `rand()` - is a random number between 0 and 1. The randomness is added to
       mitigate synchronized retries.
 
-  The behaviour of the exponential backoff can be configured via the following options:
+  The behaviour of the exponential backoff can be configured via the following opts:
 
     * `:exponential_backoff_function` - A 2-arity function that is passed the number
-      of `attempts` and `options` as the arguments. This function must return a
+      of `attempts` and `opts` as the arguments. This function must return a
       positive integer for the amount of time to sleep. If this option is used
       `:max`, `:delay`, and `:jitter` will have no effect.
 
@@ -38,12 +38,53 @@ defmodule Uppy.HTTP do
   """
   alias Uppy.{Config, JSONEncoder, Utils}
 
-  @type url :: Uppy.Adapter.HTTP.url()
-  @type headers :: Uppy.Adapter.HTTP.headers()
-  @type body :: Uppy.Adapter.HTTP.body()
-  @type options :: Uppy.Adapter.HTTP.options()
-  @type status :: Uppy.Adapter.HTTP.status()
-  @type t_response :: Uppy.Adapter.HTTP.t_response()
+  @type url :: binary()
+  @type headers :: list(binary())
+  @type body :: any()
+  @type opts :: keyword()
+  @type status :: non_neg_integer()
+
+  @type http_response :: {
+    body(),
+    %{
+      optional(atom()) => any(),
+      body: body(),
+      status: status(),
+      headers: headers()
+    }
+  }
+
+  @type t_res :: {:ok, http_response()} | {:error, any()}
+
+  @doc """
+  Executes a HTTP HEAD request.
+  """
+  @callback head(url(), headers(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP GET request.
+  """
+  @callback get(url(), headers(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP DELETE request.
+  """
+  @callback delete(url(), headers(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP POST request.
+  """
+  @callback post(url(), headers(), body(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP PATCH request.
+  """
+  @callback patch(url(), headers(), body(), opts()) :: t_res()
+
+  @doc """
+  Executes a HTTP PUT request.
+  """
+  @callback put(url(), headers(), body(), opts()) :: t_res()
 
   @logger_prefix "Uppy.HTTP"
 
@@ -51,7 +92,7 @@ defmodule Uppy.HTTP do
   @one_hundred 100
   @two_minutes_ms 120_000
 
-  @default_http_adapter Uppy.HTTP.Finch
+  @default_adapter Uppy.HTTP.Finch
 
   @doc """
   Executes a HTTP HEAD request.
@@ -60,17 +101,17 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.head("http://url.com")
   """
-  @spec head(url(), headers(), options()) :: t_response()
-  def head(url, headers \\ [], options \\ []) do
-    http_options = Keyword.get(options, :http_options, [])
+  @spec head(url(), headers(), opts()) :: t_res()
+  def head(url, headers \\ [], opts \\ []) do
+    http_opts = Keyword.get(opts, :http_opts, [])
 
     fn ->
       url
-      |> adapter!(options).head(headers, http_options)
+      |> adapter!(opts).head(headers, http_opts)
       |> handle_response()
     end
-    |> maybe_retry(options)
-    |> deserialize_json_response(options)
+    |> maybe_retry(opts)
+    |> deserialize_json_response(opts)
   end
 
   @doc """
@@ -80,17 +121,17 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.get("http://url.com")
   """
-  @spec get(url(), headers(), options()) :: t_response()
-  def get(url, headers \\ [], options \\ []) do
-    http_options = Keyword.get(options, :http_options, [])
+  @spec get(url(), headers(), opts()) :: t_res()
+  def get(url, headers \\ [], opts \\ []) do
+    http_opts = Keyword.get(opts, :http_opts, [])
 
     fn ->
       url
-      |> adapter!(options).get(headers, http_options)
+      |> adapter!(opts).get(headers, http_opts)
       |> handle_response()
     end
-    |> maybe_retry(options)
-    |> deserialize_json_response(options)
+    |> maybe_retry(opts)
+    |> deserialize_json_response(opts)
   end
 
   @doc """
@@ -100,17 +141,17 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.delete("http://url.com")
   """
-  @spec delete(url(), headers(), options()) :: t_response()
-  def delete(url, headers \\ [], options \\ []) do
-    http_options = Keyword.get(options, :http_options, [])
+  @spec delete(url(), headers(), opts()) :: t_res()
+  def delete(url, headers \\ [], opts \\ []) do
+    http_opts = Keyword.get(opts, :http_opts, [])
 
     fn ->
       url
-      |> adapter!(options).delete(headers, http_options)
+      |> adapter!(opts).delete(headers, http_opts)
       |> handle_response()
     end
-    |> maybe_retry(options)
-    |> deserialize_json_response(options)
+    |> maybe_retry(opts)
+    |> deserialize_json_response(opts)
   end
 
   @doc """
@@ -120,19 +161,19 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.post("http://url.com", "body")
   """
-  @spec post(url(), body(), headers(), options()) :: t_response()
-  def post(url, body, headers \\ [], options \\ []) do
-    http_options = Keyword.get(options, :http_options, [])
+  @spec post(url(), body(), headers(), opts()) :: t_res()
+  def post(url, body, headers \\ [], opts \\ []) do
+    http_opts = Keyword.get(opts, :http_opts, [])
 
-    body = encode_json!(body, options)
+    body = encode_json!(body, opts)
 
     fn ->
       url
-      |> adapter!(options).post(body, headers, http_options)
+      |> adapter!(opts).post(body, headers, http_opts)
       |> handle_response()
     end
-    |> maybe_retry(options)
-    |> deserialize_json_response(options)
+    |> maybe_retry(opts)
+    |> deserialize_json_response(opts)
   end
 
   @doc """
@@ -142,19 +183,19 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.patch("http://url.com", "body")
   """
-  @spec patch(url(), body(), headers(), options()) :: t_response()
-  def patch(url, body, headers \\ [], options \\ []) do
-    http_options = Keyword.get(options, :http_options, [])
+  @spec patch(url(), body(), headers(), opts()) :: t_res()
+  def patch(url, body, headers \\ [], opts \\ []) do
+    http_opts = Keyword.get(opts, :http_opts, [])
 
-    body = encode_json!(body, options)
+    body = encode_json!(body, opts)
 
     fn ->
       url
-      |> adapter!(options).patch(body, headers, http_options)
+      |> adapter!(opts).patch(body, headers, http_opts)
       |> handle_response()
     end
-    |> maybe_retry(options)
-    |> deserialize_json_response(options)
+    |> maybe_retry(opts)
+    |> deserialize_json_response(opts)
   end
 
   @doc """
@@ -164,27 +205,27 @@ defmodule Uppy.HTTP do
 
       iex> Uppy.HTTP.put("http://url.com", "body")
   """
-  @spec put(url(), body(), headers(), options()) :: t_response()
-  def put(url, body, headers \\ [], options \\ []) do
-    http_options = Keyword.get(options, :http_options, [])
+  @spec put(url(), body(), headers(), opts()) :: t_res()
+  def put(url, body, headers \\ [], opts \\ []) do
+    http_opts = Keyword.get(opts, :http_opts, [])
 
-    body = encode_json!(body, options)
+    body = encode_json!(body, opts)
 
     fn ->
       url
-      |> adapter!(options).put(body, headers, http_options)
+      |> adapter!(opts).put(body, headers, http_opts)
       |> handle_response()
     end
-    |> maybe_retry(options)
-    |> deserialize_json_response(options)
+    |> maybe_retry(opts)
+    |> deserialize_json_response(opts)
   end
 
-  defp exponential_backoff(attempt, options) do
-    case options[:exponential_backoff_function] do
+  defp exponential_backoff(attempt, opts) do
+    case opts[:exponential_backoff_function] do
       nil ->
-        max = options[:exponential_backoff_max] || @two_minutes_ms
-        delay = options[:exponential_backoff_delay] || @one_hundred
-        jitter = options[:exponential_backoff_jitter] || :rand.uniform_real()
+        max = opts[:exponential_backoff_max] || @two_minutes_ms
+        delay = opts[:exponential_backoff_delay] || @one_hundred
+        jitter = opts[:exponential_backoff_jitter] || :rand.uniform_real()
 
         unless jitter >= 0 and jitter <= 1 do
           raise "Expected option `:exponential_backoff_jitter` to be a number between 0 and 1, got: #{inspect(jitter)}"
@@ -204,22 +245,22 @@ defmodule Uppy.HTTP do
         (delay * :math.pow(2, attempt) * (1 + jitter)) |> min(max) |> round()
 
       func when is_function(func, 2) ->
-        func.(attempt, options)
+        func.(attempt, opts)
 
       term ->
         raise "Expected a 2-arity function for the option `:exponential_backoff_function`, got: #{inspect(term)}"
     end
   end
 
-  defp maybe_retry(func, attempt, options) do
-    case max_retries!(options) do
+  defp maybe_retry(func, attempt, opts) do
+    case max_retries!(opts) do
       disabled when disabled in [false, 0] ->
         func.()
 
       max_retries when is_integer(max_retries) and max_retries > 0 ->
         with {:error, _} = error <- func.() do
           if attempt < max_retries do
-            Uppy.Utils.Logger.warn(
+            Uppy.Utils.Logger.warning(
               @logger_prefix,
               """
               [#{inspect(attempt + 1)}/#{inspect(max_retries)}] Request failed, got error:
@@ -228,11 +269,11 @@ defmodule Uppy.HTTP do
               """
             )
 
-            backoff = exponential_backoff(attempt, options)
+            backoff = exponential_backoff(attempt, opts)
 
             :timer.sleep(backoff)
 
-            maybe_retry(func, attempt + 1, options)
+            maybe_retry(func, attempt + 1, opts)
           else
             error
           end
@@ -247,47 +288,47 @@ defmodule Uppy.HTTP do
     end
   end
 
-  defp maybe_retry(func, options) do
-    maybe_retry(func, 0, options)
+  defp maybe_retry(func, opts) do
+    maybe_retry(func, 0, opts)
   end
 
-  defp max_retries!(options) do
-    Keyword.get(options, :max_retries, @default_max_retries)
+  defp max_retries!(opts) do
+    Keyword.get(opts, :max_retries, @default_max_retries)
   end
 
-  defp encode_json!(body, options) do
-    if options[:disable_json_encoding?] === true do
+  defp encode_json!(body, opts) do
+    if opts[:disable_json_encoding?] === true do
       body
     else
-      JSONEncoder.encode_json!(body, options)
+      JSONEncoder.encode_json!(body, opts)
     end
   end
 
-  defp decode_json(body, options) do
-    if (body in [nil, ""]) or (options[:disable_json_decoding?] === true) do
+  defp decode_json(body, opts) do
+    if (body in [nil, ""]) or (opts[:disable_json_decoding?] === true) do
       {:ok, body}
     else
-      with {:ok, data} <- JSONEncoder.decode_json(body, options) do
-        {:ok, maybe_atomize_keys(data, options)}
+      with {:ok, data} <- JSONEncoder.decode_json(body, opts) do
+        {:ok, maybe_atomize_keys(data, opts)}
       end
     end
   end
 
-  defp maybe_atomize_keys(map, options) do
-    if Keyword.get(options, :atomize_keys?, true) do
+  defp maybe_atomize_keys(map, opts) do
+    if Keyword.get(opts, :atomize_keys?, true) do
       Utils.atomize_keys(map)
     else
       map
     end
   end
 
-  defp deserialize_json_response({:ok, %{body: raw_body} = response}, options) do
-    with {:ok, body} <- decode_json(raw_body, options) do
+  defp deserialize_json_response({:ok, %{body: raw_body} = response}, opts) do
+    with {:ok, body} <- decode_json(raw_body, opts) do
       {:ok, {body, response}}
     end
   end
 
-  defp deserialize_json_response({:error, _} = error, _options) do
+  defp deserialize_json_response({:error, _} = error, _opts) do
     error
   end
 
@@ -306,7 +347,7 @@ defmodule Uppy.HTTP do
     """
   end
 
-  defp adapter!(options) do
-    options[:http_adapter] || Config.http_adapter() || @default_http_adapter
+  defp adapter!(opts) do
+    opts[:http_adapter] || Config.http_adapter() || @default_adapter
   end
 end

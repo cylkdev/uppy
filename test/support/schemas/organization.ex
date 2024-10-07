@@ -1,4 +1,4 @@
-defmodule Uppy.Support.PG.Accounts.Organization do
+defmodule Uppy.Support.Schemas.Accounts.Organization do
   @moduledoc false
   use Ecto.Schema
 
@@ -7,7 +7,7 @@ defmodule Uppy.Support.PG.Accounts.Organization do
   schema "organizations" do
     field :name, :string
 
-    has_many :users, Uppy.Support.PG.Accounts.User
+    has_many :users, Uppy.Support.Schemas.Accounts.User
 
     timestamps()
   end

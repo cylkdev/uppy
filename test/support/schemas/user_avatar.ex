@@ -1,13 +1,13 @@
-defmodule Uppy.Support.PG.Accounts.UserAvatar do
+defmodule Uppy.Support.Schemas.Accounts.UserAvatar do
   @moduledoc false
   use Ecto.Schema
 
   import Ecto.Changeset
 
   schema "user_avatars" do
-    belongs_to :user_profile, Uppy.Support.PG.Accounts.UserProfile
+    belongs_to :user_profile, Uppy.Support.Schemas.Accounts.UserProfile
 
-    has_one :object, {"user_avatar_objects", Uppy.Support.PG.Objects.Object}
+    has_one :object, {"user_avatar_objects", Uppy.Support.Schemas.Object}
 
     field :name, :string
     field :description, :string

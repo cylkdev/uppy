@@ -4,13 +4,13 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   """
   alias Uppy.Error
 
-  @type options :: Uppy.options()
-  @type permanent_path_params :: Uppy.Adapter.PathBuilder.permanent_path_params()
-  @type permanent_path_descriptor :: Uppy.Adapter.PathBuilder.permanent_path_descriptor()
-  @type temporary_path_params :: Uppy.Adapter.PathBuilder.temporary_path_params()
-  @type temporary_path_descriptor :: Uppy.Adapter.PathBuilder.temporary_path_descriptor()
+  @type opts :: Uppy.opts()
+  @type permanent_path_params :: Uppy.PathBuilder.permanent_path_params()
+  @type permanent_path_descriptor :: Uppy.PathBuilder.permanent_path_descriptor()
+  @type temporary_path_params :: Uppy.PathBuilder.temporary_path_params()
+  @type temporary_path_descriptor :: Uppy.PathBuilder.temporary_path_descriptor()
 
-  @behaviour Uppy.Adapter.PathBuilder
+  @behaviour Uppy.PathBuilder
 
   @permanent_path_prefix ""
 
@@ -119,7 +119,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
           }}
         end
 
-      _ -> {:error, Error.forbidden("failed to decode permanent path", %{path: path})}
+      _ -> {:error, Error.call(:forbidden, "failed to decode permanent path", %{path: path})}
     end
   end
 
@@ -137,7 +137,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
     temporary_prefix = temporary_prefix!(opts)
 
     if String.starts_with?(path, temporary_prefix) do
-      {:error, Error.forbidden("not a permanent path", %{path: path})}
+      {:error, Error.call(:forbidden, "not a permanent path", %{path: path})}
     else
       with {:ok, _} <- decode_permanent_path(path, opts) do
         :ok
@@ -163,7 +163,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
       "permanent/21-"
   """
   @impl true
-  @spec permanent_path(params :: permanent_path_params(), opts :: options()) :: binary()
+  @spec permanent_path(params :: permanent_path_params(), opts :: opts()) :: binary()
   def permanent_path(params, opts \\ [])
 
   def permanent_path(%{id: id, resource: resource, basename: basename}, opts) do
@@ -218,7 +218,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
           }}
         end
 
-      _ -> {:error, Error.forbidden("failed to decode temporary path", %{path: path})}
+      _ -> {:error, Error.call(:forbidden, "failed to decode temporary path", %{path: path})}
     end
   end
 
@@ -240,7 +240,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
         :ok
       end
     else
-      {:error, Error.forbidden("not a temporary path", %{path: path})}
+      {:error, Error.call(:forbidden, "not a temporary path", %{path: path})}
     end
   end
 
@@ -256,7 +256,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
       "temp/21-user/%3Cunique_identifier%3E-%3Cfilename%3E.%3Cextension%3E"
   """
   @impl true
-  @spec temporary_path(params :: temporary_path_params(), opts :: options()) :: binary()
+  @spec temporary_path(params :: temporary_path_params(), opts :: opts()) :: binary()
   def temporary_path(%{id: id, basename: basename}, opts) do
     path = temporary_path(%{id: id}, opts)
 
@@ -280,7 +280,7 @@ defmodule Uppy.PathBuilders.UploadPathBuilder do
   defp split_partition(string, path, opts) do
     case String.split(string, "-") do
       [id, suffix] -> {:ok, {maybe_reverse(id, opts), suffix}}
-      _ -> {:error, Error.forbidden("invalid partition", %{path: path, partition: string})}
+      _ -> {:error, Error.call(:forbidden, "invalid partition", %{path: path, partition: string})}
     end
   end
 

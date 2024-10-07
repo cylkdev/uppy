@@ -8,15 +8,7 @@ defmodule Uppy.Phases.PutImageProcessorResult do
     Utils
   }
 
-  @type input :: map()
-  @type schema :: Ecto.Queryable.t()
-  @type schema_data :: Ecto.Schema.t()
-  @type params :: map()
-  @type options :: keyword()
-
-  @type t_res(t) :: {:ok, t} | {:error, term()}
-
-  @behaviour Uppy.Adapter.Phase
+  @behaviour Uppy.Phase
 
   @logger_prefix "Uppy.Phases.PutImageProcessorResult"
 
@@ -27,42 +19,53 @@ defmodule Uppy.Phases.PutImageProcessorResult do
   @five_megabytes 5_242_880
 
   def run(
-    %Uppy.Pipeline.Input{
+    %Uppy.Resolution{
       bucket: bucket,
-      schema_data: schema_data,
-      holder: holder,
+      value: schema_data,
       context: context
-    } = input,
-    options
+    } = resolution,
+    opts
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
+    holder    = context.holder
     file_info = context.file_info
+    metadata  = context.metadata
 
-    metadata = context.metadata
+    cond do
+      phase_completed?(context) ->
+        Utils.Logger.debug(@logger_prefix, "skipped execution because destination object already exists")
 
-    if phase_completed?(context) or !supported_image?(file_info, metadata, options) do
-      Utils.Logger.debug(@logger_prefix, "skipping execution because phase already completed or the object is not a support image")
+        {:ok, resolution}
 
-      {:ok, input}
-    else
-      Utils.Logger.debug(@logger_prefix, "copying optimized image result")
+      supported_image?(file_info, metadata, opts) === false ->
+        Utils.Logger.debug(@logger_prefix, "skipped execution because image not supported")
 
-      with {:ok, destination_object} <-
-        put_permanent_result(bucket, holder, schema_data, options) do
-        Utils.Logger.debug(@logger_prefix, "copied image to #{inspect(destination_object)}")
+        {:ok, resolution}
 
-        {:ok, %{input | context: Map.put(context, :destination_object, destination_object)}}
-      end
+      true ->
+        Utils.Logger.debug(@logger_prefix, "copying optimized image result")
+
+        case put_permanent_result(bucket, holder, schema_data, opts)  do
+          {:ok, destination_object} ->
+            Utils.Logger.debug(@logger_prefix, "copied image to #{inspect(destination_object)}")
+
+            {:ok, %{resolution | context: Map.put(context, :destination_object, destination_object)}}
+
+          error ->
+            Utils.Logger.debug(@logger_prefix, "failed to process image")
+
+            error
+        end
     end
   end
 
   defp phase_completed?(%{destination_object: _}), do: true
   defp phase_completed?(_), do: false
 
-  defp width_and_height_less_than_max?(%{width: width, height: height}, options) do
-    max_image_width = options[:max_image_width] || @one_thousand_twenty_four
-    max_image_height = options[:max_image_height] || @one_thousand_twenty_four
+  defp width_and_height_less_than_max?(%{width: width, height: height}, opts) do
+    max_image_width = opts[:max_image_width] || @one_thousand_twenty_four
+    max_image_height = opts[:max_image_height] || @one_thousand_twenty_four
 
     (width <= max_image_width) and (height <= max_image_height)
   end
@@ -70,21 +73,21 @@ defmodule Uppy.Phases.PutImageProcessorResult do
   defp has_width_and_height?(%{width: _, height: _}), do: true
   defp has_width_and_height?(_), do: false
 
-  defp image_size_less_than_max?(%{content_length: content_length}, options) do
-    max_image_size = options[:max_image_size] || @five_megabytes
+  defp image_size_less_than_max?(%{content_length: content_length}, opts) do
+    max_image_size = opts[:max_image_size] || @five_megabytes
 
     content_length <= max_image_size
   end
 
-  defp supported_image?(file_info, metadata, options) do
+  defp supported_image?(file_info, metadata, opts) do
     has_width_and_height?(file_info) and
-    width_and_height_less_than_max?(file_info, options) and
-    image_size_less_than_max?(metadata, options)
+    width_and_height_less_than_max?(file_info, opts) and
+    image_size_less_than_max?(metadata, opts)
   end
 
-  def put_permanent_result(bucket, %_{} = holder, %_{} = schema_data, options) do
-    holder_id = Uppy.Holder.fetch_id!(holder, options)
-    resource = resource!(options)
+  def put_permanent_result(bucket, %_{} = holder, %_{} = schema_data, opts) do
+    holder_id = Uppy.Holder.fetch_id!(holder, opts)
+    resource = resource!(opts)
     basename = Uppy.Core.basename(schema_data)
 
     source_object = schema_data.key
@@ -96,10 +99,10 @@ defmodule Uppy.Phases.PutImageProcessorResult do
           resource: resource,
           basename: basename
         },
-        options
+        opts
       )
 
-    params = options[:image_processor_parameters] || %{}
+    params = opts[:image_processor_parameters] || %{}
 
     with {:ok, _} <-
       Uppy.ImageProcessor.put_result(
@@ -107,14 +110,14 @@ defmodule Uppy.Phases.PutImageProcessorResult do
         source_object,
         params,
         destination_object,
-        options
+        opts
       ) do
       {:ok, destination_object}
     end
   end
 
-  defp resource!(options) do
-    with nil <- Keyword.get(options, :resource, @default_resource) do
+  defp resource!(opts) do
+    with nil <- Keyword.get(opts, :resource, @default_resource) do
       raise "option `:resource` cannot be `nil` for phase #{__MODULE__}"
     end
   end

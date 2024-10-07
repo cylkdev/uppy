@@ -6,73 +6,48 @@ if Uppy.Utils.application_loaded?(:oban) do
 
     alias Uppy.Schedulers.Oban.{
       AbortUploadWorker,
-      GarbageCollectorWorker,
+      GarbageCollectionWorker,
       PostProcessingWorker
     }
 
-    def queue_delete_object_if_upload_not_found(
-          bucket,
-          schema,
-          key,
-          schedule_at_or_schedule_in,
-          options
-        ) do
-      GarbageCollectorWorker.queue_delete_object_if_upload_not_found(
-        bucket,
-        schema,
-        key,
-        schedule_at_or_schedule_in,
-        options
-      )
-    end
+    @behaviour Uppy.Scheduler
 
-    @doc """
-    ...
-    """
-    def queue_abort_multipart_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
-      AbortUploadWorker.queue_abort_multipart_upload(
-        bucket,
-        schema,
-        id,
-        schedule_at_or_schedule_in,
-        options
-      )
-    end
+    @impl Uppy.Scheduler
+    defdelegate queue_garbage_collect_object(
+      bucket,
+      query,
+      key,
+      schedule,
+      opts
+    ), to: GarbageCollectionWorker
 
-    @doc """
-    ...
-    """
-    def queue_abort_upload(bucket, schema, id, schedule_at_or_schedule_in, options) do
-      AbortUploadWorker.queue_abort_upload(
-        bucket,
-        schema,
-        id,
-        schedule_at_or_schedule_in,
-        options
-      )
-    end
+    @impl Uppy.Scheduler
+    defdelegate queue_abort_multipart_upload(
+      bucket,
+      query,
+      id,
+      schedule,
+      opts
+    ), to: AbortUploadWorker
 
-    @doc """
-    ...
-    """
-    def queue_process_upload(
-          pipeline_module,
-          bucket,
-          resource,
-          schema,
-          id,
-          nil_or_schedule_at_or_schedule_in,
-          options
-        ) do
-      PostProcessingWorker.queue_process_upload(
-        pipeline_module,
-        bucket,
-        resource,
-        schema,
-        id,
-        nil_or_schedule_at_or_schedule_in,
-        options
-      )
-    end
+    @impl Uppy.Scheduler
+    defdelegate queue_abort_upload(
+      bucket,
+      query,
+      id,
+      schedule,
+      opts
+    ), to: AbortUploadWorker
+
+    @impl Uppy.Scheduler
+    defdelegate queue_process_upload(
+      pipeline_module,
+      bucket,
+      resource,
+      query,
+      id,
+      schedule,
+      opts
+    ), to: PostProcessingWorker
   end
 end

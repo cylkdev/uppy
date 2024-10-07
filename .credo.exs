@@ -5,7 +5,9 @@
 # issue on GitHub: https://github.com/rrrene/credo/issues
 #
 
-allowed_imports = []
+allowed_imports = [
+  [:ExUnit, :CaptureLog]
+]
 
 %{
   # You can have as many configs as you like in the `configs:` field.

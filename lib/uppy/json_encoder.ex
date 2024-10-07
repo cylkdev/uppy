@@ -15,8 +15,8 @@ defmodule Uppy.JSONEncoder do
       {:ok, %{"likes" => 10}}
   """
   @spec decode_json(term(), keyword()) :: {:ok, map()} | {:error, term()}
-  def decode_json(term, options \\ []) do
-    json_adapter!(options).decode(term)
+  def decode_json(term, opts \\ []) do
+    json_adapter!(opts).decode(term)
   end
 
   @doc ~S"""
@@ -28,8 +28,8 @@ defmodule Uppy.JSONEncoder do
       %{"likes" => 10}
   """
   @spec decode_json!(term(), keyword()) :: binary()
-  def decode_json!(term, options \\ []) do
-    json_adapter!(options).decode!(term)
+  def decode_json!(term, opts \\ []) do
+    json_adapter!(opts).decode!(term)
   end
 
   @doc ~S"""
@@ -41,8 +41,8 @@ defmodule Uppy.JSONEncoder do
       {:ok, "{\"likes\":10}"}
   """
   @spec encode_json(term(), keyword()) :: {:ok, binary()} | {:error, term()}
-  def encode_json(term, options \\ []) do
-    json_adapter!(options).encode(term)
+  def encode_json(term, opts \\ []) do
+    json_adapter!(opts).encode(term)
   end
 
   @doc ~S"""
@@ -54,11 +54,11 @@ defmodule Uppy.JSONEncoder do
       "{\"likes\":10}"
   """
   @spec encode_json!(term(), keyword()) :: binary()
-  def encode_json!(term, options \\ []) do
-    json_adapter!(options).encode!(term)
+  def encode_json!(term, opts \\ []) do
+    json_adapter!(opts).encode!(term)
   end
 
-  defp json_adapter!(options) do
-    Keyword.get(options, :json_adapter, Config.json_adapter()) || @default_json_adapter
+  defp json_adapter!(opts) do
+    Keyword.get(opts, :json_adapter, Config.json_adapter()) || @default_json_adapter
   end
 end
