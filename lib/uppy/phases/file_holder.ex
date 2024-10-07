@@ -2,7 +2,11 @@ defmodule Uppy.Phases.FileHolder do
   @moduledoc """
   Loads the holder association of the schema data if the `holder` is nil.
   """
-  alias Uppy.{Action, EctoHelpers, Utils}
+  alias Uppy.{
+    DBAction,
+    Error,
+    Utils
+  }
 
   @behaviour Uppy.Phase
 
@@ -24,11 +28,12 @@ defmodule Uppy.Phases.FileHolder do
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    with {:ok, holder} <- find_holder(query, schema_data, opts) do
-      Utils.Logger.debug(@logger_prefix, "run OK")
+    case find_holder(query, schema_data, opts) do
+      {:ok, holder} ->
+        Utils.Logger.debug(@logger_prefix, "run OK")
 
-      {:ok, %{resolution | context: Map.put(context, :holder, holder)}}
-    else
+        {:ok, %{resolution | context: Map.put(context, :holder, holder)}}
+
       error ->
         Utils.Logger.debug(@logger_prefix, "run ERROR")
 
@@ -62,20 +67,42 @@ defmodule Uppy.Phases.FileHolder do
   def find_holder(query, %_{} = schema_data, opts) do
     assoc_source = Keyword.get(opts, :holder_association_source, :user)
 
-    with {:ok, ecto_assoc} <- EctoHelpers.find_ecto_association(query, assoc_source) do
+    with {:ok, ecto_assoc} <- find_ecto_association(query, assoc_source) do
       schema = ecto_assoc.queryable
       owner_key = ecto_assoc.owner_key
       primary_key = Keyword.get(opts, :holder_primary_key_source, ecto_assoc.related_key)
 
       id = Map.fetch!(schema_data, owner_key)
 
-      Action.find(schema, %{primary_key => id}, opts)
+      DBAction.find(schema, %{primary_key => id}, opts)
     end
   end
 
   def find_holder(schema, params, opts) do
-    with {:ok, schema_data} <- Action.find(schema, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(schema, params, opts) do
       find_holder(schema, schema_data, opts)
+    end
+  end
+
+  def find_ecto_association(
+    %Ecto.Query{
+      from: %Ecto.Query.FromExpr{
+        source: {_source, schema}
+      }
+    },
+    field
+  ) do
+    find_ecto_association(schema, field)
+  end
+
+  def find_ecto_association({_source, schema}, field) do
+    find_ecto_association(schema, field)
+  end
+
+  def find_ecto_association(schema, field) do
+    case schema.__schema__(:association, field) do
+      nil -> {:error, Error.call(:not_found, "association not found", %{schema: schema, field: field})}
+      assoc -> {:ok, assoc}
     end
   end
 end

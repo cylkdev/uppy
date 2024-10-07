@@ -26,12 +26,12 @@ defmodule Uppy.Phases.FileInfo do
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    with {:ok, file_info} <-
-      describe_object_chunk(bucket, schema_data.key, opts) do
-      Utils.Logger.debug(@logger_prefix, "run OK")
+    case describe_object_chunk(bucket, schema_data.key, opts) do
+      {:ok, file_info} ->
+        Utils.Logger.debug(@logger_prefix, "run OK")
 
-      {:ok, %{resolution | context: Map.put(context, :file_info, file_info)}}
-    else
+        {:ok, %{resolution | context: Map.put(context, :file_info, file_info)}}
+
       error ->
         Utils.Logger.debug(@logger_prefix, "run ERROR")
 
@@ -69,7 +69,7 @@ defmodule Uppy.Phases.FileInfo do
   defp file_info(binary) do
     with {:ok, io} <- :file.open(binary, [:ram, :binary]) do
       case FileType.from_io(io) do
-        {:error, :unrecognized} -> {:error, Error.forbidden("unrecognized file format")}
+        {:error, :unrecognized} -> {:error, Error.call(:forbidden, "unrecognized file format")}
         {:ok, {extension, mimetype}} -> {:ok, %{extension: extension, mimetype: mimetype}}
       end
     end

@@ -46,12 +46,12 @@ defmodule Uppy.Phases.PutImageProcessorResult do
       true ->
         Utils.Logger.debug(@logger_prefix, "copying optimized image result")
 
-        with {:ok, destination_object} <-
-          put_permanent_result(bucket, holder, schema_data, opts) do
-          Utils.Logger.debug(@logger_prefix, "copied image to #{inspect(destination_object)}")
+        case put_permanent_result(bucket, holder, schema_data, opts)  do
+          {:ok, destination_object} ->
+            Utils.Logger.debug(@logger_prefix, "copied image to #{inspect(destination_object)}")
 
-          {:ok, %{resolution | context: Map.put(context, :destination_object, destination_object)}}
-        else
+            {:ok, %{resolution | context: Map.put(context, :destination_object, destination_object)}}
+
           error ->
             Utils.Logger.debug(@logger_prefix, "failed to process image")
 

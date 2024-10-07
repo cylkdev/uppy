@@ -1,17 +1,13 @@
 defmodule Uppy.Resolution do
   @moduledoc """
 
-    * `state` -
-
     * `bucket` -
-
-    * `resource` -
-
+    * `context` -
     * `query` -
-
-    * `value` -
-
     * `private` -
+    * `resource` -
+    * `state` -
+    * `value` -
   """
 
   @enforce_keys [

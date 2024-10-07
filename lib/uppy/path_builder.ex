@@ -51,7 +51,9 @@ defmodule Uppy.PathBuilder do
   @doc """
   ...
   """
-  @callback decode_permanent_path(path :: path(), opts :: opts()) :: {:ok, permanent_path_descriptor()} | {:error, term()}
+  @callback decode_permanent_path(path :: path(), opts :: opts()) ::
+    {:ok, permanent_path_descriptor()} |
+    {:error, term()}
 
   @doc """
   ...
@@ -66,7 +68,9 @@ defmodule Uppy.PathBuilder do
   @doc """
   ...
   """
-  @callback decode_temporary_path(path :: path(), opts :: opts()) :: {:ok, temporary_path_descriptor()} | {:error, term()}
+  @callback decode_temporary_path(path :: path(), opts :: opts()) ::
+    {:ok, temporary_path_descriptor()} |
+    {:error, term()}
 
   @doc """
   ...

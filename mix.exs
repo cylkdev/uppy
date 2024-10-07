@@ -73,8 +73,7 @@ defmodule Uppy.MixProject do
       {:postgrex, ">= 0.0.0", optional: true},
       {:tzdata, "~> 1.1"},
 
-      {:ecto_shorts, path: "../ecto_shorts"},
-      # {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
+      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "feat-actions-2.5.0"},
       {:error_message, "~> 0.3.0", optional: true},
 
       {:finch, "~> 0.18.0", optional: true},

@@ -18,11 +18,12 @@ defmodule Uppy.Phases.HeadTemporaryObject do
   ) do
     Utils.Logger.debug(@logger_prefix, "run BEGIN")
 
-    with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      Utils.Logger.debug(@logger_prefix, "run OK")
+    case Storage.head_object(bucket, schema_data.key, opts) do
+      {:ok, metadata} ->
+        Utils.Logger.debug(@logger_prefix, "run OK")
 
-      {:ok, %{resolution | context: Map.put(context, :metadata, metadata)}}
-    else
+        {:ok, %{resolution | context: Map.put(context, :metadata, metadata)}}
+
       error ->
         Utils.Logger.debug(@logger_prefix, "run ERROR")
 

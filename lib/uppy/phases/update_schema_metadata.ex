@@ -2,7 +2,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   @moduledoc """
   ...
   """
-  alias Uppy.{Action, Utils}
+  alias Uppy.{DBAction, Utils}
 
   @type resolution :: map()
   @type schema :: Ecto.Queryable.t()
@@ -55,7 +55,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   ) do
     Utils.Logger.debug(@logger_prefix, "updating record metadata")
 
-    Action.update(
+    DBAction.update(
       query,
       schema_data,
       %{

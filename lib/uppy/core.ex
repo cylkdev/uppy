@@ -265,8 +265,8 @@ defmodule Uppy.Core do
     pipeline,
     query,
     schema_data,
-    update_params,
     parts,
+    update_params \\ %{},
     opts \\ []
   )
 
@@ -276,8 +276,8 @@ defmodule Uppy.Core do
     pipeline,
     query,
     %_{} = schema_data,
-    update_params,
     parts,
+    update_params,
     opts
   ) do
     with :ok <- PathBuilder.validate_temporary_path(schema_data.key, opts),
@@ -331,8 +331,8 @@ defmodule Uppy.Core do
     pipeline,
     query,
     find_params,
-    update_params,
     parts,
+    update_params,
     opts
   ) do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
@@ -342,8 +342,8 @@ defmodule Uppy.Core do
         pipeline,
         query,
         schema_data,
-        update_params,
         parts,
+        update_params,
         opts
       )
     end
@@ -405,12 +405,7 @@ defmodule Uppy.Core do
           opts
         ) do
 
-      payload =
-        if is_nil(metadata) do
-          %{}
-        else
-          %{metadata: metadata}
-        end
+      payload = if is_nil(metadata), do: %{}, else: %{metadata: metadata}
 
       operation = fn ->
         with {:ok, schema_data} <- DBAction.delete(schema_data, opts) do
@@ -685,7 +680,7 @@ defmodule Uppy.Core do
   defp validate_garbage_collection(query, params, opts) do
     case DBAction.find(query, params, opts) do
       {:ok, schema_data} ->
-        {:error, Error.forbidden("cannot garbage collect existing record", %{
+        {:error, Error.call(:forbidden, "cannot garbage collect existing record", %{
           query: query,
           params: params,
           schema_data: schema_data
@@ -720,9 +715,8 @@ defmodule Uppy.Core do
   """
   def find_permanent_upload(query, params, opts \\ []) do
     with {:ok, schema_data} <- DBAction.find(query, params, opts),
-      :ok <- PathBuilder.validate_permanent_path(schema_data.key, opts),
-      {:ok, schema_data} <- check_e_tag_non_nil(schema_data) do
-      {:ok, schema_data}
+      :ok <- PathBuilder.validate_permanent_path(schema_data.key, opts) do
+      check_e_tag_non_nil(schema_data)
     end
   end
 
@@ -1176,7 +1170,7 @@ defmodule Uppy.Core do
     if is_nil(schema_data.e_tag) do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden(
+      {:error, Error.call(:forbidden,
         "Expected `:e_tag` to be nil",
         %{schema_data: schema_data}
       )}
@@ -1187,7 +1181,7 @@ defmodule Uppy.Core do
     if is_nil(schema_data.e_tag) === false do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden(
+      {:error, Error.call(:forbidden,
         "Expected `:e_tag` to be non-nil",
         %{schema_data: schema_data}
       )}
@@ -1195,27 +1189,24 @@ defmodule Uppy.Core do
   end
 
   defp check_if_multipart_upload(schema_data) do
-    if has_upload_id?(schema_data) do
-      {:ok, schema_data}
-    else
-      {:error, Error.forbidden(
+    if is_nil(schema_data.upload_id) do
+      {:error, Error.call(:forbidden,
         "Expected `:upload_id` to be non-nil",
         %{schema_data: schema_data}
       )}
+    else
+      {:ok, schema_data}
     end
   end
 
   defp check_if_non_multipart_upload(schema_data) do
-    if has_upload_id?(schema_data) === false do
+    if is_nil(schema_data.upload_id) do
       {:ok, schema_data}
     else
-      {:error, Error.forbidden(
+      {:error, Error.call(:forbidden,
         "Expected `:upload_id` to be nil",
         %{schema_data: schema_data}
       )}
     end
   end
-
-  defp has_upload_id?(%{upload_id: nil}), do: false
-  defp has_upload_id?(%{upload_id: _}), do: true
 end

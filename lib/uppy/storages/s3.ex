@@ -297,9 +297,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp handle_response({:error, msg}) when is_binary(msg) do
       if msg =~ "there's nothing to see here" do
-        {:error, Error.not_found("resource not found.", %{error: msg})}
+        {:error, Error.call(:not_found, "resource not found.", %{error: msg})}
       else
-        {:error, Error.service_unavailable("storage service unavailable.", %{error: msg})}
+        {:error, Error.call(:service_unavailable, "storage service unavailable.", %{error: msg})}
       end
     end
 
