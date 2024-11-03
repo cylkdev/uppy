@@ -12,7 +12,6 @@ defmodule Uppy.Core do
   alias Uppy.{
     DBAction,
     Error,
-    ObjectPath,
     Pipeline,
     Scheduler,
     Storage
@@ -30,7 +29,7 @@ defmodule Uppy.Core do
       case pipeline do
         phases when is_list(phases) -> phases
         module when is_atom(module) and (not is_nil(module)) -> module.phases(opts)
-        _ -> Uppy.Core.PostProcessingPipeline.phases(opts)
+        _ -> Uppy.PostProcessingPipeline.phases(opts)
       end
 
     with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
@@ -84,11 +83,10 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def garbage_collect_upload(bucket, query, %_{} = schema_struct, opts) do
+  def delete_object_and_upload(bucket, _query, %_{} = schema_struct, opts) do
     if schema_struct.status not in [:discarded, :cancelled] do
       {:error, Error.call(:forbidden, "expected a status of discarded or cancelled", %{
         bucket: bucket,
-        query: query,
         schema_struct: schema_struct
       })}
     else
@@ -114,9 +112,9 @@ defmodule Uppy.Core do
     end
   end
 
-  def garbage_collect_upload(bucket, query, find_params, opts) do
+  def delete_object_and_upload(bucket, query, find_params, opts) do
     with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
-      garbage_collect_upload(bucket, query, schema_struct, opts)
+      delete_object_and_upload(bucket, query, schema_struct, opts)
     end
   end
 
@@ -125,37 +123,29 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def delete_upload(bucket, query, %_{} = schema_struct, opts) do
-    update_params = %{status: :cancelled}
+  def schedule_delete_object_and_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
+    update_params = Map.put(update_params, :status, :cancelled)
 
-    with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-      if Keyword.get(opts, :scheduler_enabled, true) do
-        with {:ok, garbage_collect_upload_job} <-
-          Scheduler.queue_garbage_collect_upload(
-            bucket,
-            query,
-            schema_struct.id,
-            opts
-          ) do
-          {:ok, %{
-            schema_struct: schema_struct,
-            jobs: %{
-              garbage_collect_upload: garbage_collect_upload_job
-            }
-          }}
-        end
-      else
-        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts),
-          {:ok, res} <- garbage_collect_upload(bucket, query, schema_struct, opts) do
-          {:ok, %{schema_struct: res.schema_struct}}
-        end
-      end
+    with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts),
+      {:ok, delete_object_and_upload_job} <-
+        Scheduler.queue_delete_object_and_upload(
+          bucket,
+          query,
+          schema_struct.id,
+          opts
+        ) do
+      {:ok, %{
+        schema_struct: schema_struct,
+        jobs: %{
+          delete_object_and_upload: delete_object_and_upload_job
+        }
+      }}
     end
   end
 
-  def delete_upload(bucket, query, params, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, params, opts) do
-      delete_upload(bucket, query, schema_struct, opts)
+  def schedule_delete_object_and_upload(bucket, query, find_params, update_params, opts) do
+    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
+      schedule_delete_object_and_upload(bucket, query, schema_struct, update_params, opts)
     end
   end
 
@@ -164,69 +154,59 @@ defmodule Uppy.Core do
   """
   def complete_upload(
     bucket,
-    object_path_params,
+    destination_object,
     query,
     %_{} = schema_struct,
     update_params,
     opts
   ) do
-    destination_object =
-      ObjectPath.build_permanent_object_path(
-        object_path_params.id,
-        object_path_params.partition_name,
-        object_path_params.basename,
-        opts
-      )
+    if schema_struct.upload_id do
+      {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
+        schema_struct: schema_struct,
+        query: query,
+        bucket: bucket
+      })}
+    else
+      case Storage.head_object(bucket, schema_struct.key, opts) do
+        {:ok, metadata} ->
+          update_params =
+            Map.merge(update_params, %{
+              status: :available,
+              e_tag: metadata.e_tag
+            })
 
-    with {:ok, _} <- ObjectPath.validate_temporary_object_path(schema_struct.key, opts) do
-      if schema_struct.upload_id do
-        {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-          schema_struct: schema_struct,
-          query: query,
-          bucket: bucket
-        })}
-      else
-        case Storage.head_object(bucket, schema_struct.key, opts) do
-          {:ok, metadata} ->
-            update_params =
-              Map.merge(update_params, %{
-                e_tag: metadata.e_tag,
-                status: :available
-              })
-
-            operation =
-              fn ->
-                with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-                  if Keyword.get(opts, :scheduler_enabled, true) do
-                    with {:ok, process_upload_job} <-
-                      Scheduler.queue_process_upload(
-                        bucket,
-                        destination_object,
-                        query,
-                        schema_struct.id,
-                        opts[:pipeline],
-                        opts
-                      ) do
-                      {:ok, %{
-                        metadata: metadata,
-                        schema_struct: schema_struct,
-                        jobs: %{
-                          process_upload: process_upload_job
-                        }
-                      }}
-                    end
-                  else
-                    raise "not implemented"
+          operation =
+            fn ->
+              with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+                if Keyword.get(opts, :scheduler_enabled, true) do
+                  with {:ok, process_upload_job} <-
+                    Scheduler.queue_process_upload(
+                      bucket,
+                      destination_object,
+                      query,
+                      schema_struct.id,
+                      opts[:pipeline],
+                      opts
+                    ) do
+                    {:ok, %{
+                      metadata: metadata,
+                      schema_struct: schema_struct,
+                      jobs: %{
+                        process_upload: process_upload_job
+                      }
+                    }}
                   end
+                else
+                  raise "not implemented"
                 end
               end
+            end
 
-            DBAction.transaction(operation, opts)
+          DBAction.transaction(operation, opts)
 
-          {:error, _} = error ->
-            error
+        {:error, _} = error ->
+          error
 
-        end
       end
     end
   end
@@ -255,42 +235,46 @@ defmodule Uppy.Core do
   ...
   """
   def abort_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
-    with {:ok, _} <- ObjectPath.validate_temporary_object_path(schema_struct.key, opts) do
-      if schema_struct.upload_id do
-        {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-          schema_struct: schema_struct,
-          query: query,
-          bucket: bucket
-        })}
-      else
-        operation =
-          fn ->
-            update_params = Map.put(update_params, :status, opts[:status] || :cancelled)
+    if schema_struct.upload_id do
+      {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
+        schema_struct: schema_struct,
+        query: query,
+        bucket: bucket
+      })}
+    else
+      operation =
+        fn ->
+          status = opts[:status] || :cancelled
 
-            with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-              if Keyword.get(opts, :scheduler_enabled, true) do
-                with {:ok, garbage_collect_upload_job} <-
-                  Scheduler.queue_garbage_collect_upload(
-                    bucket,
-                    query,
-                    schema_struct.id,
-                    opts
-                  ) do
-                  {:ok, %{
-                    schema_struct: schema_struct,
-                    jobs: %{
-                      garbage_collect_upload: garbage_collect_upload_job
-                    }
-                  }}
-                end
-              else
-                raise "not implemented"
-              end
-            end
+          unless status in [:discarded, :cancelled] do
+            raise ArgumentError, "expected status to be one of [:discarded, :cancelled]"
           end
 
-        DBAction.transaction(operation, opts)
-      end
+          update_params = Map.put(update_params, :status, status)
+
+          with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+            if Keyword.get(opts, :scheduler_enabled, true) do
+              with {:ok, delete_object_and_upload_job} <-
+                Scheduler.queue_delete_object_and_upload(
+                  bucket,
+                  query,
+                  schema_struct.id,
+                  opts
+                ) do
+                {:ok, %{
+                  schema_struct: schema_struct,
+                  jobs: %{
+                    delete_object_and_upload: delete_object_and_upload_job
+                  }
+                }}
+              end
+            else
+              raise "not implemented"
+            end
+          end
+        end
+
+      DBAction.transaction(operation, opts)
     end
   end
 
@@ -303,21 +287,14 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def start_upload(bucket, object_path_params, query, create_params, opts) do
-    key =
-      ObjectPath.build_temporary_object_path(
-        object_path_params.id,
-        object_path_params.partition_name,
-        object_path_params.basename,
-        opts
-      )
-
+  def start_upload(bucket, destination_object, query, create_params, opts) do
     create_params =
-      create_params
-      |> Map.put(:status, :pending)
-      |> Map.put(:key, key)
+      Map.merge(create_params, %{
+        status: :pending,
+        key: destination_object
+      })
 
-    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, key, opts) do
+    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, destination_object, opts) do
       operation = fn ->
         with {:ok, schema_struct} <- DBAction.create(query, create_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
@@ -329,7 +306,6 @@ defmodule Uppy.Core do
                 opts
               ) do
               {:ok, %{
-                key: key,
                 presigned_upload: presigned_upload,
                 schema_struct: schema_struct,
                 jobs: %{
@@ -359,25 +335,23 @@ defmodule Uppy.Core do
     next_part_number_marker,
     opts
   ) do
-    with {:ok, _} <- ObjectPath.validate_temporary_object_path(schema_struct.key, opts) do
-      if is_nil(schema_struct.upload_id) do
-        {:error, Error.call(:forbidden, "expected a multipart upload", %{
+    if is_nil(schema_struct.upload_id) do
+      {:error, Error.call(:forbidden, "expected a multipart upload", %{
+        schema_struct: schema_struct
+      })}
+    else
+      with {:ok, parts} <-
+        Storage.list_parts(
+          bucket,
+          schema_struct.key,
+          schema_struct.upload_id,
+          next_part_number_marker,
+          opts
+        ) do
+        {:ok, %{
+          parts: parts,
           schema_struct: schema_struct
-        })}
-      else
-        with {:ok, parts} <-
-          Storage.list_parts(
-            bucket,
-            schema_struct.key,
-            schema_struct.upload_id,
-            next_part_number_marker,
-            opts
-          ) do
-          {:ok, %{
-            parts: parts,
-            schema_struct: schema_struct
-          }}
-        end
+        }}
       end
     end
   end
@@ -392,28 +366,26 @@ defmodule Uppy.Core do
   ...
   """
   def presigned_part(bucket, query, %_{} = schema_struct, part_number, opts) do
-    with {:ok, _} <- ObjectPath.validate_temporary_object_path(schema_struct.key, opts) do
-      if is_nil(schema_struct.upload_id) do
-        {:error, Error.call(:forbidden, "expected a multipart upload", %{
-          bucket: bucket,
-          query: query,
-          schema_struct: schema_struct,
-          part_number: part_number
-        })}
-      else
-        with {:ok, presigned_part} <-
-            Storage.presigned_part_upload(
-              bucket,
-              schema_struct.key,
-              schema_struct.upload_id,
-              part_number,
-              opts
-            ) do
-          {:ok, %{
-            presigned_part: presigned_part,
-            schema_struct: schema_struct
-          }}
-        end
+    if is_nil(schema_struct.upload_id) do
+      {:error, Error.call(:forbidden, "expected a multipart upload", %{
+        bucket: bucket,
+        query: query,
+        schema_struct: schema_struct,
+        part_number: part_number
+      })}
+    else
+      with {:ok, presigned_part} <-
+          Storage.presigned_part_upload(
+            bucket,
+            schema_struct.key,
+            schema_struct.upload_id,
+            part_number,
+            opts
+          ) do
+        {:ok, %{
+          presigned_part: presigned_part,
+          schema_struct: schema_struct
+        }}
       end
     end
   end
@@ -429,70 +401,60 @@ defmodule Uppy.Core do
   """
   def complete_multipart_upload(
     bucket,
-    object_path_params,
+    destination_object,
     query,
     %_{} = schema_struct,
     update_params,
     parts,
     opts
   ) do
-    destination_object =
-      ObjectPath.build_permanent_object_path(
-        object_path_params.id,
-        object_path_params.partition_name,
-        object_path_params.basename,
-        opts
-      )
+    if is_nil(schema_struct.upload_id) do
+      {:error, Error.call(:forbidden, "expected a multipart upload", %{
+        schema_struct: schema_struct,
+        query: query
+      })}
+    else
+      with {:ok, metadata} <-
+        storage_complete_multipart_upload(
+          bucket,
+          schema_struct,
+          parts,
+          opts
+        ) do
 
-    with {:ok, _} <- ObjectPath.validate_temporary_object_path(schema_struct.key, opts) do
-      if is_nil(schema_struct.upload_id) do
-        {:error, Error.call(:forbidden, "expected a multipart upload", %{
-          schema_struct: schema_struct,
-          query: query
-        })}
-      else
-        with {:ok, metadata} <-
-          storage_complete_multipart_upload(
-            bucket,
-            schema_struct,
-            parts,
-            opts
-          ) do
+        update_params =
+          Map.merge(update_params, %{
+            status: :available,
+            e_tag: metadata.e_tag
+          })
 
-          update_params =
-            Map.merge(update_params, %{
-              e_tag: metadata.e_tag,
-              status: :available
-            })
-
-          operation = fn ->
-            with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-              if Keyword.get(opts, :scheduler_enabled, true) do
-                with {:ok, process_upload_job} <-
-                  Scheduler.queue_process_upload(
-                    bucket,
-                    destination_object,
-                    query,
-                    schema_struct.id,
-                    opts[:pipeline],
-                    opts
-                  ) do
-                  {:ok, %{
-                    metadata: metadata,
-                    schema_struct: schema_struct,
-                    jobs: %{
-                      process_upload: process_upload_job
-                    }
-                  }}
-                end
-              else
-                raise "not implemented"
+        operation = fn ->
+          with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+            if Keyword.get(opts, :scheduler_enabled, true) do
+              with {:ok, process_upload_job} <-
+                Scheduler.queue_process_upload(
+                  bucket,
+                  destination_object,
+                  query,
+                  schema_struct.id,
+                  opts[:pipeline],
+                  opts
+                ) do
+                {:ok, %{
+                  metadata: metadata,
+                  schema_struct: schema_struct,
+                  jobs: %{
+                    process_upload: process_upload_job
+                  }
+                }}
               end
+            else
+              raise "not implemented"
             end
           end
-
-          DBAction.transaction(operation, opts)
         end
+
+        DBAction.transaction(operation, opts)
       end
     end
   end
@@ -542,50 +504,54 @@ defmodule Uppy.Core do
   ...
   """
   def abort_multipart_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
-    with {:ok, _} <- ObjectPath.validate_temporary_object_path(schema_struct.key, opts) do
-      if is_nil(schema_struct.upload_id) do
-        {:error, Error.call(:forbidden, "expected a multipart upload", %{
-          schema_struct: schema_struct,
-          query: query
-        })}
-      else
-        with {:ok, metadata} <-
-          storage_abort_multipart_upload(
-            bucket,
-            schema_struct.key,
-            schema_struct.upload_id,
-            opts
-          ) do
+    if is_nil(schema_struct.upload_id) do
+      {:error, Error.call(:forbidden, "expected a multipart upload", %{
+        schema_struct: schema_struct,
+        query: query
+      })}
+    else
+      with {:ok, metadata} <-
+        storage_abort_multipart_upload(
+          bucket,
+          schema_struct.key,
+          schema_struct.upload_id,
+          opts
+        ) do
 
-          maybe_metadata = if is_nil(metadata), do: %{}, else: %{metadata: metadata}
+        maybe_metadata = if is_nil(metadata), do: %{}, else: %{metadata: metadata}
 
-          update_params = Map.put(update_params, :status, opts[:status] || :cancelled)
+        status = opts[:status] || :cancelled
 
-          operation = fn ->
-            with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-              if Keyword.get(opts, :scheduler_enabled, true) do
-                with {:ok, garbage_collect_upload_job} <-
-                  Scheduler.queue_garbage_collect_upload(
-                    bucket,
-                    query,
-                    schema_struct.id,
-                    opts
-                  ) do
-                  {:ok, Map.merge(maybe_metadata, %{
-                    schema_struct: schema_struct,
-                    jobs: %{
-                      garbage_collect_upload: garbage_collect_upload_job
-                    }
-                  })}
-                end
-              else
-                raise "not implemented"
+        unless status in [:discarded, :cancelled] do
+          raise ArgumentError, "expected status to be one of [:discarded, :cancelled]"
+        end
+
+        update_params = Map.put(update_params, :status, status)
+
+        operation = fn ->
+          with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+            if Keyword.get(opts, :scheduler_enabled, true) do
+              with {:ok, delete_object_and_upload_job} <-
+                Scheduler.queue_delete_object_and_upload(
+                  bucket,
+                  query,
+                  schema_struct.id,
+                  opts
+                ) do
+                {:ok, Map.merge(maybe_metadata, %{
+                  schema_struct: schema_struct,
+                  jobs: %{
+                    delete_object_and_upload: delete_object_and_upload_job
+                  }
+                })}
               end
+            else
+              raise "not implemented"
             end
           end
-
-          DBAction.transaction(operation, opts)
         end
+
+        DBAction.transaction(operation, opts)
       end
     end
   end
@@ -607,22 +573,13 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def start_multipart_upload(bucket, object_path_params, query, create_params, opts) do
-    key =
-      ObjectPath.build_temporary_object_path(
-        object_path_params.id,
-        object_path_params.partition_name,
-        object_path_params.basename,
-        opts
-      )
-
-    with {:ok, multipart_upload} <- Storage.initiate_multipart_upload(bucket, key, opts) do
+  def start_multipart_upload(bucket, destination_object, query, create_params, opts) do
+    with {:ok, multipart_upload} <- Storage.initiate_multipart_upload(bucket, destination_object, opts) do
       create_params =
-        create_params
-        |> Map.put(:status, :pending)
-        |> Map.merge(%{
+        Map.merge(create_params, %{
+          status: :pending,
           upload_id: multipart_upload.upload_id,
-          key: key
+          key: destination_object
         })
 
       operation = fn ->
@@ -636,7 +593,6 @@ defmodule Uppy.Core do
                 opts
               ) do
               {:ok, %{
-                key: key,
                 multipart_upload: multipart_upload,
                 schema_struct: schema_struct,
                 jobs: %{

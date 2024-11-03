@@ -1,4 +1,4 @@
-defmodule Uppy.Core.PostProcessingPipeline do
+defmodule Uppy.PostProcessingPipeline do
 
   alias Uppy.Phases.{
     HeadSchemaObjectMetadata,
@@ -8,7 +8,7 @@ defmodule Uppy.Core.PostProcessingPipeline do
     UpdateCompleteObjectMetadata
   }
 
-  def phases(opts \\ []) do
+  def phases(opts) do
     [
       {HeadSchemaObjectMetadata, opts},
       {FileInfo, opts},

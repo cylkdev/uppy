@@ -240,7 +240,7 @@ defmodule Uppy.Storage do
           object :: object(),
           opts :: opts()
         ) :: t_res()
-  def presigned_download(bucket, object, opts \\ []) do
+  def presigned_download(bucket, object, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     presigned_url(bucket, :get, object, opts)
@@ -284,7 +284,7 @@ defmodule Uppy.Storage do
     object :: object(),
     opts :: opts()
   ) :: t_res()
-  def presigned_upload(bucket, object, opts \\ []) do
+  def presigned_upload(bucket, object, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     case opts[:http_method] do
@@ -389,7 +389,7 @@ defmodule Uppy.Storage do
     next_part_number_marker :: marker() | nil,
     opts :: opts()
   ) :: t_res()
-  def list_parts(bucket, object, upload_id, next_part_number_marker, opts \\ []) do
+  def list_parts(bucket, object, upload_id, next_part_number_marker, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     sandbox? = opts[:storage][:sandbox]

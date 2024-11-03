@@ -19,7 +19,7 @@ defmodule Uppy.Scheduler do
   @type schedule_in :: non_neg_integer()
   @type schedule :: schedule_at() | schedule_in() | nil
 
-  @callback queue_garbage_collect_upload(
+  @callback queue_delete_object_and_upload(
     bucket :: bucket(),
     query :: queryable() | source_queryable() | query(),
     id :: id(),
@@ -49,13 +49,13 @@ defmodule Uppy.Scheduler do
     opts :: opts()
   ) :: {:ok, term()} | {:error, term()}
 
-  def queue_garbage_collect_upload(
+  def queue_delete_object_and_upload(
     bucket,
     query,
     id,
     opts
   ) do
-    adapter!(opts).queue_garbage_collect_upload(
+    adapter!(opts).queue_delete_object_and_upload(
       bucket,
       query,
       id,

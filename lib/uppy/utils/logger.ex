@@ -5,6 +5,10 @@ defmodule Uppy.Utils.Logger do
   @doc false
   @spec debug(
     identifier :: binary(),
+    message :: binary()
+  ) :: :ok
+  @spec debug(
+    identifier :: binary(),
     message :: binary(),
     opts :: keyword()
   ) :: :ok
@@ -17,6 +21,10 @@ defmodule Uppy.Utils.Logger do
   @doc false
   @spec info(
     identifier :: binary(),
+    message :: binary()
+  ) :: :ok
+  @spec info(
+    identifier :: binary(),
     message :: binary(),
     opts :: keyword()
   ) :: :ok
@@ -27,6 +35,10 @@ defmodule Uppy.Utils.Logger do
   end
 
   @doc false
+  @spec warning(
+    identifier :: binary(),
+    message :: binary()
+  ) :: :ok
   @spec warning(
     identifier :: binary(),
     message :: binary(),
@@ -47,6 +59,10 @@ defmodule Uppy.Utils.Logger do
   end
 
   @doc false
+  @spec error(
+    identifier :: binary(),
+    message :: binary()
+  ) :: :ok
   @spec error(
     identifier :: binary(),
     message :: binary(),

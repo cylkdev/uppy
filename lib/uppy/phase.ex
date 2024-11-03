@@ -13,7 +13,6 @@ defmodule Uppy.Phase do
   @type phase :: module() | {module(), opts()}
   @type phase_response :: {:ok, term()} | {:error, term()}
 
-  @callback phase_completed?(resolution :: Uppy.Resolution.t()) :: boolean()
   @callback run(input :: input(), opts :: opts()) :: term()
 
   @doc """
@@ -26,7 +25,7 @@ defmodule Uppy.Phase do
     input :: input(),
     opts :: opts()
   ) :: term()
-  def run(phase, input, opts \\ []) do
+  def run(phase, input, opts) do
     phase.run(input, opts)
   end
 end

@@ -29,7 +29,7 @@ defmodule Uppy.CoreTest do
   end
 
   describe "&process_upload/6: " do
-    test "" do
+    test "moves object to permanent path" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
@@ -133,7 +133,7 @@ defmodule Uppy.CoreTest do
     end
   end
 
-  describe "&delete_upload/4" do
+  describe "&schedule_delete_object_and_upload/4" do
     test "when scheduler is enabled, set status to cancelled | insert garbage collection job" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
@@ -144,15 +144,16 @@ defmodule Uppy.CoreTest do
       schema_struct_id = schema_struct.id
 
       assert {:ok, %{
-        schema_struct: garbage_collect_upload_schema_struct,
+        schema_struct: delete_object_and_upload_schema_struct,
         jobs: %{
-          garbage_collect_upload: garbage_collect_upload_job
+          delete_object_and_upload: delete_object_and_upload_job
         }
       }} =
-        Core.delete_upload(
+        Core.schedule_delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
           %{id: schema_struct_id},
+          %{},
           []
         )
 
@@ -169,18 +170,18 @@ defmodule Uppy.CoreTest do
         upload_id: nil,
         assoc_id: nil,
         user_id: nil
-      } = garbage_collect_upload_schema_struct
+      } = delete_object_and_upload_schema_struct
 
       assert %Oban.Job{
         args: %{
           bucket: "uppy-test",
-          event: "uppy.garbage_collect_upload",
+          event: "uppy.delete_object_and_upload",
           query: _,
           id: ^schema_struct_id
         },
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.ObanScheduler.GarbageCollectionWorker"
-      } = garbage_collect_upload_job
+      } = delete_object_and_upload_job
 
       # record should exist
       assert {:ok, %{id: ^schema_struct_id}} =
@@ -192,7 +193,7 @@ defmodule Uppy.CoreTest do
     end
   end
 
-  describe "&garbage_collect_upload/4" do
+  describe "&delete_object_and_upload/4" do
     test "when status is :cancelled, delete object | delete record" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
@@ -240,10 +241,10 @@ defmodule Uppy.CoreTest do
         :ok,
         %{
           metadata: ^sandbox_head_object_payload,
-          schema_struct: garbage_collect_upload_schema_struct
+          schema_struct: delete_object_and_upload_schema_struct
         }
       } =
-        Core.garbage_collect_upload(
+        Core.delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
           %{id: schema_struct_id},
@@ -262,7 +263,7 @@ defmodule Uppy.CoreTest do
         upload_id: nil,
         assoc_id: nil,
         user_id: nil
-      } = garbage_collect_upload_schema_struct
+      } = delete_object_and_upload_schema_struct
 
       # record should be deleted
       assert {:error, %{code: :not_found}} =
@@ -300,7 +301,7 @@ defmodule Uppy.CoreTest do
       ])
 
       assert {:error, %{code: :not_found}} =
-        Core.garbage_collect_upload(
+        Core.delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
           %{id: schema_struct_id},
@@ -332,9 +333,9 @@ defmodule Uppy.CoreTest do
 
       assert {
         :ok,
-        %{schema_struct: garbage_collect_upload_schema_struct}
+        %{schema_struct: delete_object_and_upload_schema_struct}
       } =
-        Core.garbage_collect_upload(
+        Core.delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
           %{id: schema_struct_id},
@@ -353,7 +354,7 @@ defmodule Uppy.CoreTest do
         upload_id: nil,
         assoc_id: nil,
         user_id: nil
-      } = garbage_collect_upload_schema_struct
+      } = delete_object_and_upload_schema_struct
 
       # record should be deleted
       assert {:error, %{code: :not_found}} =
@@ -397,11 +398,7 @@ defmodule Uppy.CoreTest do
       }} =
         Core.complete_upload(
           @bucket,
-          %{
-            id: "<ORG_ID>",
-            partition_name: "organization",
-            basename: "user-avatars/unique_identifier-image.jpeg"
-          },
+          ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
           schema_struct,
           %{},
@@ -450,7 +447,7 @@ defmodule Uppy.CoreTest do
       assert {:ok, %{
         schema_struct: schema_struct,
         jobs: %{
-          garbage_collect_upload: garbage_collect_upload_job
+          delete_object_and_upload: delete_object_and_upload_job
         }
       }} =
         Core.abort_upload(
@@ -478,20 +475,19 @@ defmodule Uppy.CoreTest do
       assert %Oban.Job{
         args: %{
           bucket: "uppy-test",
-          event: "uppy.garbage_collect_upload",
+          event: "uppy.delete_object_and_upload",
           query: _,
           id: ^schema_struct_id
         },
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.ObanScheduler.GarbageCollectionWorker"
-      } = garbage_collect_upload_job
+      } = delete_object_and_upload_job
     end
   end
 
   describe "start_upload: " do
     test "when scheduler is enabled, creates record with pending status | create presigned upload | insert job" do
       assert {:ok, %{
-        key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         presigned_upload: presigned_upload,
         schema_struct: schema_struct,
         jobs: %{
@@ -500,11 +496,7 @@ defmodule Uppy.CoreTest do
       }} =
         Core.start_upload(
           @bucket,
-          %{
-            id: "<USER_ID>",
-            partition_name: "user",
-            basename: "unique_identifier-image.jpeg"
-          },
+          "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
           %{},
           []
@@ -685,11 +677,7 @@ defmodule Uppy.CoreTest do
       }} =
         Core.complete_multipart_upload(
           @bucket,
-          %{
-            id: "<ORG_ID>",
-            partition_name: "organization",
-            basename: "user-avatars/unique_identifier-image.jpeg"
-          },
+          ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
           %{id: schema_struct_id},
           %{},
@@ -759,7 +747,7 @@ defmodule Uppy.CoreTest do
         schema_struct: abort_upload_schema_struct,
         metadata: abort_upload_metadata,
         jobs: %{
-          garbage_collect_upload: garbage_collect_upload_job
+          delete_object_and_upload: delete_object_and_upload_job
         }
       }} =
         Core.abort_multipart_upload(
@@ -785,14 +773,14 @@ defmodule Uppy.CoreTest do
 
       assert %Oban.Job{
         args: %{
-          event: "uppy.garbage_collect_upload",
+          event: "uppy.delete_object_and_upload",
           bucket: "uppy-test",
           id: ^schema_struct_id,
           query: _
         },
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.ObanScheduler.GarbageCollectionWorker"
-      } = garbage_collect_upload_job
+      } = delete_object_and_upload_job
     end
   end
 
@@ -812,7 +800,6 @@ defmodule Uppy.CoreTest do
       ])
 
       assert {:ok, %{
-        key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         multipart_upload: multipart_upload,
         schema_struct: schema_struct,
         jobs: %{
@@ -821,11 +808,7 @@ defmodule Uppy.CoreTest do
       }} =
         Core.start_multipart_upload(
           @bucket,
-          %{
-            id: "<USER_ID>",
-            partition_name: "user",
-            basename: "unique_identifier-image.jpeg"
-          },
+          "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
           %{},
           []

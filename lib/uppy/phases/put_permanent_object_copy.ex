@@ -17,24 +17,6 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
 
   @behaviour Uppy.Phase
 
-  @logger_prefix "Uppy.Phases.PutPermanentObjectCopy"
-
-  @impl true
-  def phase_completed?(resolution) do
-    case Resolution.get_private(resolution, __MODULE__) do
-      %{completed: true} ->
-        Uppy.Utils.Logger.debug(@logger_prefix, "Phase completed.")
-
-        true
-
-      _ ->
-        Uppy.Utils.Logger.debug(@logger_prefix, "Phase not complete.")
-
-        false
-
-    end
-  end
-
   @impl true
   @doc """
   Implementation for `c:Uppy.Phase.run/2`
@@ -42,27 +24,29 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   @spec run(resolution(), opts()) :: t_res(resolution())
   def run(
     %{
+      state: :unresolved,
       bucket: bucket,
       context: context,
       value: schema_struct,
     } = resolution,
     opts
   ) do
-    if phase_completed?(resolution) do
-      {:ok, resolution}
-    else
-      with {:ok, response} <-
-        Storage.put_object_copy(
-          bucket,
-          context.destination_object,
-          bucket,
-          schema_struct.key,
-          opts
-        ) do
-        {:ok, Resolution.put_private(resolution, __MODULE__, %{
-          storage: response
-        })}
-      end
+    with {:ok, response} <-
+      Storage.put_object_copy(
+        bucket,
+        context.destination_object,
+        bucket,
+        schema_struct.key,
+        opts
+      ) do
+      {:ok, Resolution.put_private(resolution, __MODULE__, %{
+        storage: response
+      })}
     end
+  end
+
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 end

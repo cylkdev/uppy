@@ -15,16 +15,9 @@ defmodule Uppy.Phases.PutPermanentImageObjectCopy do
   @five_megabytes 5_242_880
 
   @impl true
-  def phase_completed?(resolution) do
-    case Resolution.get_private(resolution, __MODULE__) do
-      %{image_processor: _} -> true
-      _ -> false
-    end
-  end
-
-  @impl true
   def run(
     %{
+      state: :unresolved,
       context: context,
       bucket: bucket,
       value: schema_struct,
@@ -33,9 +26,6 @@ defmodule Uppy.Phases.PutPermanentImageObjectCopy do
   ) do
     if opts[:image_processor_enabled] do
       cond do
-        phase_completed?(resolution) ->
-          {:ok, resolution}
-
         supported_image?(context.file_info, context.metadata, opts) === false ->
           {:ok, resolution}
 
@@ -56,6 +46,11 @@ defmodule Uppy.Phases.PutPermanentImageObjectCopy do
     else
       {:ok, resolution}
     end
+  end
+
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 
   defp width_and_height_less_than_max?(%{width: width, height: height}, opts) do

@@ -7,11 +7,9 @@ defmodule Uppy.Phases.UpdateCompleteObjectMetadata do
   @behaviour Uppy.Phase
 
   @impl true
-  def phase_completed?(_), do: false
-
-  @impl true
   def run(
     %{
+      state: :unresolved,
       context: context,
       query: query,
       value: schema_struct
@@ -41,5 +39,10 @@ defmodule Uppy.Phases.UpdateCompleteObjectMetadata do
       ) do
       {:ok, Resolution.put_result(resolution, schema_struct)}
     end
+  end
+
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 end

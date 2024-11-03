@@ -41,7 +41,7 @@ defmodule Uppy.Pipeline do
   def run(input, pipeline) do
     pipeline
     |> List.flatten()
-    |> run_phase(input)
+    |> run_phase(input, [])
   end
 
   @doc """
@@ -279,7 +279,7 @@ defmodule Uppy.Pipeline do
     input :: input(),
     done :: phases()
   ) :: pipeline_response()
-  def run_phase(pipeline, input, done \\ [])
+  def run_phase(pipeline, input, done)
 
   def run_phase([], input, done) do
     {:ok, input, done}

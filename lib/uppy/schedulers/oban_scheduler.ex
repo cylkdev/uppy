@@ -50,6 +50,11 @@ if Code.ensure_loaded?(Oban) do
       end
     )
 
+    @doc """
+    ...
+    """
+    @spec child_spec :: Supervisor.child_spec()
+    @spec child_spec(opts :: keyword()) :: Supervisor.child_spec()
     def child_spec(opts \\ []) do
       name = opts[:name] || @default_oban_name
 
@@ -59,6 +64,11 @@ if Code.ensure_loaded?(Oban) do
       }
     end
 
+    @doc """
+    ...
+    """
+    @spec start_link(name :: atom()) :: Supervisor.on_start()
+    @spec start_link(name :: atom(), opts :: [Oban.option()]) :: Supervisor.on_start()
     def start_link(name \\ @default_oban_name, opts \\ []) do
       @default_oban_options
       |> Keyword.merge(opts)
@@ -70,13 +80,13 @@ if Code.ensure_loaded?(Oban) do
 
     @event_abort_multipart_upload "uppy.abort_multipart_upload"
     @event_abort_upload "uppy.abort_upload"
-    @event_garbage_collect_upload "uppy.garbage_collect_upload"
+    @event_delete_object_and_upload "uppy.delete_object_and_upload"
     @event_process_upload "uppy.process_upload"
 
     @events %{
       abort_multipart_upload: @event_abort_multipart_upload,
       abort_upload: @event_abort_upload,
-      garbage_collect_upload: @event_garbage_collect_upload,
+      delete_object_and_upload: @event_delete_object_and_upload,
       process_upload: @event_process_upload
     }
 
@@ -86,35 +96,35 @@ if Code.ensure_loaded?(Oban) do
     @doc """
     ...
     """
-    def perform_garbage_collect_upload(
+    def perform_delete_object_and_upload(
       bucket,
       id,
       encoded_query
     ) do
       query = decode_binary_to_term(encoded_query)
 
-      Core.garbage_collect_upload(bucket, query, %{id: id}, [])
+      Core.delete_object_and_upload(bucket, query, %{id: id}, [])
     end
 
     @doc """
     ...
     """
     @impl true
-    def queue_garbage_collect_upload(
+    def queue_delete_object_and_upload(
       bucket,
       query,
       id,
       opts
     ) do
-      schedule = opts[:schedule_garbage_collect_upload] || @one_hour_seconds
+      schedule = opts[:schedule_delete_object_and_upload] || @one_hour_seconds
 
       opts =
         opts
-        |> Keyword.delete(:schedule_garbage_collect_upload)
+        |> Keyword.delete(:schedule_delete_object_and_upload)
         |> put_schedule(schedule)
 
       %{
-        event: @event_garbage_collect_upload,
+        event: @event_delete_object_and_upload,
         bucket: bucket,
         id: id,
         query: encode_term_to_binary(query)

@@ -1,23 +1,37 @@
 if Code.ensure_loaded?(Finch) do
   defmodule Uppy.HTTP.Finch do
     @default_name :uppy_http_finch
-    @default_pool_config [size: 10]
+    @default_pool_config [size: 1]
     @default_opts [
       name: @default_name,
+      disable_json_decoding?: false,
+      disable_json_encoding?: false,
+      atomize_keys?: false,
+      http: [get: nil, post: nil, sandbox: Mix.env() === :test],
       pools: [default: @default_pool_config]
     ]
 
+    # NimbleOpts definition
+
     @definition [
-      name: [type: :atom, default: @default_name],
+      name: [type: :atom, default: :http_shared],
+      snake_case_keys?: [type: :boolean, default: true],
+      atomize_keys?: [type: :boolean, default: false],
+      disable_json_decoding?: [type: :boolean, default: false],
+      disable_json_encoding?: [type: :boolean, default: false],
       params: [type: :any],
       stream: [type: {:fun, 2}],
       stream_origin_callback: [type: {:fun, 1}],
       stream_acc: [type: :any],
       receive_timeout: [type: :pos_integer],
       pools: [
-        # it's a map.
+        # It's a map
         type: :any,
-        default: %{default: [size: 10]}
+        default: %{default: @default_pool_config}
+      ],
+      http: [
+        type: :keyword_list,
+        default: [get: nil, post: nil, sandbox: Mix.env() === :test]
       ]
     ]
 
@@ -53,20 +67,29 @@ if Code.ensure_loaded?(Finch) do
     ### Shared Options
     #{NimbleOptions.docs(@definition)}
     """
-    alias Uppy.HTTP.Finch.Response
-    alias Uppy.{Error, Utils}
+
+    alias Uppy.{
+      Error,
+      HTTP.Finch.Response,
+      JSONEncoder,
+      Utils
+    }
+
+    @type t_res() :: {:ok, Response.t()} | {:error, term()}
+    @type headers :: [{binary | atom, binary}]
 
     @logger_prefix "Uppy.HTTP.Finch"
 
-    @type t_res :: {:ok, Response.t()} | {:error, term()}
-    @type headers :: [{binary | atom, binary}]
+    @default_max_retries 10
+    @one_hundred 100
+    @two_minutes_millisecond 120_000
 
     @doc """
     Starts a GenServer process linked to the current process.
     """
     @spec start_link() :: GenServer.on_start()
-    @spec start_link(atom) :: GenServer.on_start()
-    @spec start_link(atom, keyword()) :: GenServer.on_start()
+    @spec start_link(name :: atom()) :: GenServer.on_start()
+    @spec start_link(name :: atom(), opts :: keyword()) :: GenServer.on_start()
     def start_link(name \\ @default_name, opts \\ []) do
       opts
       |> Keyword.put(:name, name)
@@ -111,55 +134,68 @@ if Code.ensure_loaded?(Finch) do
     end
 
     @doc false
-    @spec make_head_request(binary, list, keyword) :: t_res
+    @spec make_head_request(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
     def make_head_request(url, headers, opts) do
       request = Finch.build(:head, url, headers)
 
-      make_request(request, opts)
+      stream_or_request(request, opts)
     end
 
     @doc false
-    @spec make_get_request(binary, list, keyword) :: t_res
+    @spec make_get_request(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
     def make_get_request(url, headers, opts) do
       request = Finch.build(:get, url, headers)
 
-      make_request(request, opts)
+      stream_or_request(request, opts)
     end
 
     @doc false
-    @spec make_delete_request(binary, list, keyword) :: t_res
+    @spec make_delete_request(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
     def make_delete_request(url, headers, opts) do
       request = Finch.build(:delete, url, headers)
 
-      make_request(request, opts)
+      stream_or_request(request, opts)
     end
 
     @doc false
-    @spec make_patch_request(binary, nil | term, list, keyword) :: t_res
+    @spec make_patch_request(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
     def make_patch_request(url, body, headers, opts) do
+      body = encode_json!(body, opts)
+
       request = Finch.build(:patch, url, headers, body)
 
-      make_request(request, opts)
+      stream_or_request(request, opts)
     end
 
     @doc false
-    @spec make_post_request(binary, nil | term, list, keyword) :: t_res
+    @spec make_post_request(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
     def make_post_request(url, body, headers, opts) do
+      body = encode_json!(body, opts)
+
       request = Finch.build(:post, url, headers, body)
 
-      make_request(request, opts)
+      stream_or_request(request, opts)
     end
 
     @doc false
-    @spec make_put_request(binary, nil | term, list, keyword) :: t_res
+    @spec make_put_request(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
     def make_put_request(url, body, headers, opts) do
+      body = encode_json!(body, opts)
+
       request = Finch.build(:put, url, headers, body)
 
-      make_request(request, opts)
+      stream_or_request(request, opts)
     end
 
-    defp make_request(request, opts) do
+    defp stream_or_request(request, opts) do
+      Uppy.Utils.Logger.debug(
+        @logger_prefix,
+        "stream_or_request | BEGIN | handling request\n\n#{inspect(request, pretty: true)}"
+      )
+
       if opts[:stream] do
+        Uppy.Utils.Logger.debug(@logger_prefix, "stream_or_request | INFO | streaming request")
+
         Finch.stream(
           request,
           opts[:name],
@@ -168,15 +204,58 @@ if Code.ensure_loaded?(Finch) do
           opts
         )
       else
-        with {:ok, response} <- Finch.request(request, opts[:name], opts) do
-          {:ok,
-           %Response{
-             request: request,
-             body: response.body,
-             status: response.status,
-             headers: response.headers
-           }}
+        max_retries = opts[:max_retries] || @default_max_retries
+
+        retry_disabled? = max_retries in [0, false]
+
+        if retry_disabled? do
+          Uppy.Utils.Logger.debug(@logger_prefix, "stream_or_request | INFO | retry disabled")
+
+          make_request(request, opts)
+        else
+          Uppy.Utils.Logger.debug(@logger_prefix, "stream_or_request | INFO | retry enabled")
+
+          make_request_and_retry(request, 0, max_retries, opts)
         end
+      end
+    end
+
+    defp make_request_and_retry(request, attempt, max_retries, opts) do
+      Uppy.Utils.Logger.debug(@logger_prefix, "make_request BEGIN | executing HTTP request")
+
+      with {:error, _} = error <- make_request(request, opts) do
+        Uppy.Utils.Logger.warning(
+          @logger_prefix,
+          "make_request | ERROR | HTTP request failed ( #{attempt + 1} / #{max_retries} )" <>
+          "\n\nerror:\n\n#{inspect(error, pretty: true)}"
+        )
+
+        if attempt < max_retries do
+          backoff = exponential_backoff(attempt, opts)
+
+          Uppy.Utils.Logger.warning(@logger_prefix, "retrying in #{inspect(backoff)}ms")
+
+          :timer.sleep(backoff)
+
+          Uppy.Utils.Logger.debug(@logger_prefix, "make_request | ERROR | retrying HTTP request ( #{attempt + 1} / #{max_retries} )")
+
+          make_request_and_retry(request, attempt + 1, max_retries, opts)
+        else
+          Uppy.Utils.Logger.debug(@logger_prefix, "make_request | ERROR | reached max retries")
+
+          error
+        end
+      end
+    end
+
+    defp make_request(request, opts) do
+      with {:ok, response} <- Finch.request(request, opts[:name], opts) do
+        {:ok, %Response{
+          request: request,
+          body: response.body,
+          status: response.status,
+          headers: response.headers
+        }}
       end
     end
 
@@ -202,11 +281,9 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.patch("http://url.com", nil)
     """
-    @spec patch(binary, map | binary) :: t_res
-    @spec patch(binary, map | binary, headers) :: t_res
-    @spec patch(binary, map | binary, headers, keyword()) :: t_res
-    def patch(url, body, headers \\ [], opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "PATCH", binding: binding())
+    @spec patch(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    def patch(url, body, headers, opts \\ []) do
+      Utils.Logger.debug(@logger_prefix, "patch BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}")
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_patch = opts[:http][:patch] || (&make_patch_request/4)
@@ -220,15 +297,20 @@ if Code.ensure_loaded?(Finch) do
       |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
+      e in RuntimeError ->
+        Uppy.Utils.Logger.error(@logger_prefix, "patch | ERROR | runtime error occurred #{inspect(e)}")
+
+        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
+
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         Error.call(:service_unavailable,
-           "HTTP connection pool existed with reason:: #{inspect(reason)}",
-           %{reason: reason}
-         )}
+        Uppy.Utils.Logger.error(@logger_prefix, "patch | ERROR | process exited with reason #{inspect(reason)}")
+
+        {:error, Error.call(:service_unavailable,
+          "HTTP connection pool exited with reason: #{inspect(reason)}",
+          %{reason: reason}
+        )}
     end
 
     @doc """
@@ -238,11 +320,9 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.post("http://url.com", nil)
     """
-    @spec post(binary, map | binary) :: t_res
-    @spec post(binary, map | binary, headers) :: t_res
-    @spec post(binary, map | binary, headers, keyword()) :: t_res
-    def post(url, body, headers \\ [], opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "POST", binding: binding())
+    @spec post(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    def post(url, body, headers, opts) do
+      Utils.Logger.debug(@logger_prefix, "post BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}")
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_post = opts[:http][:post] || (&make_post_request/4)
@@ -256,15 +336,20 @@ if Code.ensure_loaded?(Finch) do
       |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
+      e in RuntimeError ->
+        Uppy.Utils.Logger.error(@logger_prefix, "post | ERROR | runtime error occurred #{inspect(e)}")
+
+        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
+
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         Error.call(:service_unavailable,
-           "HTTP connection pool existed with reason:: #{inspect(reason)}",
-           %{reason: reason}
-         )}
+        Uppy.Utils.Logger.error(@logger_prefix, "post | ERROR | process exited with reason #{inspect(reason)}")
+
+        {:error, Error.call(:service_unavailable,
+          "HTTP connection pool exited with reason: #{inspect(reason)}",
+          %{reason: reason}
+        )}
     end
 
     @doc """
@@ -274,11 +359,9 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.put("http://url.com", nil)
     """
-    @spec put(binary, map | binary) :: t_res
-    @spec put(binary, map | binary, headers) :: t_res
-    @spec put(binary, map | binary, headers, keyword()) :: t_res
-    def put(url, body, headers \\ [], opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "PUT", binding: binding())
+    @spec put(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    def put(url, body, headers, opts) do
+      Utils.Logger.debug(@logger_prefix, "put BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}")
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_put = opts[:http][:put] || (&make_put_request/4)
@@ -292,15 +375,20 @@ if Code.ensure_loaded?(Finch) do
       |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
+      e in RuntimeError ->
+        Uppy.Utils.Logger.error(@logger_prefix, "put | ERROR | runtime error occurred #{inspect(e)}")
+
+        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
+
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         Error.call(:service_unavailable,
-           "HTTP connection pool existed with reason:: #{inspect(reason)}",
-           %{reason: reason}
-         )}
+        Uppy.Utils.Logger.error(@logger_prefix, "put | ERROR | process exited with reason #{inspect(reason)}")
+
+        {:error, Error.call(:service_unavailable,
+          "HTTP connection pool exited with reason: #{inspect(reason)}",
+          %{reason: reason}
+        )}
     end
 
     @doc """
@@ -310,11 +398,9 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.head("http://url.com")
     """
-    @spec head(binary) :: t_res
-    @spec head(binary, headers) :: t_res
-    @spec head(binary, headers, keyword()) :: t_res
-    def head(url, headers \\ [], opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "HEAD", binding: binding())
+    @spec head(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
+    def head(url, headers, opts) do
+      Utils.Logger.debug(@logger_prefix, "head BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}")
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_head = opts[:http][:head] || (&make_head_request/3)
@@ -328,15 +414,20 @@ if Code.ensure_loaded?(Finch) do
       |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
+      e in RuntimeError ->
+        Uppy.Utils.Logger.error(@logger_prefix, "head | ERROR | runtime error occurred #{inspect(e)}")
+
+        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
+
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         Error.call(:service_unavailable,
-           "HTTP connection pool existed with reason:: #{inspect(reason)}",
-           %{reason: reason}
-         )}
+        Uppy.Utils.Logger.error(@logger_prefix, "head | ERROR | process exited with reason #{inspect(reason)}")
+
+        {:error, Error.call(:service_unavailable,
+          "HTTP connection pool exited with reason: #{inspect(reason)}",
+          %{reason: reason}
+        )}
     end
 
     @doc """
@@ -346,11 +437,9 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.get("http://url.com")
     """
-    @spec get(binary) :: t_res
-    @spec get(binary, headers) :: t_res
-    @spec get(binary, headers, keyword()) :: t_res
-    def get(url, headers \\ [], opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "GET", binding: binding())
+    @spec get(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
+    def get(url, headers, opts) do
+      Utils.Logger.debug(@logger_prefix, "get BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}")
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
 
@@ -365,15 +454,20 @@ if Code.ensure_loaded?(Finch) do
       |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
+      e in RuntimeError ->
+        Uppy.Utils.Logger.error(@logger_prefix, "get | ERROR | runtime error occurred #{inspect(e)}")
+
+        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
+
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         Error.call(:service_unavailable,
-           "HTTP connection pool existed with reason:: #{inspect(reason)}",
-           %{reason: reason}
-         )}
+        Uppy.Utils.Logger.error(@logger_prefix, "get | ERROR | process exited with reason #{inspect(reason)}")
+
+        {:error, Error.call(:service_unavailable,
+          "HTTP connection pool exited with reason: #{inspect(reason)}",
+          %{reason: reason}
+        )}
     end
 
     @doc """
@@ -383,11 +477,9 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.delete("http://url.com")
     """
-    @spec delete(binary) :: t_res
-    @spec delete(binary, headers) :: t_res
-    @spec delete(binary, headers, keyword()) :: t_res
-    def delete(url, headers \\ [], opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "DELETE", binding: binding())
+    @spec delete(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
+    def delete(url, headers, opts) do
+      Utils.Logger.debug(@logger_prefix, "delete BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}")
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_delete = opts[:http][:delete] || (&make_delete_request/3)
@@ -401,15 +493,20 @@ if Code.ensure_loaded?(Finch) do
       |> handle_response(opts)
     rescue
       # Nimble pool out of workers error
-      RuntimeError -> {:error, Error.call(:service_unavailable, "Out of HTTP workers")}
+      e in RuntimeError ->
+        Uppy.Utils.Logger.error(@logger_prefix, "delete | ERROR | runtime error occurred #{inspect(e)}")
+
+        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
+
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        {:error,
-         Error.call(:service_unavailable,
-           "HTTP connection pool existed with reason:: #{inspect(reason)}",
-           %{reason: reason}
-         )}
+        Uppy.Utils.Logger.error(@logger_prefix, "delete | ERROR | process exited with reason #{inspect(reason)}")
+
+        {:error, Error.call(:service_unavailable,
+          "HTTP connection pool exited with reason: #{inspect(reason)}",
+          %{reason: reason}
+        )}
     end
 
     defp run_and_measure(fnc, headers, method, opts) do
@@ -428,52 +525,88 @@ if Code.ensure_loaded?(Finch) do
       }
 
       end_time = System.monotonic_time()
+
       measurements = %{elapsed_time: end_time - start_time}
+
       :telemetry.execute([:http, Keyword.get(opts, :name)], measurements, metadata)
 
       response
     end
 
-    defp handle_response({:ok, %Response{status: status}} = res, _opts)
-         when status in 200..299,
-         do: res
+    defp handle_response({:ok, %Response{status: status, body: raw_body} = res}, opts)
+      when status in 200..299 do
+      if (raw_body in ["", nil]) or (opts[:disable_json_decoding?] === true) do
+        {:ok, {raw_body, res}}
+      else
+        case JSONEncoder.decode_json(raw_body, opts) do
+          {:ok, json_body} ->
+            body =
+              json_body
+              |> maybe_to_snake_case(opts)
+              |> maybe_atomize_keys(opts)
+
+            {:ok, {body, res}}
+
+          {:error, _} = e ->
+            {:error, Error.call(:internal_server_error, "failed to decode json", %{
+              error: e,
+              body: raw_body,
+              response: res
+            })}
+
+        end
+      end
+    end
 
     defp handle_response({:ok, %Response{status: code} = res}, opts) do
       api_name = opts[:name]
-      details = %{response: res, http_code: code, api_name: api_name}
+
+      details = %{
+        response: res,
+        http_code: code,
+        api_name: api_name
+      }
+
       error_code_map = error_code_map(api_name)
 
       if Map.has_key?(error_code_map, code) do
         {error, message} = Map.get(error_code_map, code)
+
         {:error, Error.call(error, message, details)}
       else
         message = unknown_error_message(api_name)
+
         {:error, Error.call(:internal_server_error, message, details)}
       end
     end
 
     defp handle_response({:error, e}, opts) when is_binary(e) or is_atom(e) do
       message = "#{opts[:name]}: #{e}"
+
       {:error, Error.call(:internal_server_error, message, %{error: e})}
     end
 
     defp handle_response({:error, %Mint.TransportError{reason: :timeout} = e}, opts) do
       message = "#{opts[:name]}: Endpoint timeout."
+
       {:error, Error.call(:request_timeout, message, %{error: e})}
     end
 
     defp handle_response({:error, %Mint.TransportError{reason: :econnrefused} = e}, opts) do
       message = "#{opts[:name]}: HTTP connection refused."
+
       {:error, Error.call(:service_unavailable, message, %{error: e})}
     end
 
     defp handle_response({:error, e}, opts) do
       message = unknown_error_message(opts[:name])
+
       {:error, Error.call(:internal_server_error, message, %{error: e})}
     end
 
     defp handle_response(e, opts) do
       message = unknown_error_message(opts[:name])
+
       {:error, Error.call(:internal_server_error, message, %{error: e})}
     end
 
@@ -484,22 +617,66 @@ if Code.ensure_loaded?(Finch) do
     # See docs: https://uppy.org/docs/0.25.1/api/api-errors.html
     defp error_code_map(api_name) do
       %{
-        400 => {
-          :bad_request,
-          "#{api_name}: The request could not be understood due to malformed syntax."
-        },
+        400 => {:bad_request, "#{api_name}: The request could not be understood due to malformed syntax."},
         401 => {:unauthorized, "#{api_name}: API key is wrong."},
         404 => {:not_found, "#{api_name}: The requested resource is not found."},
         409 => {:conflict, "#{api_name}: Resource already exists."},
-        422 => {
-          :unprocessable_entity,
-          "#{api_name}: Request is well-formed, but cannot be processed."
-        },
-        503 => {
-          :service_unavailable,
-          "#{api_name}: Uppy is temporarily offline. Please try again later."
-        }
+        422 => {:unprocessable_entity, "#{api_name}: Request is well-formed, but cannot be processed."},
+        503 => {:service_unavailable, "#{api_name}: Uppy is temporarily offline. Please try again later."}
       }
+    end
+
+    defp encode_json!(body, opts) do
+      if opts[:disable_json_encoding?] === true do
+        Uppy.Utils.Logger.debug(@logger_prefix, "encode_json! | INFO | JSON encoding disabled")
+
+        body
+      else
+        Uppy.Utils.Logger.debug(@logger_prefix, "encode_json! | INFO | encoding body to JSON")
+
+        JSONEncoder.encode_json!(body, opts)
+      end
+    end
+
+    defp maybe_to_snake_case(string, opts) do
+      if Keyword.get(opts, :snake_case_keys?, true) do
+        ProperCase.to_snake_case(string)
+      else
+        string
+      end
+    end
+
+    defp maybe_atomize_keys(map, opts) do
+      if Keyword.get(opts, :atomize_keys?, true) do
+        Utils.atomize_keys(map)
+      else
+        map
+      end
+    end
+
+    defp exponential_backoff(attempt, opts) do
+      max = opts[:exponential_backoff_max] || @two_minutes_millisecond
+      delay = opts[:exponential_backoff_delay] || @one_hundred
+      jitter = opts[:exponential_backoff_jitter] || :rand.uniform_real()
+
+      unless (jitter >= 0 and jitter <= 1) do
+        raise "Expected option `:exponential_backoff_jitter` to be a number between 0 and 1, got: #{inspect(jitter)}"
+      end
+
+      # Exponential backoff equation:
+      #
+      # b = x * 2^n * (1 + r)
+      #
+      # `b` - The total time to wait before the n-th retry attempt.
+      # `x` - The initial amount of time to wait.
+      # `n` - The number of retries that have been attempted.
+      # `r` - A random number between 0 and 1. The randomness is
+      #       recommended to avoid synchronized retries which
+      #       could cause a thundering herd problem.
+      #
+      (delay * :math.pow(2, attempt) * (50 + jitter))
+      |> min(max)
+      |> round()
     end
   end
 else

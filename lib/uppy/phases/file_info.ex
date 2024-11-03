@@ -2,10 +2,8 @@ defmodule Uppy.Phases.FileInfo do
   @moduledoc """
   ...
   """
-
-  alias Uppy.Resolution
   alias Uppy.{
-    Error,
+    Resolution,
     Storage
   }
 
@@ -17,24 +15,9 @@ defmodule Uppy.Phases.FileInfo do
   @two_hundred_fifty_six_bytes 256
 
   @impl true
-  def phase_completed?(resolution) do
-    case Resolution.get_private(resolution, __MODULE__) do
-      %{completed: true} ->
-        Uppy.Utils.Logger.debug(@logger_prefix, "phase_completed? | INFO | phase completed.")
-
-        true
-
-      _ ->
-        Uppy.Utils.Logger.debug(@logger_prefix, "phase_completed? | INFO | phase not complete.")
-
-        false
-
-    end
-  end
-
-  @impl true
   def run(
     %{
+      state: :unresolved,
       bucket: bucket,
       value: schema_struct,
     } = resolution,
@@ -42,36 +25,33 @@ defmodule Uppy.Phases.FileInfo do
   ) do
     Uppy.Utils.Logger.debug(@logger_prefix, "run | BEGIN | executing file info phase")
 
-    if phase_completed?(resolution) do
-      Uppy.Utils.Logger.debug(@logger_prefix, "run | OK | phase already complete, skipped")
+    case describe_object_chunk(bucket, schema_struct.key, opts) do
+      {:ok, file_info} ->
+        Uppy.Utils.Logger.debug(@logger_prefix, "run | OK | retrieved file info\n\n#{inspect(file_info, pretty: true)}")
 
-      {:ok, resolution}
-    else
-      Uppy.Utils.Logger.debug(@logger_prefix, "run | INFO | describing object chunk")
+        resolution =
+          resolution
+          |> Resolution.assign_context(:file_info, file_info)
+          |> Resolution.put_private(__MODULE__, %{completed: true})
 
-      case describe_object_chunk(bucket, schema_struct.key, opts) do
-        {:ok, file_info} ->
-          Uppy.Utils.Logger.debug(@logger_prefix, "run | OK | retrieved file info\n\n#{inspect(file_info, pretty: true)}")
+        {:ok, resolution}
 
-          resolution =
-            resolution
-            |> Resolution.assign_context(:file_info, file_info)
-            |> Resolution.put_private(__MODULE__, %{completed: true})
+      {:error, _} = error ->
+        Uppy.Utils.Logger.debug(@logger_prefix, "run | ERROR | failed to get object file info\n\n#{inspect(error, pretty: true)}")
 
-          {:ok, resolution}
-
-        {:error, _} = error ->
-          Uppy.Utils.Logger.debug(@logger_prefix, "run | ERROR | failed to get object file info\n\n#{inspect(error, pretty: true)}")
-
-          {:ok, resolution}
-      end
+        {:ok, resolution}
     end
+  end
+
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 
   @doc """
   Returns the `mimetype`, `extension`, and `basename` detected from the file binary data.
   """
-  def describe_object_chunk(bucket, object, opts \\ []) do
+  def describe_object_chunk(bucket, object, opts) do
     start_byte = 0
     end_byte = end_byte!(opts)
 

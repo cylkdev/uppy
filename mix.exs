@@ -77,6 +77,7 @@ defmodule Uppy.MixProject do
       {:error_message, "~> 0.3.0", optional: true},
 
       {:finch, "~> 0.18.0", optional: true},
+      {:proper_case, "~> 1.3", optional: true},
       {:thumbor, git: "https://github.com/RequisDev/thumbor.git", branch: "main", optional: true},
 
       {:ex_aws, "~> 2.1", optional: true},

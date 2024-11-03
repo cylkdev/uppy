@@ -7,11 +7,9 @@ defmodule Uppy.Phases.HeadSchemaObjectMetadata do
   @behaviour Uppy.Phase
 
   @impl true
-  def phase_completed?(_), do: false
-
-  @impl true
   def run(
     %{
+      state: :unresolved,
       bucket: bucket,
       value: schema_struct
     } = resolution,
@@ -20,5 +18,10 @@ defmodule Uppy.Phases.HeadSchemaObjectMetadata do
     with {:ok, metadata} <- Storage.head_object(bucket, schema_struct.key, opts) do
       {:ok, Resolution.assign_context(resolution, :metadata, metadata)}
     end
+  end
+
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 end
