@@ -13,9 +13,9 @@ defmodule Uppy.Config do
   end
 
   @doc false
-  @spec error_message_adapter :: module() | nil
-  def error_message_adapter do
-    Application.get_env(@app, :error_message_adapter) || ErrorMessage
+  @spec error_adapter :: module() | nil
+  def error_adapter do
+    Application.get_env(@app, :error_adapter) || ErrorMessage
   end
 
   @doc false
@@ -31,9 +31,9 @@ defmodule Uppy.Config do
   end
 
   @doc false
-  @spec action_adapter :: module() | nil
-  def action_adapter do
-    Application.get_env(@app, :action_adapter)
+  @spec db_action_adapter :: module() | nil
+  def db_action_adapter do
+    Application.get_env(@app, :db_action_adapter)
   end
 
   @doc false
@@ -46,17 +46,5 @@ defmodule Uppy.Config do
   @spec storage_adapter :: module() | nil
   def storage_adapter do
     Application.get_env(@app, :storage_adapter)
-  end
-
-  @doc false
-  @spec temporary_object_key_adapter :: module() | nil
-  def temporary_object_key_adapter do
-    Application.get_env(@app, :temporary_object_key_adapter)
-  end
-
-  @doc false
-  @spec permanent_object_key_adapter :: module() | nil
-  def permanent_object_key_adapter do
-    Application.get_env(@app, :permanent_object_key_adapter)
   end
 end

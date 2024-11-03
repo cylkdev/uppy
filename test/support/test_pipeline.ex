@@ -1,5 +1,5 @@
-defmodule Uppy.Support.TestPipeline do
+defmodule Uppy.TestPipeline do
   def phases(opts \\ []) do
-    [{Uppy.Support.Phases.CompleteUploadPhase, opts}]
+    [{Uppy.Phases.CompleteUploadPhase, opts}]
   end
 end

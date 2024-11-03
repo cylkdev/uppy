@@ -1,4 +1,4 @@
-if Uppy.Utils.application_loaded?(:finch) do
+if Code.ensure_loaded?(Finch) do
   defmodule Uppy.HTTP.Finch do
     @default_name :uppy_http_finch
     @default_pool_config [size: 10]

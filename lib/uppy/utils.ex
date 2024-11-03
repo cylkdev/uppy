@@ -1,34 +1,6 @@
 defmodule Uppy.Utils do
   @moduledoc false
 
-  @compression_level 9
-  @term_to_binary_minor_version 1
-
-  def term_to_binary(term) do
-    :erlang.term_to_binary(term, [
-      :deterministic,
-      compressed: @compression_level,
-      minor_version: @term_to_binary_minor_version
-    ])
-  end
-
-  def binary_to_term(binary) do
-    :erlang.binary_to_term(binary)
-  end
-
-  @doc """
-  Returns true if dependency has been loaded
-
-  ### Examples
-
-      iex> Uppy.Utils.application_loaded?(:ecto)
-      true
-  """
-  @spec application_loaded?(atom) :: true | false
-  def application_loaded?(dep) do
-    Enum.any?(Application.loaded_applications(), fn {dep_name, _, _} -> dep_name === dep end)
-  end
-
   @doc """
   Returns true if all modules are loaded
 

@@ -13,23 +13,13 @@ defmodule Uppy.Phase do
   @type phase :: module() | {module(), opts()}
   @type phase_response :: {:ok, term()} | {:error, term()}
 
+  @callback phase_completed?(resolution :: Uppy.Resolution.t()) :: boolean()
   @callback run(input :: input(), opts :: opts()) :: term()
 
   @doc """
   Executes the callback function `c:Uppy.Phase.run/2`.
 
   Raises if the phase does not define the function `run/2`.
-
-  ### Examples
-
-      iex> defmodule EchoPhase do
-      ...>   @behaviour Uppy.Phase
-      ...>
-      ...>   @impl true
-      ...>   def run(input, opts), do: {:ok, %{input: input, opts: opts}}
-      ...> end
-      ...> Uppy.Phase.run(EchoPhase, %{likes: 10})
-      {:ok, %{input: %{likes: 10}, opts: []}}
   """
   @spec run(
     phase :: phase(),

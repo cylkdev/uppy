@@ -90,7 +90,6 @@ defmodule Uppy.MixProject do
       {:file_type, "~> 0.1.0", optional: true},
 
       {:sandbox_registry, "~> 0.1", optional: true},
-      {:factory_ex, "~> 0.3.4", only: [:dev, :test], optional: true},
       {:faker, "~> 0.18", only: [:dev, :test], optional: true}
     ]
   end

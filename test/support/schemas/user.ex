@@ -1,21 +1,20 @@
-defmodule Uppy.Support.Schemas.Accounts.User do
+defmodule Uppy.Schemas.User do
   @moduledoc false
   use Ecto.Schema
-
   import Ecto.Changeset
+
+  @timestamps_opts [type: :utc_datetime]
 
   schema "users" do
     field :email, :string
 
-    belongs_to :organization, Uppy.Support.Schemas.Accounts.Organization
+    # belongs_to :organization, Uppy.Schemas.Organization
 
     timestamps()
   end
 
-  @required_fields [:organization_id]
-  @allowed_fields [
-                    :email
-                  ] ++ @required_fields
+  @required_fields []
+  @allowed_fields [:email] ++ @required_fields
 
   @doc false
   def changeset(model_or_changeset, attrs) do

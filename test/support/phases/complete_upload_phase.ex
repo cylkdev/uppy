@@ -1,20 +1,11 @@
-defmodule Uppy.Support.Phases.CompleteUploadPhase do
+defmodule Uppy.Phases.CompleteUploadPhase do
   @moduledoc false
 
   @behaviour Uppy.Phase
 
-  @params %{
-    content_length: 5,
-    content_type: "image/jpeg",
-    last_modified: ~U[2024-07-24 01:00:00Z]
-  }
+  @impl true
+  def phase_completed?(_), do: false
 
-  def params, do: @params
-
-  @impl Uppy.Phase
-  def run(%{value: schema_data} = resolution, _opts \\ []) do
-    schema_data = Map.merge(schema_data, @params)
-
-    {:ok, %{resolution | value: schema_data}}
-  end
+  @impl true
+  def run(resolution, _opts \\ []), do: {:ok, resolution}
 end

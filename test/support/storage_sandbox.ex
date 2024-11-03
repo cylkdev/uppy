@@ -1,4 +1,4 @@
-defmodule Uppy.Support.StorageSandbox do
+defmodule Uppy.StorageSandbox do
   @moduledoc false
 
   @sleep 10
@@ -471,7 +471,7 @@ defmodule Uppy.Support.StorageSandbox do
   - The first element is either a string bucket or a regex that needs to match on the bucket
 
   ```elixir
-  Uppy.Support.Adapters.Storage.Sandbox.set_list_objects_responses([{"bucket", fn ->
+  Uppy.Adapters.Storage.Sandbox.set_list_objects_responses([{"bucket", fn ->
     {:ok, [
       %{
         e_tag: "etag",
@@ -670,7 +670,7 @@ defmodule Uppy.Support.StorageSandbox do
   @doc """
   Sets current pid to use actual caches rather than sandboxed
 
-  import Uppy.Support.StorageSandbox, only: [disable_s3_sandbox: 1]
+  import Uppy.StorageSandbox, only: [disable_s3_sandbox: 1]
 
   setup :disable_s3_sandbox
   """
@@ -773,7 +773,7 @@ defmodule Uppy.Support.StorageSandbox do
 
   defp format_example(action, bucket) do
     """
-    alias Uppy.Support.StorageSandbox
+    alias Uppy.StorageSandbox
 
     setup do
       StorageSandbox.set_#{action}_responses([
