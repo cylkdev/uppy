@@ -103,8 +103,8 @@ defmodule Uppy.CoreTest do
       assert [
         Uppy.Phases.UpdateSchemaMetadata,
         Uppy.Phases.PutPermanentObjectCopy,
-        Uppy.Phases.PutPermanentImageObjectCopy,
-        Uppy.Phases.FileInfo,
+        # Uppy.Phases.PutPermanentImageObjectCopy,
+        # Uppy.Phases.FileInfo,
         Uppy.Phases.HeadSchemaObject
       ] = done
 

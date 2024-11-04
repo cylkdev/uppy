@@ -4,9 +4,9 @@ defmodule Uppy.PostProcessingPipeline do
   """
 
   alias Uppy.Phases.{
-    FileInfo,
+    # FileInfo,
     HeadSchemaObject,
-    PutPermanentImageObjectCopy,
+    # PutPermanentImageObjectCopy,
     PutPermanentObjectCopy,
     UpdateSchemaMetadata
   }
@@ -14,8 +14,8 @@ defmodule Uppy.PostProcessingPipeline do
   def phases(opts) do
     [
       {HeadSchemaObject, opts},
-      {FileInfo, opts},
-      {PutPermanentImageObjectCopy, opts},
+      # {FileInfo, opts},
+      # {PutPermanentImageObjectCopy, opts},
       {PutPermanentObjectCopy, opts},
       {UpdateSchemaMetadata, opts}
     ]

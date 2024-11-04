@@ -22,67 +22,6 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def move_upload(
-    %_{} = resolution,
-    pipeline,
-    opts
-  ) do
-    phases =
-      case pipeline do
-        phases when is_list(phases) -> phases
-        module when is_atom(module) and (not is_nil(module)) -> module.phases(opts)
-        _ -> Uppy.PostProcessingPipeline.phases(opts)
-      end
-
-    with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
-      {:ok, %{
-        resolution: resolution,
-        done: done
-      }}
-    end
-  end
-
-  def move_upload(
-    bucket,
-    destination_object,
-    query,
-    %_{} = schema_data,
-    pipeline,
-    opts
-  ) do
-    Uppy.Resolution
-    |> struct!(
-      bucket: bucket,
-      context: %{destination_object: destination_object},
-      query: query,
-      value: schema_data
-    )
-    |> move_upload(pipeline, opts)
-  end
-
-  def move_upload(
-    bucket,
-    destination_object,
-    query,
-    params,
-    pipeline,
-    opts
-  ) do
-    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
-      move_upload(
-        bucket,
-        destination_object,
-        query,
-        schema_data,
-        pipeline,
-        opts
-      )
-    end
-  end
-
-  @doc """
-  ...
-  """
   def delete_object_and_upload(bucket, _query, %_{} = schema_data, opts) do
     case Storage.head_object(bucket, schema_data.key, opts) do
       {:ok, metadata} ->
@@ -108,6 +47,67 @@ defmodule Uppy.Core do
   def delete_object_and_upload(bucket, query, find_params, opts) do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       delete_object_and_upload(bucket, query, schema_data, opts)
+    end
+  end
+
+  @doc """
+  ...
+  """
+  def run_pipeline(%_{} = resolution, pipeline, opts) do
+    phases = phases!(pipeline, opts)
+
+    with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
+      {:ok, %{
+        resolution: resolution,
+        done: done
+      }}
+    end
+  end
+
+  defp phases!(pipeline, opts) when is_atom(pipeline), do: pipeline.phases(opts)
+  defp phases!(phases, _opts) when is_list(phases), do: phases
+
+  @doc """
+  ...
+  """
+  def move_upload(
+    bucket,
+    destination_object,
+    query,
+    %_{} = schema_data,
+    pipeline,
+    opts
+  ) do
+    resolution =
+      struct!(Uppy.Resolution, %{
+        bucket: bucket,
+        context: %{destination_object: destination_object},
+        query: query,
+        value: schema_data
+      })
+
+    phases = pipeline || Uppy.PostProcessingPipeline.phases(opts)
+
+    run_pipeline(resolution, phases, opts)
+  end
+
+  def move_upload(
+    bucket,
+    destination_object,
+    query,
+    params,
+    pipeline,
+    opts
+  ) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
+      move_upload(
+        bucket,
+        destination_object,
+        query,
+        schema_data,
+        pipeline,
+        opts
+      )
     end
   end
 
