@@ -116,7 +116,7 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def soft_delete_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+  def queue_upload_for_deletion(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put(update_params, :state, :cancelled)
 
     with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts),
@@ -136,9 +136,9 @@ defmodule Uppy.Core do
     end
   end
 
-  def soft_delete_upload(bucket, query, find_params, update_params, opts) do
+  def queue_upload_for_deletion(bucket, query, find_params, update_params, opts) do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      soft_delete_upload(bucket, query, schema_data, update_params, opts)
+      queue_upload_for_deletion(bucket, query, schema_data, update_params, opts)
     end
   end
 

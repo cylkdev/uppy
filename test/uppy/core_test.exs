@@ -133,7 +133,7 @@ defmodule Uppy.CoreTest do
     end
   end
 
-  describe "&soft_delete_upload/4" do
+  describe "&queue_upload_for_deletion/4" do
     test "when scheduler is enabled, set state to cancelled | insert garbage collection job" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
@@ -149,7 +149,7 @@ defmodule Uppy.CoreTest do
           delete_object_and_upload: delete_object_and_upload_job
         }
       }} =
-        Core.soft_delete_upload(
+        Core.queue_upload_for_deletion(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
           %{id: schema_data_id},
