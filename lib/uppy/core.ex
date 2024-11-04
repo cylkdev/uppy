@@ -17,6 +17,8 @@ defmodule Uppy.Core do
     Storage
   }
 
+  @stale_states [:discarded, :cancelled]
+
   @doc """
   ...
   """
@@ -114,7 +116,7 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def schedule_delete_object_and_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+  def soft_delete_upload(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put(update_params, :state, :cancelled)
 
     with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts),
@@ -134,9 +136,9 @@ defmodule Uppy.Core do
     end
   end
 
-  def schedule_delete_object_and_upload(bucket, query, find_params, update_params, opts) do
+  def soft_delete_upload(bucket, query, find_params, update_params, opts) do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      schedule_delete_object_and_upload(bucket, query, schema_data, update_params, opts)
+      soft_delete_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
@@ -179,7 +181,7 @@ defmodule Uppy.Core do
 
   def complete_upload(
     bucket,
-    object_path_params,
+    destination_object,
     query,
     find_params,
     update_params,
@@ -188,7 +190,7 @@ defmodule Uppy.Core do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_upload(
         bucket,
-        object_path_params,
+        destination_object,
         query,
         schema_data,
         update_params,
@@ -265,6 +267,10 @@ defmodule Uppy.Core do
 
   defp do_abort_upload(bucket, query, schema_data, update_params, opts) do
     state = opts[:state] || :cancelled
+
+    unless state in @stale_states do
+      raise ArgumentError, "Expected state to be one of #{inspect(@stale_states)}"
+    end
 
     update_params = Map.put(update_params, :state, state)
 
@@ -447,7 +453,7 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
     bucket,
-    object_path_params,
+    destination_object,
     query,
     find_params,
     update_params,
@@ -457,7 +463,7 @@ defmodule Uppy.Core do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
-        object_path_params,
+        destination_object,
         query,
         schema_data,
         update_params,
@@ -586,6 +592,10 @@ defmodule Uppy.Core do
     operation =
       fn ->
         state = opts[:state] || :cancelled
+
+        unless state in @stale_states do
+          raise ArgumentError, "Expected state to be one of #{inspect(@stale_states)}"
+        end
 
         update_params = Map.put(update_params, :state, state)
 
