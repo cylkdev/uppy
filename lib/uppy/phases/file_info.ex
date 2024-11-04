@@ -2,11 +2,9 @@ defmodule Uppy.Phases.FileInfo do
   @moduledoc """
   ...
   """
-
   alias Uppy.{
-    Error,
-    Storage,
-    Utils
+    Resolution,
+    Storage
   }
 
   @behaviour Uppy.Phase
@@ -16,73 +14,119 @@ defmodule Uppy.Phases.FileInfo do
   # Approximately 256 bytes is needed to detect the file type.
   @two_hundred_fifty_six_bytes 256
 
+  @impl true
   def run(
-    %Uppy.Resolution{
+    %{
+      state: :unresolved,
       bucket: bucket,
-      value: schema_data,
-      context: context
+      value: schema_struct,
     } = resolution,
     opts
   ) do
-    Utils.Logger.debug(@logger_prefix, "run BEGIN")
+    Uppy.Utils.Logger.debug(@logger_prefix, "run | BEGIN | executing file info phase")
 
-    case describe_object_chunk(bucket, schema_data.key, opts) do
+    case describe_object_chunk(bucket, schema_struct.key, opts) do
       {:ok, file_info} ->
-        Utils.Logger.debug(@logger_prefix, "run OK")
+        Uppy.Utils.Logger.debug(@logger_prefix, "run | OK | retrieved file info\n\n#{inspect(file_info, pretty: true)}")
 
-        {:ok, %{resolution | context: Map.put(context, :file_info, file_info)}}
+        resolution =
+          resolution
+          |> Resolution.assign_context(:file_info, file_info)
+          |> Resolution.put_private(__MODULE__, %{completed: true})
 
-      error ->
-        Utils.Logger.debug(@logger_prefix, "run ERROR")
+        {:ok, resolution}
 
-        error
+      {:error, _} = error ->
+        Uppy.Utils.Logger.debug(@logger_prefix, "run | ERROR | failed to get object file info\n\n#{inspect(error, pretty: true)}")
+
+        {:ok, resolution}
     end
+  end
+
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 
   @doc """
   Returns the `mimetype`, `extension`, and `basename` detected from the file binary data.
   """
-  def describe_object_chunk(bucket, object, opts \\ []) do
-    with {:ok, binary} <- download_chunk(bucket, object, opts) do
-      from_binary(binary)
-    end
-  end
-
-  def download_chunk(bucket, object, opts \\ []) do
+  def describe_object_chunk(bucket, object, opts) do
+    start_byte = 0
     end_byte = end_byte!(opts)
 
-    with {:ok, {_start_byte, body}} <-
-      Storage.get_chunk(bucket, object, 0, end_byte, opts) do
-      {:ok, body}
-    end
-  end
+    Uppy.Utils.Logger.debug(
+      @logger_prefix,
+      "describe_object_chunk | BEGIN | requesting bytes of object #{inspect(object)} " <>
+      "| start_byte=#{inspect(start_byte)}, end_byte=#{inspect(end_byte)}"
+    )
 
-  def from_binary(binary) do
-    with {:ok, file_info} <- file_info(binary) do
-      case image_info(binary) do
-        nil -> {:ok, file_info}
-        image_info -> {:ok, Map.merge(file_info, image_info)}
+    with {:ok, {start_byte, body}} <-
+      Storage.get_chunk(bucket, object, start_byte, end_byte, opts) do
+
+      Uppy.Utils.Logger.debug(
+        @logger_prefix,
+        "describe_object_chunk | INFO | downloaded bytes of object " <>
+        "| start_byte=#{inspect(start_byte)}, byte_size=#{byte_size(body)}"
+      )
+
+      case file_info(body) do
+        {:ok, {base_extension, base_mimetype}} ->
+          case ExImageInfo.info(body) do
+            nil ->
+              Uppy.Utils.Logger.debug(
+                @logger_prefix,
+                """
+                describe_object_chunk | OK | detected file info
+
+                extension: #{inspect(base_extension)}
+                mimetype: #{inspect(base_mimetype)}
+                """
+              )
+
+              {:ok, %{
+                extension: base_extension,
+                mimetype: base_mimetype
+              }}
+
+            {mimetype, width, height, variant_type}  ->
+              Uppy.Utils.Logger.debug(
+                @logger_prefix,
+                """
+                describe_object_chunk | OK | detected image info
+
+                extension: #{inspect(base_extension)}
+                mimetype: #{inspect(base_mimetype)}
+                width: #{inspect(width)}
+                height: #{inspect(height)}
+                variant_type: #{inspect(variant_type)}
+                """
+              )
+
+              {:ok, %{
+                extension: base_extension,
+                mimetype: mimetype,
+                width: width,
+                height: height,
+                variant_type: variant_type
+              }}
+
+          end
+
+      {:error, _} = error ->
+        Uppy.Utils.Logger.warning(
+          @logger_prefix,
+          "describe_object_chunk | ERROR | failed to detect file info with error: #{inspect(error)}"
+        )
+
+        error
       end
     end
   end
 
   defp file_info(binary) do
     with {:ok, io} <- :file.open(binary, [:ram, :binary]) do
-      case FileType.from_io(io) do
-        {:error, :unrecognized} -> {:error, Error.call(:forbidden, "unrecognized file format")}
-        {:ok, {extension, mimetype}} -> {:ok, %{extension: extension, mimetype: mimetype}}
-      end
-    end
-  end
-
-  defp image_info(binary) do
-    with {mimetype, width, height, variant_type} <- ExImageInfo.info(binary) do
-      %{
-        mimetype: mimetype,
-        width: width,
-        height: height,
-        variant_type: variant_type
-      }
+      FileType.from_io(io)
     end
   end
 

@@ -5,8 +5,8 @@ defmodule Uppy.Storages.S3.HTTP do
   alias Uppy.HTTP
 
   @default_opts [
-    disable_json_encoding?: true,
-    disable_json_decoding?: true
+    disable_json_decoding?: true,
+    disable_json_encoding?: true
   ]
 
   def request(:get, url, _body, headers, opts) do
@@ -49,10 +49,6 @@ defmodule Uppy.Storages.S3.HTTP do
     |> handle_response()
   end
 
-  def request(method, url, headers, body) do
-    request(method, url, headers, body, [])
-  end
-
   defp handle_response({:error, %{message: message}}) when is_binary(message) do
     {:error, %{reason: message}}
   end
@@ -61,10 +57,10 @@ defmodule Uppy.Storages.S3.HTTP do
     {:error, %{reason: message}}
   end
 
-  defp handle_response({:ok, {body, %{status: status, headers: headers, body: _body}}}) do
+  defp handle_response({:ok, {_body, %{status: status, headers: headers, body: raw_body}}}) do
     {:ok, %{
       status_code: status,
-      body: body,
+      body: raw_body,
       headers: headers
     }}
   end

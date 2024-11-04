@@ -8,12 +8,28 @@ defmodule Uppy.DBAction do
   @type opts :: keyword()
   @type id :: integer() | binary()
   @type query :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()} | Ecto.Query.t()
-  @type schema_data :: Ecto.Schema.t()
+  @type schema_struct :: Ecto.Schema.t()
   @type params :: map()
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @default_action_adapter EctoShorts.Actions
+  @default_db_action_adapter EctoShorts.Actions
+
+  @doc """
+  Returns a list of database records.
+  """
+  @callback preload(
+    struct_or_structs :: schema_struct() | list(schema_struct()),
+    opts :: opts()
+  ) :: list(schema_struct())
+
+  @doc """
+  Returns a list of database records.
+  """
+  @callback all(
+    query :: query(),
+    opts :: opts()
+  ) :: list(schema_struct())
 
   @doc """
   Returns a list of database records.
@@ -22,7 +38,7 @@ defmodule Uppy.DBAction do
     query :: query(),
     params :: params(),
     opts :: opts()
-  ) :: list(schema_data())
+  ) :: list(schema_struct())
 
   @doc """
   Creates a database record.
@@ -31,7 +47,7 @@ defmodule Uppy.DBAction do
               query :: query(),
               params :: params(),
               opts :: opts()
-            ) :: t_res(schema_data())
+            ) :: t_res(schema_struct())
 
   @doc """
   Fetches the database record.
@@ -40,7 +56,7 @@ defmodule Uppy.DBAction do
               query :: query(),
               params :: params(),
               opts :: opts()
-            ) :: t_res(schema_data())
+            ) :: t_res(schema_struct())
 
   @doc """
   Updates the database record.
@@ -50,14 +66,14 @@ defmodule Uppy.DBAction do
               id :: id(),
               params :: params(),
               opts :: opts()
-            ) :: t_res(schema_data())
+            ) :: t_res(schema_struct())
 
   @callback update(
               query :: query(),
-              schema_data :: schema_data(),
+              schema_struct :: schema_struct(),
               params :: params,
               opts :: opts()
-            ) :: t_res(schema_data())
+            ) :: t_res(schema_struct())
 
   @doc """
   Deletes the record from the database.
@@ -66,56 +82,58 @@ defmodule Uppy.DBAction do
               query :: query(),
               id :: id(),
               opts :: opts()
-            ) :: t_res(schema_data())
+            ) :: t_res(schema_struct())
 
   @callback delete(
-              schema_data :: struct(),
+              schema_struct :: struct(),
               opts :: opts()
-            ) :: t_res(schema_data())
+            ) :: t_res(schema_struct())
 
   @doc """
   Executes the function inside a transaction.
   """
   @callback transaction(func :: function(), opts :: opts()) :: t_res(term())
 
-  def create(schema, params, opts \\ []) do
+  def preload(struct_or_structs, opts) do
+    adapter!(opts).transaction(struct_or_structs, opts)
+  end
+
+  def transaction(func, opts) do
+    adapter!(opts).transaction(func, opts)
+  end
+
+  def all(query, opts) do
+    adapter!(opts).all(query, opts)
+  end
+
+  def all(schema, params, opts) do
+    adapter!(opts).all(schema, params, opts)
+  end
+
+  def create(schema, params, opts) do
     adapter!(opts).create(schema, params, opts)
   end
 
-  def find(schema, params, opts \\ []) do
+  def find(schema, params, opts) do
     adapter!(opts).find(schema, params, opts)
   end
 
-  def update(schema, id_or_schema_data, params, opts \\ [])
-
-  def update(schema, %_{} = schema_data, params, opts) do
-    adapter!(opts).update(schema, schema_data, params, opts)
+  def update(schema, id_or_struct, params, opts) do
+    adapter!(opts).update(schema, id_or_struct, params, opts)
   end
 
-  def update(schema, id, params, opts) do
-    adapter!(opts).update(schema, id, params, opts)
+  def delete(schema_struct, opts) do
+    adapter!(opts).delete(schema_struct, opts)
   end
 
   def delete(schema, id, opts) do
     adapter!(opts).delete(schema, id, opts)
   end
 
-  def delete(schema_data, opts) do
-    adapter!(opts).delete(schema_data, opts)
-  end
-
-  def delete(schema_data) do
-    delete(schema_data, [])
-  end
-
-  def transaction(func, opts \\ []) do
-    adapter!(opts).transaction(func, opts)
-  end
-
   defp adapter!(opts) do
-    with nil <- opts[:action_adapter],
-      nil <- Config.action_adapter() do
-      @default_action_adapter
+    with nil <- opts[:db_action_adapter],
+      nil <- Config.db_action_adapter() do
+      @default_db_action_adapter
     end
   end
 end

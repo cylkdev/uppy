@@ -26,20 +26,6 @@ defmodule Uppy.Pipeline do
   @type result :: term()
 
   @doc """
-  ...
-  """
-  @callback phases(opts :: opts()) :: pipeline()
-
-  @doc """
-  Returns a list of phases.
-  """
-  @spec phases(adapter :: module(), opts :: opts()) :: pipeline()
-  @spec phases(adapter :: module()) :: list()
-  def phases(adapter, opts \\ []) do
-    adapter.phases(opts)
-  end
-
-  @doc """
   Flattens a list of phases and executes each phase
   sequentially.
 
@@ -55,7 +41,7 @@ defmodule Uppy.Pipeline do
   def run(input, pipeline) do
     pipeline
     |> List.flatten()
-    |> run_phase(input)
+    |> run_phase(input, [])
   end
 
   @doc """
@@ -293,7 +279,7 @@ defmodule Uppy.Pipeline do
     input :: input(),
     done :: phases()
   ) :: pipeline_response()
-  def run_phase(pipeline, input, done \\ [])
+  def run_phase(pipeline, input, done)
 
   def run_phase([], input, done) do
     {:ok, input, done}

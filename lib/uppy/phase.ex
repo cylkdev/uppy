@@ -19,24 +19,13 @@ defmodule Uppy.Phase do
   Executes the callback function `c:Uppy.Phase.run/2`.
 
   Raises if the phase does not define the function `run/2`.
-
-  ### Examples
-
-      iex> defmodule EchoPhase do
-      ...>   @behaviour Uppy.Phase
-      ...>
-      ...>   @impl true
-      ...>   def run(input, opts), do: {:ok, %{input: input, opts: opts}}
-      ...> end
-      ...> Uppy.Phase.run(EchoPhase, %{likes: 10})
-      {:ok, %{input: %{likes: 10}, opts: []}}
   """
   @spec run(
     phase :: phase(),
     input :: input(),
     opts :: opts()
   ) :: term()
-  def run(phase, input, opts \\ []) do
+  def run(phase, input, opts) do
     phase.run(input, opts)
   end
 end

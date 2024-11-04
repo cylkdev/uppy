@@ -2,80 +2,47 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
   @moduledoc """
   ...
   """
-  alias Uppy.{DBAction, Utils}
-
-  @type resolution :: map()
-  @type schema :: Ecto.Queryable.t()
-  @type schema_data :: Ecto.Schema.t()
-  @type params :: map()
-  @type opts :: keyword()
-
-  @type t_res(t) :: {:ok, t} | {:error, term()}
+  alias Uppy.{DBAction, Resolution}
 
   @behaviour Uppy.Phase
 
-  @logger_prefix "Uppy.Phases.UpdateSchemaMetadata"
-
+  @impl true
   def run(
-    %Uppy.Resolution{
+    %{
+      state: :unresolved,
+      context: context,
       query: query,
-      value: schema_data,
-      context: context
+      value: schema_struct
     } = resolution,
     opts
   ) do
-    Utils.Logger.debug(@logger_prefix, "run BEGIN")
+    content_type =
+      if Map.has_key?(context, :file_info) do
+        context.file_info.mimetype
+      else
+        context.metadata.content_type
+      end
 
-    file_info           = context.file_info
-    metadata            = context.metadata
-    destination_object  = context.destination_object
-
-    with {:ok, schema_data} <-
-      update_metadata(
+    with {:ok, schema_struct} <-
+      DBAction.update(
         query,
-        schema_data,
-        destination_object,
-        file_info,
-        metadata,
+        schema_struct,
+        %{
+          state: :completed,
+          key: context.destination_object,
+          e_tag: context.metadata.e_tag,
+          content_type: content_type,
+          content_length: context.metadata.content_length,
+          last_modified: context.metadata.last_modified
+        },
         opts
       ) do
-        Utils.Logger.debug(@logger_prefix, "Updated record metadata")
-
-      {:ok, %{resolution | value: schema_data}}
+      {:ok, Resolution.put_result(resolution, schema_struct)}
     end
   end
 
-  def update_metadata(
-    query,
-    schema_data,
-    destination_object,
-    file_info,
-    metadata,
-    opts
-  ) do
-    Utils.Logger.debug(@logger_prefix, "updating record metadata")
-
-    DBAction.update(
-      query,
-      schema_data,
-      %{
-        key: destination_object,
-        filename: filename(schema_data.key, file_info.extension),
-        e_tag: metadata.e_tag,
-        content_type: file_info.mimetype,
-        content_length: metadata.content_length,
-        last_modified: metadata.last_modified
-      },
-      opts
-    )
-  end
-
-  defp filename(path, extension) do
-    basename = Path.basename(path)
-    extname = Path.extname(path)
-
-    basename_without_extension = String.replace(basename, extname, "")
-
-    "#{basename_without_extension}.#{extension}"
+  # fallback
+  def run(resolution, _opts) do
+    {:ok, resolution}
   end
 end

@@ -11,11 +11,11 @@ defmodule Uppy.JSONEncoder do
 
   ### Examples
 
-      iex> Uppy.JSONEncoder.decode_json("{\"likes\":10}")
+      iex> Uppy.JSONEncoder.decode_json("{\"likes\":10}", json_adapter: Jason)
       {:ok, %{"likes" => 10}}
   """
   @spec decode_json(term(), keyword()) :: {:ok, map()} | {:error, term()}
-  def decode_json(term, opts \\ []) do
+  def decode_json(term, opts) do
     json_adapter!(opts).decode(term)
   end
 
@@ -24,11 +24,11 @@ defmodule Uppy.JSONEncoder do
 
   ### Examples
 
-      iex> Uppy.JSONEncoder.decode_json!("{\"likes\":10}")
+      iex> Uppy.JSONEncoder.decode_json!("{\"likes\":10}", json_adapter: Jason)
       %{"likes" => 10}
   """
   @spec decode_json!(term(), keyword()) :: binary()
-  def decode_json!(term, opts \\ []) do
+  def decode_json!(term, opts) do
     json_adapter!(opts).decode!(term)
   end
 
@@ -37,11 +37,11 @@ defmodule Uppy.JSONEncoder do
 
   ### Examples
 
-      iex> Uppy.JSONEncoder.encode_json(%{likes: 10})
+      iex> Uppy.JSONEncoder.encode_json(%{likes: 10}, json_adapter: Jason)
       {:ok, "{\"likes\":10}"}
   """
   @spec encode_json(term(), keyword()) :: {:ok, binary()} | {:error, term()}
-  def encode_json(term, opts \\ []) do
+  def encode_json(term, opts) do
     json_adapter!(opts).encode(term)
   end
 
@@ -50,11 +50,11 @@ defmodule Uppy.JSONEncoder do
 
   ### Examples
 
-      iex> Uppy.JSONEncoder.encode_json!(%{likes: 10})
+      iex> Uppy.JSONEncoder.encode_json!(%{likes: 10}, json_adapter: Jason)
       "{\"likes\":10}"
   """
   @spec encode_json!(term(), keyword()) :: binary()
-  def encode_json!(term, opts \\ []) do
+  def encode_json!(term, opts) do
     json_adapter!(opts).encode!(term)
   end
 
