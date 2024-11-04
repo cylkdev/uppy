@@ -5,7 +5,6 @@ defmodule Uppy.Schemas.UserAvatar do
   import Ecto.Changeset
 
   schema "user_avatars" do
-
     field :name, :string
     field :description, :string
 

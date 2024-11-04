@@ -1,6 +1,9 @@
 if Code.ensure_loaded?(Oban) do
   defmodule Uppy.Schedulers.ObanScheduler.GarbageCollectionWorker do
-    @moduledoc false
+    @moduledoc """
+    ...
+    """
+
     use Oban.Worker,
       queue: :garbage_collection,
       unique: [

@@ -5,7 +5,7 @@ defmodule Uppy.ImageProcessor do
 
   @default_adapter Uppy.ImageProcessors.Thumbor
 
-  @callback get_result(
+  @callback put_result(
     bucket :: binary(),
     destination_object :: binary(),
     params :: map(),
@@ -14,7 +14,7 @@ defmodule Uppy.ImageProcessor do
   ) :: {:ok, term(), :error, term()}
 
   def put_result(bucket, destination_object, params, source_object, opts) do
-    adapter!(opts).get_result(bucket, destination_object, params, source_object, opts)
+    adapter!(opts).put_result(bucket, destination_object, params, source_object, opts)
   end
 
   defp adapter!(opts) do

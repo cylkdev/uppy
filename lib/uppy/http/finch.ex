@@ -659,7 +659,7 @@ if Code.ensure_loaded?(Finch) do
       delay = opts[:exponential_backoff_delay] || @one_hundred
       jitter = opts[:exponential_backoff_jitter] || :rand.uniform_real()
 
-      unless (jitter >= 0 and jitter <= 1) do
+      unless jitter >= 0 and jitter <= 1 do
         raise "Expected option `:exponential_backoff_jitter` to be a number between 0 and 1, got: #{inspect(jitter)}"
       end
 

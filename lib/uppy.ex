@@ -5,5 +5,4 @@ defmodule Uppy do
 
   @type adapter :: module()
   @type options :: keyword()
-
 end

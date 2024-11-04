@@ -70,55 +70,56 @@ defmodule Uppy.Phases.FileInfo do
         "| start_byte=#{inspect(start_byte)}, byte_size=#{byte_size(body)}"
       )
 
-      with {:ok, {base_extension, base_mimetype}} <- file_info(body) do
-        case ExImageInfo.info(body) do
-          nil ->
-            Uppy.Utils.Logger.debug(
-              @logger_prefix,
-              """
-              describe_object_chunk | OK | detected file info
+      case file_info(body) do
+        {:ok, {base_extension, base_mimetype}} ->
+          case ExImageInfo.info(body) do
+            nil ->
+              Uppy.Utils.Logger.debug(
+                @logger_prefix,
+                """
+                describe_object_chunk | OK | detected file info
 
-              extension: #{inspect(base_extension)}
-              mimetype: #{inspect(base_mimetype)}
-              """
-            )
+                extension: #{inspect(base_extension)}
+                mimetype: #{inspect(base_mimetype)}
+                """
+              )
 
-            {:ok, %{
-              extension: base_extension,
-              mimetype: base_mimetype
-            }}
+              {:ok, %{
+                extension: base_extension,
+                mimetype: base_mimetype
+              }}
 
-          {mimetype, width, height, variant_type}  ->
-            Uppy.Utils.Logger.debug(
-              @logger_prefix,
-              """
-              describe_object_chunk | OK | detected image info
+            {mimetype, width, height, variant_type}  ->
+              Uppy.Utils.Logger.debug(
+                @logger_prefix,
+                """
+                describe_object_chunk | OK | detected image info
 
-              extension: #{inspect(base_extension)}
-              mimetype: #{inspect(base_mimetype)}
-              width: #{inspect(width)}
-              height: #{inspect(height)}
-              variant_type: #{inspect(variant_type)}
-              """
-            )
+                extension: #{inspect(base_extension)}
+                mimetype: #{inspect(base_mimetype)}
+                width: #{inspect(width)}
+                height: #{inspect(height)}
+                variant_type: #{inspect(variant_type)}
+                """
+              )
 
-            {:ok, %{
-              extension: base_extension,
-              mimetype: mimetype,
-              width: width,
-              height: height,
-              variant_type: variant_type
-            }}
+              {:ok, %{
+                extension: base_extension,
+                mimetype: mimetype,
+                width: width,
+                height: height,
+                variant_type: variant_type
+              }}
 
-        end
-      else
-        error ->
-          Uppy.Utils.Logger.warning(
-            @logger_prefix,
-            "describe_object_chunk | ERROR | failed to detect file info with error: #{inspect(error)}"
-          )
+          end
 
-          error
+      {:error, _} = error ->
+        Uppy.Utils.Logger.warning(
+          @logger_prefix,
+          "describe_object_chunk | ERROR | failed to detect file info with error: #{inspect(error)}"
+        )
+
+        error
       end
     end
   end

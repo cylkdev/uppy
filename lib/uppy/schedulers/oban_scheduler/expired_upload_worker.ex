@@ -1,7 +1,9 @@
 if Code.ensure_loaded?(Oban) do
   defmodule Uppy.Schedulers.ObanScheduler.ExpiredUploadWorker do
-    @moduledoc false
-      alias Uppy.Schedulers.ObanScheduler
+    @moduledoc """
+    ...
+    """
+
     use Oban.Worker,
       queue: :expired_upload,
       unique: [

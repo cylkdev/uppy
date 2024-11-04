@@ -4,9 +4,9 @@ defmodule Uppy.Phases.PutPermanentObjectCopyTest do
 
   alias Uppy.{
     Fixture,
+    Phases.PutPermanentObjectCopy,
     Resolution,
-    StorageSandbox,
-    Phases.PutPermanentObjectCopy
+    StorageSandbox
   }
 
   describe "run/2" do
@@ -14,7 +14,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopyTest do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/<USER_ID>-user/unique_identifier-image.jpeg",
-          status: :available
+          state: :available
         })
 
       StorageSandbox.set_put_object_copy_responses([

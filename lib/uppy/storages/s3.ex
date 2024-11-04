@@ -41,7 +41,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Storage.list_objects/2`.
+    Implementation for `c:Uppy.Storage.list_objects/3`.
     """
     def list_objects(bucket, prefix \\ nil, opts) do
       opts = Keyword.merge(@default_opts, opts)

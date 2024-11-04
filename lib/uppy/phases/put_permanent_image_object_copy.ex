@@ -25,23 +25,21 @@ defmodule Uppy.Phases.PutPermanentImageObjectCopy do
     opts
   ) do
     if opts[:image_processor_enabled] do
-      cond do
-        supported_image?(context.file_info, context.metadata, opts) === false ->
-          {:ok, resolution}
-
-        true ->
-          with {:ok, response} <-
-            ImageProcessor.put_result(
-              bucket,
-              context.destination_object,
-              %{},
-              schema_struct.key,
-              opts
-            ) do
-            {:ok, Resolution.put_private(resolution, __MODULE__, %{
-              image_processor: response
-            })}
-          end
+      if supported_image?(context.file_info, context.metadata, opts) do
+        with {:ok, response} <-
+          ImageProcessor.put_result(
+            bucket,
+            context.destination_object,
+            %{},
+            schema_struct.key,
+            opts
+          ) do
+          {:ok, Resolution.put_private(resolution, __MODULE__, %{
+            image_processor: response
+          })}
+        end
+      else
+        {:ok, resolution}
       end
     else
       {:ok, resolution}

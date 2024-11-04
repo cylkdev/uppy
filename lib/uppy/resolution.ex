@@ -1,4 +1,7 @@
 defmodule Uppy.Resolution do
+  @moduledoc """
+  ...
+  """
 
   @resolved :resolved
   @unresolved :unresolved

@@ -148,7 +148,7 @@ if Code.ensure_loaded?(Oban) do
         query,
         %{id: id},
         %{},
-        status: :discarded
+        state: :discarded
       )
     end
 
@@ -194,7 +194,7 @@ if Code.ensure_loaded?(Oban) do
         query,
         %{id: id},
         %{},
-        status: :discarded
+        state: :discarded
       )
     end
 

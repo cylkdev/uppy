@@ -33,12 +33,12 @@ defmodule Uppy.CoreTest do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
-          status: :available
+          state: :available
         })
 
       schema_struct_id = schema_struct.id
 
-      # Uppy.Phases.HeadSchemaObjectMetadata
+      # Uppy.Phases.HeadSchemaObject
 
       sandbox_head_object_payload =
         %{
@@ -101,11 +101,11 @@ defmodule Uppy.CoreTest do
         )
 
       assert [
-        Uppy.Phases.UpdateCompleteObjectMetadata,
+        Uppy.Phases.UpdateSchemaMetadata,
         Uppy.Phases.PutPermanentObjectCopy,
         Uppy.Phases.PutPermanentImageObjectCopy,
         Uppy.Phases.FileInfo,
-        Uppy.Phases.HeadSchemaObjectMetadata
+        Uppy.Phases.HeadSchemaObject
       ] = done
 
       assert %Uppy.Resolution{
@@ -116,28 +116,28 @@ defmodule Uppy.CoreTest do
         },
         bucket: "uppy-test",
         value: %Uppy.Schemas.FileInfoAbstract{
-          status: :completed, # should be set to completed
+          state: :completed, # should be set to completed
           content_length: 11,
           content_type: "text/plain",
           e_tag: "e_tag",
-          filename: nil,
+          # filename: nil,
           id: ^schema_struct_id,
           key: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           last_modified: ~U[2024-07-24 01:00:00Z],
-          unique_identifier: nil,
+          # unique_identifier: nil,
           upload_id: nil,
-          assoc_id: nil,
-          user_id: nil
+          # assoc_id: nil,
+          # user_id: nil
         }
       } = resolution
     end
   end
 
   describe "&schedule_delete_object_and_upload/4" do
-    test "when scheduler is enabled, set status to cancelled | insert garbage collection job" do
+    test "when scheduler is enabled, set state to cancelled | insert garbage collection job" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :cancelled,
+          state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
@@ -158,18 +158,18 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        status: :cancelled, # should be set to cancelled
+        state: :cancelled, # should be set to cancelled
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: nil,
-        assoc_id: nil,
-        user_id: nil
+        # assoc_id: nil,
+        # user_id: nil
       } = delete_object_and_upload_schema_struct
 
       assert %Oban.Job{
@@ -194,10 +194,10 @@ defmodule Uppy.CoreTest do
   end
 
   describe "&delete_object_and_upload/4" do
-    test "when status is :cancelled, delete object | delete record" do
+    test "when state is :cancelled, delete object | delete record" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :cancelled,
+          state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
@@ -230,7 +230,7 @@ defmodule Uppy.CoreTest do
                   {"date", "Sat, 16 Sep 2023 04:13:38 GMT"},
                   {"server", "AmazonS3"}
                 ],
-                status_code: 204
+                state_code: 204
               }
             }
           end
@@ -255,14 +255,14 @@ defmodule Uppy.CoreTest do
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: nil,
-        assoc_id: nil,
-        user_id: nil
+        # assoc_id: nil,
+        # user_id: nil
       } = delete_object_and_upload_schema_struct
 
       # record should be deleted
@@ -274,10 +274,10 @@ defmodule Uppy.CoreTest do
         )
     end
 
-    test "when status is :cancelled and delete_object returns an error, do not delete record" do
+    test "when state is :cancelled and delete_object returns an error, do not delete record" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :cancelled,
+          state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
@@ -317,10 +317,10 @@ defmodule Uppy.CoreTest do
         )
     end
 
-    test "when status is :cancelled and object not found, delete record" do
+    test "when state is :cancelled and object not found, delete record" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :cancelled,
+          state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
@@ -346,14 +346,14 @@ defmodule Uppy.CoreTest do
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: nil,
-        assoc_id: nil,
-        user_id: nil
+        # assoc_id: nil,
+        # user_id: nil
       } = delete_object_and_upload_schema_struct
 
       # record should be deleted
@@ -367,7 +367,7 @@ defmodule Uppy.CoreTest do
   end
 
   describe "complete_upload: " do
-    test "when scheduler is enabled, updates status to available | insert job" do
+    test "when scheduler is enabled, updates state to available | insert job" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
@@ -406,18 +406,18 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        status: :available, # status should be available
+        state: :available, # state should be available
         content_length: nil,
         content_type: nil,
         e_tag: "e_tag", # should be sandbox value
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg", # should be in temp path
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: nil,
-        assoc_id: nil,
-        user_id: nil
+        # assoc_id: nil,
+        # user_id: nil
       } = complete_upload_schema_struct
 
       assert %Oban.Job{
@@ -436,7 +436,7 @@ defmodule Uppy.CoreTest do
   end
 
   describe "abort_upload: " do
-    test "when scheduler is enabled, updates status to cancelled | insert job" do
+    test "when scheduler is enabled, updates state to cancelled | insert job" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
@@ -458,17 +458,17 @@ defmodule Uppy.CoreTest do
           []
         )
 
-      # key and status should be set
+      # key and state should be set
       assert %Uppy.Schemas.FileInfoAbstract{
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        status: :cancelled, # should be cancelled
-        unique_identifier: nil,
+        state: :cancelled, # should be cancelled
+        # unique_identifier: nil,
         upload_id: nil
       } = schema_struct
 
@@ -486,7 +486,7 @@ defmodule Uppy.CoreTest do
   end
 
   describe "start_upload: " do
-    test "when scheduler is enabled, creates record with pending status | create presigned upload | insert job" do
+    test "when scheduler is enabled, creates record with pending state | create presigned upload | insert job" do
       assert {:ok, %{
         presigned_upload: presigned_upload,
         schema_struct: schema_struct,
@@ -510,17 +510,17 @@ defmodule Uppy.CoreTest do
       assert is_binary(presigned_upload_url)
       assert %DateTime{} = expires_at
 
-      # key and status should be set
+      # key and state should be set
       assert %Uppy.Schemas.FileInfoAbstract{
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        status: :pending, # should be pending
-        unique_identifier: nil,
+        state: :pending, # should be pending
+        # unique_identifier: nil,
         upload_id: nil
       } = schema_struct
 
@@ -575,18 +575,18 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        status: :pending,
+        state: :pending,
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: "upload_id",
-        assoc_id: nil,
-        user_id: nil
+        # assoc_id: nil,
+        # user_id: nil
       } = find_parts_schema_struct
     end
   end
@@ -617,24 +617,24 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        status: :pending,
+        state: :pending,
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: "upload_id",
-        assoc_id: nil,
-        user_id: nil,
+        # assoc_id: nil,
+        # user_id: nil,
       } = presigned_part_schema_struct
     end
   end
 
   describe "complete_multipart_upload: " do
-    test "when scheduler is enabled, updates status to available | insert job" do
+    test "when scheduler is enabled, updates state to available | insert job" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
@@ -686,18 +686,18 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        status: :available, # status should be available
+        state: :available, # state should be available
         content_length: nil,
         content_type: nil,
         e_tag: "e_tag", # should be sandbox value
-        filename: nil,
+        # filename: nil,
         id: ^schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg", # should be in temp path
         last_modified: nil,
-        unique_identifier: nil,
+        # unique_identifier: nil,
         upload_id: "upload_id", # should be set
-        assoc_id: nil,
-        user_id: nil
+        # assoc_id: nil,
+        # user_id: nil
       } = complete_multipart_upload_schema_struct
 
       assert %Oban.Job{
@@ -716,7 +716,7 @@ defmodule Uppy.CoreTest do
   end
 
   describe "abort_multipart_upload: " do
-    test "when scheduler is enabled, updates status to cancelled | insert job" do
+    test "when scheduler is enabled, updates state to cancelled | insert job" do
       schema_struct =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
@@ -824,12 +824,12 @@ defmodule Uppy.CoreTest do
         content_length: nil,
         content_type: nil,
         e_tag: nil,
-        filename: nil,
+        # filename: nil,
         id: schema_struct_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
-        status: :pending, # should be pending
-        unique_identifier: nil,
+        state: :pending, # should be pending
+        # unique_identifier: nil,
         upload_id: "upload_id" # upload_id should be set
       } = schema_struct
 

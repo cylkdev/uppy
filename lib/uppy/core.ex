@@ -50,10 +50,8 @@ defmodule Uppy.Core do
   ) do
     Uppy.Resolution
     |> struct!(
-      context: %{
-        destination_object: destination_object
-      },
       bucket: bucket,
+      context: %{destination_object: destination_object},
       query: query,
       value: schema_struct
     )
@@ -84,12 +82,7 @@ defmodule Uppy.Core do
   ...
   """
   def delete_object_and_upload(bucket, _query, %_{} = schema_struct, opts) do
-    if schema_struct.status not in [:discarded, :cancelled] do
-      {:error, Error.call(:forbidden, "expected a status of discarded or cancelled", %{
-        bucket: bucket,
-        schema_struct: schema_struct
-      })}
-    else
+    if schema_struct.state in [:discarded, :cancelled] do
       case Storage.head_object(bucket, schema_struct.key, opts) do
         {:ok, metadata} ->
           with {:ok, _} <- Storage.delete_object(bucket, schema_struct.key, opts),
@@ -109,6 +102,11 @@ defmodule Uppy.Core do
           error
 
       end
+    else
+      {:error, Error.call(:forbidden, "expected a state of discarded or cancelled", %{
+        bucket: bucket,
+        schema_struct: schema_struct
+      })}
     end
   end
 
@@ -124,7 +122,7 @@ defmodule Uppy.Core do
   ...
   """
   def schedule_delete_object_and_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
-    update_params = Map.put(update_params, :status, :cancelled)
+    update_params = Map.put(update_params, :state, :cancelled)
 
     with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts),
       {:ok, delete_object_and_upload_job} <-
@@ -169,40 +167,15 @@ defmodule Uppy.Core do
     else
       case Storage.head_object(bucket, schema_struct.key, opts) do
         {:ok, metadata} ->
-          update_params =
-            Map.merge(update_params, %{
-              status: :available,
-              e_tag: metadata.e_tag
-            })
-
-          operation =
-            fn ->
-              with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-                if Keyword.get(opts, :scheduler_enabled, true) do
-                  with {:ok, process_upload_job} <-
-                    Scheduler.queue_process_upload(
-                      bucket,
-                      destination_object,
-                      query,
-                      schema_struct.id,
-                      opts[:pipeline],
-                      opts
-                    ) do
-                    {:ok, %{
-                      metadata: metadata,
-                      schema_struct: schema_struct,
-                      jobs: %{
-                        process_upload: process_upload_job
-                      }
-                    }}
-                  end
-                else
-                  raise "not implemented"
-                end
-              end
-            end
-
-          DBAction.transaction(operation, opts)
+          do_complete_upload(
+            bucket,
+            destination_object,
+            query,
+            schema_struct,
+            update_params,
+            metadata,
+            opts
+          )
 
         {:error, _} = error ->
           error
@@ -231,6 +204,51 @@ defmodule Uppy.Core do
     end
   end
 
+  defp do_complete_upload(
+    bucket,
+    destination_object,
+    query,
+    schema_struct,
+    update_params,
+    metadata,
+    opts
+  ) do
+    update_params =
+      Map.merge(update_params, %{
+        state: :available,
+        e_tag: metadata.e_tag
+      })
+
+    operation =
+      fn ->
+        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, process_upload_job} <-
+              Scheduler.queue_process_upload(
+                bucket,
+                destination_object,
+                query,
+                schema_struct.id,
+                opts[:pipeline],
+                opts
+              ) do
+              {:ok, %{
+                metadata: metadata,
+                schema_struct: schema_struct,
+                jobs: %{
+                  process_upload: process_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
+        end
+      end
+
+    DBAction.transaction(operation, opts)
+  end
+
   @doc """
   ...
   """
@@ -244,34 +262,7 @@ defmodule Uppy.Core do
     else
       operation =
         fn ->
-          status = opts[:status] || :cancelled
-
-          unless status in [:discarded, :cancelled] do
-            raise ArgumentError, "expected status to be one of [:discarded, :cancelled]"
-          end
-
-          update_params = Map.put(update_params, :status, status)
-
-          with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-            if Keyword.get(opts, :scheduler_enabled, true) do
-              with {:ok, delete_object_and_upload_job} <-
-                Scheduler.queue_delete_object_and_upload(
-                  bucket,
-                  query,
-                  schema_struct.id,
-                  opts
-                ) do
-                {:ok, %{
-                  schema_struct: schema_struct,
-                  jobs: %{
-                    delete_object_and_upload: delete_object_and_upload_job
-                  }
-                }}
-              end
-            else
-              raise "not implemented"
-            end
-          end
+          do_abort_upload(bucket, query, schema_struct, update_params, opts)
         end
 
       DBAction.transaction(operation, opts)
@@ -284,13 +275,44 @@ defmodule Uppy.Core do
     end
   end
 
+  defp do_abort_upload(bucket, query, schema_struct, update_params, opts) do
+    state = opts[:state] || :cancelled
+
+    unless state in [:discarded, :cancelled] do
+      raise ArgumentError, "expected state to be one of [:discarded, :cancelled]"
+    end
+
+    update_params = Map.put(update_params, :state, state)
+
+    with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+      if Keyword.get(opts, :scheduler_enabled, true) do
+        with {:ok, delete_object_and_upload_job} <-
+          Scheduler.queue_delete_object_and_upload(
+            bucket,
+            query,
+            schema_struct.id,
+            opts
+          ) do
+          {:ok, %{
+            schema_struct: schema_struct,
+            jobs: %{
+              delete_object_and_upload: delete_object_and_upload_job
+            }
+          }}
+        end
+      else
+        raise "not implemented"
+      end
+    end
+  end
+
   @doc """
   ...
   """
   def start_upload(bucket, destination_object, query, create_params, opts) do
     create_params =
       Map.merge(create_params, %{
-        status: :pending,
+        state: :pending,
         key: destination_object
       })
 
@@ -421,40 +443,15 @@ defmodule Uppy.Core do
           parts,
           opts
         ) do
-
-        update_params =
-          Map.merge(update_params, %{
-            status: :available,
-            e_tag: metadata.e_tag
-          })
-
-        operation = fn ->
-          with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-            if Keyword.get(opts, :scheduler_enabled, true) do
-              with {:ok, process_upload_job} <-
-                Scheduler.queue_process_upload(
-                  bucket,
-                  destination_object,
-                  query,
-                  schema_struct.id,
-                  opts[:pipeline],
-                  opts
-                ) do
-                {:ok, %{
-                  metadata: metadata,
-                  schema_struct: schema_struct,
-                  jobs: %{
-                    process_upload: process_upload_job
-                  }
-                }}
-              end
-            else
-              raise "not implemented"
-            end
-          end
-        end
-
-        DBAction.transaction(operation, opts)
+        do_complete_multipart_upload(
+          bucket,
+          destination_object,
+          query,
+          schema_struct,
+          update_params,
+          metadata,
+          opts
+        )
       end
     end
   end
@@ -479,6 +476,51 @@ defmodule Uppy.Core do
         opts
       )
     end
+  end
+
+  defp do_complete_multipart_upload(
+    bucket,
+    destination_object,
+    query,
+    schema_struct,
+    update_params,
+    metadata,
+    opts
+  ) do
+    operation =
+      fn ->
+        update_params =
+          Map.merge(update_params, %{
+            state: :available,
+            e_tag: metadata.e_tag
+          })
+
+        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, process_upload_job} <-
+              Scheduler.queue_process_upload(
+                bucket,
+                destination_object,
+                query,
+                schema_struct.id,
+                opts[:pipeline],
+                opts
+              ) do
+              {:ok, %{
+                metadata: metadata,
+                schema_struct: schema_struct,
+                jobs: %{
+                  process_upload: process_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
+        end
+      end
+
+    DBAction.transaction(operation, opts)
   end
 
   defp storage_complete_multipart_upload(
@@ -510,48 +552,31 @@ defmodule Uppy.Core do
         query: query
       })}
     else
-      with {:ok, metadata} <-
-        storage_abort_multipart_upload(
-          bucket,
-          schema_struct.key,
-          schema_struct.upload_id,
-          opts
-        ) do
-
-        maybe_metadata = if is_nil(metadata), do: %{}, else: %{metadata: metadata}
-
-        status = opts[:status] || :cancelled
-
-        unless status in [:discarded, :cancelled] do
-          raise ArgumentError, "expected status to be one of [:discarded, :cancelled]"
-        end
-
-        update_params = Map.put(update_params, :status, status)
-
-        operation = fn ->
-          with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-            if Keyword.get(opts, :scheduler_enabled, true) do
-              with {:ok, delete_object_and_upload_job} <-
-                Scheduler.queue_delete_object_and_upload(
-                  bucket,
-                  query,
-                  schema_struct.id,
-                  opts
-                ) do
-                {:ok, Map.merge(maybe_metadata, %{
-                  schema_struct: schema_struct,
-                  jobs: %{
-                    delete_object_and_upload: delete_object_and_upload_job
-                  }
-                })}
-              end
-            else
-              raise "not implemented"
-            end
+      case Storage.abort_multipart_upload(bucket, schema_struct.key, schema_struct.upload_id, opts) do
+        {:ok, metadata} ->
+          with {:ok, res} <-
+            do_abort_multipart_upload(
+              bucket,
+              query,
+              schema_struct,
+              update_params,
+              opts
+            ) do
+            {:ok, Map.put(res, :metadata, metadata)}
           end
-        end
 
-        DBAction.transaction(operation, opts)
+        {:error, %{code: :not_found}} ->
+          do_abort_multipart_upload(
+            bucket,
+            query,
+            schema_struct,
+            update_params,
+            opts
+          )
+
+        {:error, _} = error ->
+          error
+
       end
     end
   end
@@ -562,12 +587,46 @@ defmodule Uppy.Core do
     end
   end
 
-  defp storage_abort_multipart_upload(bucket, key, upload_id, opts) do
-    case Storage.abort_multipart_upload(bucket, key, upload_id, opts) do
-      {:ok, metadata} -> {:ok, metadata}
-      {:error, %{code: :not_found}} -> {:ok, nil}
-      {:error, _} = error -> error
+  defp do_abort_multipart_upload(
+    bucket,
+    query,
+    schema_struct,
+    update_params,
+    opts
+  ) do
+    state = opts[:state] || :cancelled
+
+    unless state in [:discarded, :cancelled] do
+      raise ArgumentError, "expected state to be one of [:discarded, :cancelled]"
     end
+
+    update_params = Map.put(update_params, :state, state)
+
+    operation =
+      fn ->
+        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, delete_object_and_upload_job} <-
+              Scheduler.queue_delete_object_and_upload(
+                bucket,
+                query,
+                schema_struct.id,
+                opts
+              ) do
+              {:ok, %{
+                schema_struct: schema_struct,
+                jobs: %{
+                  delete_object_and_upload: delete_object_and_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
+        end
+      end
+
+    DBAction.transaction(operation, opts)
   end
 
   @doc """
@@ -577,7 +636,7 @@ defmodule Uppy.Core do
     with {:ok, multipart_upload} <- Storage.initiate_multipart_upload(bucket, destination_object, opts) do
       create_params =
         Map.merge(create_params, %{
-          status: :pending,
+          state: :pending,
           upload_id: multipart_upload.upload_id,
           key: destination_object
         })
