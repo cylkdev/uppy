@@ -28,7 +28,7 @@ defmodule Uppy.CoreTest do
     ])
   end
 
-  describe "&process_upload/6: " do
+  describe "&move_upload/6: " do
     test "moves object to permanent path" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
@@ -91,7 +91,7 @@ defmodule Uppy.CoreTest do
         done: done,
         resolution: resolution
       }} =
-        Core.process_upload(
+        Core.move_upload(
           @bucket,
           ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
@@ -393,7 +393,7 @@ defmodule Uppy.CoreTest do
         metadata: ^sandbox_head_object_response,
         schema_data: complete_upload_schema_data,
         jobs: %{
-          process_upload: process_upload_job
+          move_upload: move_upload_job
         }
       }} =
         Core.complete_upload(
@@ -422,7 +422,7 @@ defmodule Uppy.CoreTest do
 
       assert %Oban.Job{
         args: %{
-          event: "uppy.process_upload",
+          event: "uppy.move_upload",
           bucket: "uppy-test",
           destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           id: ^schema_data_id,
@@ -431,7 +431,7 @@ defmodule Uppy.CoreTest do
         },
         queue: "post_processing",
         worker: "Uppy.Schedulers.ObanScheduler.PostProcessingWorker"
-      } = process_upload_job
+      } = move_upload_job
     end
   end
 
@@ -672,7 +672,7 @@ defmodule Uppy.CoreTest do
         metadata: ^sandbox_head_object_payload,
         schema_data: complete_multipart_upload_schema_data,
         jobs: %{
-          process_upload: process_upload_job
+          move_upload: move_upload_job
         }
       }} =
         Core.complete_multipart_upload(
@@ -702,7 +702,7 @@ defmodule Uppy.CoreTest do
 
       assert %Oban.Job{
         args: %{
-          event: "uppy.process_upload",
+          event: "uppy.move_upload",
           bucket: "uppy-test",
           destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           id: ^schema_data_id,
@@ -711,7 +711,7 @@ defmodule Uppy.CoreTest do
         },
         queue: "post_processing",
         worker: "Uppy.Schedulers.ObanScheduler.PostProcessingWorker"
-      } = process_upload_job
+      } = move_upload_job
     end
   end
 

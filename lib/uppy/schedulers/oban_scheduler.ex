@@ -81,13 +81,13 @@ if Code.ensure_loaded?(Oban) do
     @event_abort_multipart_upload "uppy.abort_multipart_upload"
     @event_abort_upload "uppy.abort_upload"
     @event_delete_object_and_upload "uppy.delete_object_and_upload"
-    @event_process_upload "uppy.process_upload"
+    @event_move_upload "uppy.move_upload"
 
     @events %{
       abort_multipart_upload: @event_abort_multipart_upload,
       abort_upload: @event_abort_upload,
       delete_object_and_upload: @event_delete_object_and_upload,
-      process_upload: @event_process_upload
+      move_upload: @event_move_upload
     }
 
     @doc false
@@ -228,7 +228,7 @@ if Code.ensure_loaded?(Oban) do
     @doc """
     ...
     """
-    def perform_process_upload(
+    def perform_move_upload(
       bucket,
       destination_object,
       encoded_query,
@@ -242,7 +242,7 @@ if Code.ensure_loaded?(Oban) do
 
       query = decode_binary_to_term(encoded_query)
 
-      Core.process_upload(
+      Core.move_upload(
         bucket,
         destination_object,
         query,
@@ -256,7 +256,7 @@ if Code.ensure_loaded?(Oban) do
     ...
     """
     @impl true
-    def queue_process_upload(
+    def queue_move_upload(
       bucket,
       destination_object,
       query,
@@ -264,15 +264,15 @@ if Code.ensure_loaded?(Oban) do
       pipeline_module,
       opts
     ) do
-      schedule = opts[:schedule_process_upload] || @one_hour_seconds
+      schedule = opts[:schedule_move_upload] || @one_hour_seconds
 
       opts =
         opts
-        |> Keyword.delete(:schedule_process_upload)
+        |> Keyword.delete(:schedule_move_upload)
         |> put_schedule(schedule)
 
       %{
-        event: @event_process_upload,
+        event: @event_move_upload,
         bucket: bucket,
         destination_object: destination_object,
         id: id,

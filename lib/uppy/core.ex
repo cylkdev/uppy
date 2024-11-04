@@ -22,7 +22,7 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def process_upload(
+  def move_upload(
     %_{} = resolution,
     pipeline,
     opts
@@ -42,7 +42,7 @@ defmodule Uppy.Core do
     end
   end
 
-  def process_upload(
+  def move_upload(
     bucket,
     destination_object,
     query,
@@ -57,10 +57,10 @@ defmodule Uppy.Core do
       query: query,
       value: schema_data
     )
-    |> process_upload(pipeline, opts)
+    |> move_upload(pipeline, opts)
   end
 
-  def process_upload(
+  def move_upload(
     bucket,
     destination_object,
     query,
@@ -69,7 +69,7 @@ defmodule Uppy.Core do
     opts
   ) do
     with {:ok, schema_data} <- DBAction.find(query, params, opts) do
-      process_upload(
+      move_upload(
         bucket,
         destination_object,
         query,
@@ -218,8 +218,8 @@ defmodule Uppy.Core do
 
         with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
-            with {:ok, process_upload_job} <-
-              Scheduler.queue_process_upload(
+            with {:ok, move_upload_job} <-
+              Scheduler.queue_move_upload(
                 bucket,
                 destination_object,
                 query,
@@ -231,7 +231,7 @@ defmodule Uppy.Core do
                 metadata: metadata,
                 schema_data: schema_data,
                 jobs: %{
-                  process_upload: process_upload_job
+                  move_upload: move_upload_job
                 }
               }}
             end
@@ -492,8 +492,8 @@ defmodule Uppy.Core do
 
         with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
-            with {:ok, process_upload_job} <-
-              Scheduler.queue_process_upload(
+            with {:ok, move_upload_job} <-
+              Scheduler.queue_move_upload(
                 bucket,
                 destination_object,
                 query,
@@ -505,7 +505,7 @@ defmodule Uppy.Core do
                 metadata: metadata,
                 schema_data: schema_data,
                 jobs: %{
-                  process_upload: process_upload_job
+                  move_upload: move_upload_job
                 }
               }}
             end

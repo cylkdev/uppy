@@ -13,11 +13,11 @@ if Code.ensure_loaded?(Oban) do
 
     alias Uppy.Schedulers.ObanScheduler
 
-    @event_process_upload ObanScheduler.events().process_upload
+    @event_move_upload ObanScheduler.events().move_upload
 
     def perform(%Oban.Job{
       args: %{
-        "event" => @event_process_upload,
+        "event" => @event_move_upload,
         "bucket" => bucket,
         "destination_object" => destination_object,
         "query" => encoded_query,
@@ -25,7 +25,7 @@ if Code.ensure_loaded?(Oban) do
         "pipeline" => pipeline
       }
     }) do
-      ObanScheduler.perform_process_upload(
+      ObanScheduler.perform_move_upload(
         bucket,
         destination_object,
         encoded_query,

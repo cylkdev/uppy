@@ -40,7 +40,7 @@ defmodule Uppy.Scheduler do
     opts :: opts()
   ) :: {:ok, term()} | {:error, term()}
 
-  @callback queue_process_upload(
+  @callback queue_move_upload(
     bucket :: bucket(),
     destination_object :: binary(),
     query :: queryable() | source_queryable() | query(),
@@ -91,7 +91,7 @@ defmodule Uppy.Scheduler do
     )
   end
 
-  def queue_process_upload(
+  def queue_move_upload(
     bucket,
     destination_object,
     query,
@@ -99,7 +99,7 @@ defmodule Uppy.Scheduler do
     pipeline_module,
     opts
   ) do
-    adapter!(opts).queue_process_upload(
+    adapter!(opts).queue_move_upload(
       bucket,
       destination_object,
       query,
