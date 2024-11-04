@@ -44,7 +44,7 @@ defmodule Uppy.Core do
     bucket,
     destination_object,
     query,
-    %_{} = schema_struct,
+    %_{} = schema_data,
     pipeline,
     opts
   ) do
@@ -53,7 +53,7 @@ defmodule Uppy.Core do
       bucket: bucket,
       context: %{destination_object: destination_object},
       query: query,
-      value: schema_struct
+      value: schema_data
     )
     |> process_upload(pipeline, opts)
   end
@@ -66,12 +66,12 @@ defmodule Uppy.Core do
     pipeline,
     opts
   ) do
-    with {:ok, schema_struct} <- DBAction.find(query, params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
       process_upload(
         bucket,
         destination_object,
         query,
-        schema_struct,
+        schema_data,
         pipeline,
         opts
       )
@@ -81,20 +81,20 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def delete_object_and_upload(bucket, _query, %_{} = schema_struct, opts) do
-    case Storage.head_object(bucket, schema_struct.key, opts) do
+  def delete_object_and_upload(bucket, _query, %_{} = schema_data, opts) do
+    case Storage.head_object(bucket, schema_data.key, opts) do
       {:ok, metadata} ->
-        with {:ok, _} <- Storage.delete_object(bucket, schema_struct.key, opts),
-          {:ok, schema_struct} <- DBAction.delete(schema_struct, opts) do
+        with {:ok, _} <- Storage.delete_object(bucket, schema_data.key, opts),
+          {:ok, schema_data} <- DBAction.delete(schema_data, opts) do
           {:ok, %{
             metadata: metadata,
-            schema_data: schema_struct
+            schema_data: schema_data
           }}
         end
 
       {:error, %{code: :not_found}} ->
-        with {:ok, schema_struct} <- DBAction.delete(schema_struct, opts) do
-          {:ok, %{schema_data: schema_struct}}
+        with {:ok, schema_data} <- DBAction.delete(schema_data, opts) do
+          {:ok, %{schema_data: schema_data}}
         end
 
       {:error, _} = error ->
@@ -104,8 +104,8 @@ defmodule Uppy.Core do
   end
 
   def delete_object_and_upload(bucket, query, find_params, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
-      delete_object_and_upload(bucket, query, schema_struct, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      delete_object_and_upload(bucket, query, schema_data, opts)
     end
   end
 
@@ -114,19 +114,19 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def schedule_delete_object_and_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
+  def schedule_delete_object_and_upload(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put(update_params, :state, :cancelled)
 
-    with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts),
+    with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts),
       {:ok, delete_object_and_upload_job} <-
         Scheduler.queue_delete_object_and_upload(
           bucket,
           query,
-          schema_struct.id,
+          schema_data.id,
           opts
         ) do
       {:ok, %{
-        schema_data: schema_struct,
+        schema_data: schema_data,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
         }
@@ -135,8 +135,8 @@ defmodule Uppy.Core do
   end
 
   def schedule_delete_object_and_upload(bucket, query, find_params, update_params, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
-      schedule_delete_object_and_upload(bucket, query, schema_struct, update_params, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      schedule_delete_object_and_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
@@ -147,24 +147,24 @@ defmodule Uppy.Core do
     bucket,
     destination_object,
     query,
-    %_{} = schema_struct,
+    %_{} = schema_data,
     update_params,
     opts
   ) do
-    if schema_struct.upload_id do
+    if schema_data.upload_id do
       {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-        schema_data: schema_struct,
+        schema_data: schema_data,
         query: query,
         bucket: bucket
       })}
     else
-      case Storage.head_object(bucket, schema_struct.key, opts) do
+      case Storage.head_object(bucket, schema_data.key, opts) do
         {:ok, metadata} ->
           do_complete_upload(
             bucket,
             destination_object,
             query,
-            schema_struct,
+            schema_data,
             update_params,
             metadata,
             opts
@@ -185,12 +185,12 @@ defmodule Uppy.Core do
     update_params,
     opts
   ) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_upload(
         bucket,
         object_path_params,
         query,
-        schema_struct,
+        schema_data,
         update_params,
         opts
       )
@@ -201,33 +201,33 @@ defmodule Uppy.Core do
     bucket,
     destination_object,
     query,
-    schema_struct,
+    schema_data,
     update_params,
     metadata,
     opts
   ) do
-    update_params =
-      Map.merge(update_params, %{
-        state: :available,
-        e_tag: metadata.e_tag
-      })
-
     operation =
       fn ->
-        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+        update_params =
+          Map.merge(update_params, %{
+            state: :available,
+            e_tag: metadata.e_tag
+          })
+
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
             with {:ok, process_upload_job} <-
               Scheduler.queue_process_upload(
                 bucket,
                 destination_object,
                 query,
-                schema_struct.id,
+                schema_data.id,
                 opts[:pipeline],
                 opts
               ) do
               {:ok, %{
                 metadata: metadata,
-                schema_data: schema_struct,
+                schema_data: schema_data,
                 jobs: %{
                   process_upload: process_upload_job
                 }
@@ -245,58 +245,54 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def abort_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
-    if schema_struct.upload_id do
+  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+    if schema_data.upload_id do
       {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-        schema_data: schema_struct,
+        schema_data: schema_data,
         query: query,
         bucket: bucket
       })}
     else
-      operation =
-        fn ->
-          do_abort_upload(bucket, query, schema_struct, update_params, opts)
-        end
-
-      DBAction.transaction(operation, opts)
+      do_abort_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
   def abort_upload(bucket, query, find_params, update_params, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
-      abort_upload(bucket, query, schema_struct, update_params, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      abort_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
-  defp do_abort_upload(bucket, query, schema_struct, update_params, opts) do
+  defp do_abort_upload(bucket, query, schema_data, update_params, opts) do
     state = opts[:state] || :cancelled
-
-    unless state in [:discarded, :cancelled] do
-      raise ArgumentError, "expected state to be one of [:discarded, :cancelled]"
-    end
 
     update_params = Map.put(update_params, :state, state)
 
-    with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
-      if Keyword.get(opts, :scheduler_enabled, true) do
-        with {:ok, delete_object_and_upload_job} <-
-          Scheduler.queue_delete_object_and_upload(
-            bucket,
-            query,
-            schema_struct.id,
-            opts
-          ) do
-          {:ok, %{
-            schema_data: schema_struct,
-            jobs: %{
-              delete_object_and_upload: delete_object_and_upload_job
-            }
-          }}
+    operation =
+      fn ->
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, delete_object_and_upload_job} <-
+              Scheduler.queue_delete_object_and_upload(
+                bucket,
+                query,
+                schema_data.id,
+                opts
+              ) do
+              {:ok, %{
+                schema_data: schema_data,
+                jobs: %{
+                  delete_object_and_upload: delete_object_and_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
         end
-      else
-        raise "not implemented"
       end
-    end
+
+    DBAction.transaction(operation, opts)
   end
 
   @doc """
@@ -311,18 +307,18 @@ defmodule Uppy.Core do
 
     with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, destination_object, opts) do
       operation = fn ->
-        with {:ok, schema_struct} <- DBAction.create(query, create_params, opts) do
+        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
             with {:ok, abort_upload_job} <-
               Scheduler.queue_abort_upload(
                 bucket,
                 query,
-                schema_struct.id,
+                schema_data.id,
                 opts
               ) do
               {:ok, %{
                 presigned_upload: presigned_upload,
-                schema_data: schema_struct,
+                schema_data: schema_data,
                 jobs: %{
                   abort_upload: abort_upload_job
                 }
@@ -346,68 +342,68 @@ defmodule Uppy.Core do
   def find_parts(
     bucket,
     _query,
-    %_{} = schema_struct,
+    %_{} = schema_data,
     next_part_number_marker,
     opts
   ) do
-    if is_nil(schema_struct.upload_id) do
+    if is_nil(schema_data.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
-        schema_data: schema_struct
+        schema_data: schema_data
       })}
     else
       with {:ok, parts} <-
         Storage.list_parts(
           bucket,
-          schema_struct.key,
-          schema_struct.upload_id,
+          schema_data.key,
+          schema_data.upload_id,
           next_part_number_marker,
           opts
         ) do
         {:ok, %{
           parts: parts,
-          schema_data: schema_struct
+          schema_data: schema_data
         }}
       end
     end
   end
 
   def find_parts(bucket, query, find_params, next_part_number_marker, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
-      find_parts(bucket, query, schema_struct, next_part_number_marker, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      find_parts(bucket, query, schema_data, next_part_number_marker, opts)
     end
   end
 
   @doc """
   ...
   """
-  def presigned_part(bucket, query, %_{} = schema_struct, part_number, opts) do
-    if is_nil(schema_struct.upload_id) do
+  def presigned_part(bucket, query, %_{} = schema_data, part_number, opts) do
+    if is_nil(schema_data.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
         bucket: bucket,
         query: query,
-        schema_data: schema_struct,
+        schema_data: schema_data,
         part_number: part_number
       })}
     else
       with {:ok, presigned_part} <-
           Storage.presigned_part_upload(
             bucket,
-            schema_struct.key,
-            schema_struct.upload_id,
+            schema_data.key,
+            schema_data.upload_id,
             part_number,
             opts
           ) do
         {:ok, %{
           presigned_part: presigned_part,
-          schema_data: schema_struct
+          schema_data: schema_data
         }}
       end
     end
   end
 
   def presigned_part(bucket, query, params, part_number, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, params, opts) do
-      presigned_part(bucket, query, schema_struct, part_number, opts)
+    with {:ok, schema_data} <- DBAction.find(query, params, opts) do
+      presigned_part(bucket, query, schema_data, part_number, opts)
     end
   end
 
@@ -418,21 +414,21 @@ defmodule Uppy.Core do
     bucket,
     destination_object,
     query,
-    %_{} = schema_struct,
+    %_{} = schema_data,
     update_params,
     parts,
     opts
   ) do
-    if is_nil(schema_struct.upload_id) do
+    if is_nil(schema_data.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
-        schema_data: schema_struct,
+        schema_data: schema_data,
         query: query
       })}
     else
       with {:ok, metadata} <-
         storage_complete_multipart_upload(
           bucket,
-          schema_struct,
+          schema_data,
           parts,
           opts
         ) do
@@ -440,7 +436,7 @@ defmodule Uppy.Core do
           bucket,
           destination_object,
           query,
-          schema_struct,
+          schema_data,
           update_params,
           metadata,
           opts
@@ -458,12 +454,12 @@ defmodule Uppy.Core do
     parts,
     opts
   ) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
         object_path_params,
         query,
-        schema_struct,
+        schema_data,
         update_params,
         parts,
         opts
@@ -475,7 +471,7 @@ defmodule Uppy.Core do
     bucket,
     destination_object,
     query,
-    schema_struct,
+    schema_data,
     update_params,
     metadata,
     opts
@@ -488,20 +484,20 @@ defmodule Uppy.Core do
             e_tag: metadata.e_tag
           })
 
-        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
             with {:ok, process_upload_job} <-
               Scheduler.queue_process_upload(
                 bucket,
                 destination_object,
                 query,
-                schema_struct.id,
+                schema_data.id,
                 opts[:pipeline],
                 opts
               ) do
               {:ok, %{
                 metadata: metadata,
-                schema_data: schema_struct,
+                schema_data: schema_data,
                 jobs: %{
                   process_upload: process_upload_job
                 }
@@ -518,19 +514,19 @@ defmodule Uppy.Core do
 
   defp storage_complete_multipart_upload(
     bucket,
-    schema_struct,
+    schema_data,
     parts,
     opts
   ) do
     case Storage.complete_multipart_upload(
       bucket,
-      schema_struct.key,
-      schema_struct.upload_id,
+      schema_data.key,
+      schema_data.upload_id,
       parts,
       opts
     ) do
-      {:ok, _} -> Storage.head_object(bucket, schema_struct.key, opts)
-      {:error, %{code: :not_found}} -> Storage.head_object(bucket, schema_struct.key, opts)
+      {:ok, _} -> Storage.head_object(bucket, schema_data.key, opts)
+      {:error, %{code: :not_found}} -> Storage.head_object(bucket, schema_data.key, opts)
       {:error, _} = error -> error
     end
   end
@@ -538,20 +534,20 @@ defmodule Uppy.Core do
   @doc """
   ...
   """
-  def abort_multipart_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
-    if is_nil(schema_struct.upload_id) do
+  def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+    if is_nil(schema_data.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
-        schema_data: schema_struct,
+        schema_data: schema_data,
         query: query
       })}
     else
-      case Storage.abort_multipart_upload(bucket, schema_struct.key, schema_struct.upload_id, opts) do
+      case Storage.abort_multipart_upload(bucket, schema_data.key, schema_data.upload_id, opts) do
         {:ok, metadata} ->
           with {:ok, res} <-
             do_abort_multipart_upload(
               bucket,
               query,
-              schema_struct,
+              schema_data,
               update_params,
               opts
             ) do
@@ -562,7 +558,7 @@ defmodule Uppy.Core do
           do_abort_multipart_upload(
             bucket,
             query,
-            schema_struct,
+            schema_data,
             update_params,
             opts
           )
@@ -575,39 +571,35 @@ defmodule Uppy.Core do
   end
 
   def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
-    with {:ok, schema_struct} <- DBAction.find(query, find_params, opts) do
-      abort_multipart_upload(bucket, query, schema_struct, update_params, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      abort_multipart_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
   defp do_abort_multipart_upload(
     bucket,
     query,
-    schema_struct,
+    schema_data,
     update_params,
     opts
   ) do
-    state = opts[:state] || :cancelled
-
-    unless state in [:discarded, :cancelled] do
-      raise ArgumentError, "expected state to be one of [:discarded, :cancelled]"
-    end
-
-    update_params = Map.put(update_params, :state, state)
-
     operation =
       fn ->
-        with {:ok, schema_struct} <- DBAction.update(query, schema_struct, update_params, opts) do
+        state = opts[:state] || :cancelled
+
+        update_params = Map.put(update_params, :state, state)
+
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
             with {:ok, delete_object_and_upload_job} <-
               Scheduler.queue_delete_object_and_upload(
                 bucket,
                 query,
-                schema_struct.id,
+                schema_data.id,
                 opts
               ) do
               {:ok, %{
-                schema_data: schema_struct,
+                schema_data: schema_data,
                 jobs: %{
                   delete_object_and_upload: delete_object_and_upload_job
                 }
@@ -627,26 +619,26 @@ defmodule Uppy.Core do
   """
   def start_multipart_upload(bucket, destination_object, query, create_params, opts) do
     with {:ok, multipart_upload} <- Storage.initiate_multipart_upload(bucket, destination_object, opts) do
-      create_params =
-        Map.merge(create_params, %{
-          state: :pending,
-          upload_id: multipart_upload.upload_id,
-          key: destination_object
-        })
-
       operation = fn ->
-        with {:ok, schema_struct} <- DBAction.create(query, create_params, opts) do
+        create_params =
+          Map.merge(create_params, %{
+            state: :pending,
+            upload_id: multipart_upload.upload_id,
+            key: destination_object
+          })
+
+        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
           if Keyword.get(opts, :scheduler_enabled, true) do
             with {:ok, abort_multipart_upload_job} <-
               Scheduler.queue_abort_multipart_upload(
                 bucket,
                 query,
-                schema_struct.id,
+                schema_data.id,
                 opts
               ) do
               {:ok, %{
                 multipart_upload: multipart_upload,
-                schema_data: schema_struct,
+                schema_data: schema_data,
                 jobs: %{
                   abort_multipart_upload: abort_multipart_upload_job
                 }

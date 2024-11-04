@@ -8,7 +8,7 @@ defmodule Uppy.DBAction do
   @type opts :: keyword()
   @type id :: integer() | binary()
   @type query :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()} | Ecto.Query.t()
-  @type schema_struct :: Ecto.Schema.t()
+  @type schema_data :: Ecto.Schema.t()
   @type params :: map()
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
@@ -19,9 +19,9 @@ defmodule Uppy.DBAction do
   Returns a list of database records.
   """
   @callback preload(
-    struct_or_structs :: schema_struct() | list(schema_struct()),
+    struct_or_structs :: schema_data() | list(schema_data()),
     opts :: opts()
-  ) :: list(schema_struct())
+  ) :: list(schema_data())
 
   @doc """
   Returns a list of database records.
@@ -29,7 +29,7 @@ defmodule Uppy.DBAction do
   @callback all(
     query :: query(),
     opts :: opts()
-  ) :: list(schema_struct())
+  ) :: list(schema_data())
 
   @doc """
   Returns a list of database records.
@@ -38,7 +38,7 @@ defmodule Uppy.DBAction do
     query :: query(),
     params :: params(),
     opts :: opts()
-  ) :: list(schema_struct())
+  ) :: list(schema_data())
 
   @doc """
   Creates a database record.
@@ -47,7 +47,7 @@ defmodule Uppy.DBAction do
               query :: query(),
               params :: params(),
               opts :: opts()
-            ) :: t_res(schema_struct())
+            ) :: t_res(schema_data())
 
   @doc """
   Fetches the database record.
@@ -56,7 +56,7 @@ defmodule Uppy.DBAction do
               query :: query(),
               params :: params(),
               opts :: opts()
-            ) :: t_res(schema_struct())
+            ) :: t_res(schema_data())
 
   @doc """
   Updates the database record.
@@ -66,14 +66,14 @@ defmodule Uppy.DBAction do
               id :: id(),
               params :: params(),
               opts :: opts()
-            ) :: t_res(schema_struct())
+            ) :: t_res(schema_data())
 
   @callback update(
               query :: query(),
-              schema_struct :: schema_struct(),
+              schema_data :: schema_data(),
               params :: params,
               opts :: opts()
-            ) :: t_res(schema_struct())
+            ) :: t_res(schema_data())
 
   @doc """
   Deletes the record from the database.
@@ -82,12 +82,12 @@ defmodule Uppy.DBAction do
               query :: query(),
               id :: id(),
               opts :: opts()
-            ) :: t_res(schema_struct())
+            ) :: t_res(schema_data())
 
   @callback delete(
-              schema_struct :: struct(),
+              schema_data :: struct(),
               opts :: opts()
-            ) :: t_res(schema_struct())
+            ) :: t_res(schema_data())
 
   @doc """
   Executes the function inside a transaction.
@@ -99,7 +99,12 @@ defmodule Uppy.DBAction do
   end
 
   def transaction(func, opts) do
-    adapter!(opts).transaction(func, opts)
+    case adapter!(opts).transaction(func, opts) do
+      {:ok, {:ok, _} = res} -> res
+      {:ok, {:error, _} = e} -> e
+      {:error, {:error, _} = e} -> e
+      res -> res
+    end
   end
 
   def all(query, opts) do
@@ -122,8 +127,8 @@ defmodule Uppy.DBAction do
     adapter!(opts).update(schema, id_or_struct, params, opts)
   end
 
-  def delete(schema_struct, opts) do
-    adapter!(opts).delete(schema_struct, opts)
+  def delete(schema_data, opts) do
+    adapter!(opts).delete(schema_data, opts)
   end
 
   def delete(schema, id, opts) do

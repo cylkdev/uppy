@@ -11,7 +11,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopyTest do
 
   describe "run/2" do
     test "copies schema data key object to destination object" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/<USER_ID>-user/unique_identifier-image.jpeg",
           state: :available
@@ -40,7 +40,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopyTest do
 
       assert {:ok, %Resolution{
         state: :unresolved,
-        value: ^schema_struct,
+        value: ^schema_data,
         context: %{
           destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
         }
@@ -49,7 +49,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopyTest do
           %Resolution{
             bucket: "uppy-test",
             state: :unresolved,
-            value: schema_struct,
+            value: schema_data,
             context: %{
               destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
             }

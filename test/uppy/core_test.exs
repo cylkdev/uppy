@@ -30,13 +30,13 @@ defmodule Uppy.CoreTest do
 
   describe "&process_upload/6: " do
     test "moves object to permanent path" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           state: :available
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       # Uppy.Phases.HeadSchemaObject
 
@@ -95,7 +95,7 @@ defmodule Uppy.CoreTest do
           @bucket,
           ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           nil,
           []
         )
@@ -121,7 +121,7 @@ defmodule Uppy.CoreTest do
           content_type: "text/plain",
           e_tag: "e_tag",
           # filename: nil,
-          id: ^schema_struct_id,
+          id: ^schema_data_id,
           key: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           last_modified: ~U[2024-07-24 01:00:00Z],
           # unique_identifier: nil,
@@ -135,16 +135,16 @@ defmodule Uppy.CoreTest do
 
   describe "&schedule_delete_object_and_upload/4" do
     test "when scheduler is enabled, set state to cancelled | insert garbage collection job" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       assert {:ok, %{
-        schema_data: delete_object_and_upload_schema_struct,
+        schema_data: delete_object_and_upload_schema_data,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
         }
@@ -152,7 +152,7 @@ defmodule Uppy.CoreTest do
         Core.schedule_delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           %{},
           []
         )
@@ -163,31 +163,31 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: nil,
         # assoc_id: nil,
         # user_id: nil
-      } = delete_object_and_upload_schema_struct
+      } = delete_object_and_upload_schema_data
 
       assert %Oban.Job{
         args: %{
           bucket: "uppy-test",
           event: "uppy.delete_object_and_upload",
           query: _,
-          id: ^schema_struct_id
+          id: ^schema_data_id
         },
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.ObanScheduler.GarbageCollectionWorker"
       } = delete_object_and_upload_job
 
       # record should exist
-      assert {:ok, %{id: ^schema_struct_id}} =
+      assert {:ok, %{id: ^schema_data_id}} =
         DBAction.find(
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
     end
@@ -195,13 +195,13 @@ defmodule Uppy.CoreTest do
 
   describe "&delete_object_and_upload/4" do
     test "when state is :cancelled, delete object | delete record" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       sandbox_head_object_payload =
         %{
@@ -241,13 +241,13 @@ defmodule Uppy.CoreTest do
         :ok,
         %{
           metadata: ^sandbox_head_object_payload,
-          schema_data: delete_object_and_upload_schema_struct
+          schema_data: delete_object_and_upload_schema_data
         }
       } =
         Core.delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
 
@@ -256,32 +256,32 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: nil,
         # assoc_id: nil,
         # user_id: nil
-      } = delete_object_and_upload_schema_struct
+      } = delete_object_and_upload_schema_data
 
       # record should be deleted
       assert {:error, %{code: :not_found}} =
         DBAction.find(
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
     end
 
     test "when state is :cancelled and delete_object returns an error, do not delete record" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       sandbox_head_object_payload =
         %{
@@ -304,27 +304,27 @@ defmodule Uppy.CoreTest do
         Core.delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
 
       # record should exist
-      assert {:ok, %{id: ^schema_struct_id}} =
+      assert {:ok, %{id: ^schema_data_id}} =
         DBAction.find(
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
     end
 
     test "when state is :cancelled and object not found, delete record" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           state: :cancelled,
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       # object does not exist
       StorageSandbox.set_head_object_responses([
@@ -333,12 +333,12 @@ defmodule Uppy.CoreTest do
 
       assert {
         :ok,
-        %{schema_data: delete_object_and_upload_schema_struct}
+        %{schema_data: delete_object_and_upload_schema_data}
       } =
         Core.delete_object_and_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
 
@@ -347,20 +347,20 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: nil,
         # assoc_id: nil,
         # user_id: nil
-      } = delete_object_and_upload_schema_struct
+      } = delete_object_and_upload_schema_data
 
       # record should be deleted
       assert {:error, %{code: :not_found}} =
         DBAction.find(
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           []
         )
     end
@@ -368,12 +368,12 @@ defmodule Uppy.CoreTest do
 
   describe "complete_upload: " do
     test "when scheduler is enabled, updates state to available | insert job" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       sandbox_head_object_response =
         %{
@@ -391,7 +391,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         metadata: ^sandbox_head_object_response,
-        schema_data: complete_upload_schema_struct,
+        schema_data: complete_upload_schema_data,
         jobs: %{
           process_upload: process_upload_job
         }
@@ -400,7 +400,7 @@ defmodule Uppy.CoreTest do
           @bucket,
           ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
-          schema_struct,
+          schema_data,
           %{},
           []
         )
@@ -411,21 +411,21 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: "e_tag", # should be sandbox value
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg", # should be in temp path
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: nil,
         # assoc_id: nil,
         # user_id: nil
-      } = complete_upload_schema_struct
+      } = complete_upload_schema_data
 
       assert %Oban.Job{
         args: %{
           event: "uppy.process_upload",
           bucket: "uppy-test",
           destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
-          id: ^schema_struct_id,
+          id: ^schema_data_id,
           query: _,
           pipeline: ""
         },
@@ -437,15 +437,15 @@ defmodule Uppy.CoreTest do
 
   describe "abort_upload: " do
     test "when scheduler is enabled, updates state to cancelled | insert job" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       assert {:ok, %{
-        schema_data: schema_struct,
+        schema_data: schema_data,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
         }
@@ -453,7 +453,7 @@ defmodule Uppy.CoreTest do
         Core.abort_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          schema_struct,
+          schema_data,
           %{},
           []
         )
@@ -464,20 +464,20 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         state: :cancelled, # should be cancelled
         # unique_identifier: nil,
         upload_id: nil
-      } = schema_struct
+      } = schema_data
 
       assert %Oban.Job{
         args: %{
           bucket: "uppy-test",
           event: "uppy.delete_object_and_upload",
           query: _,
-          id: ^schema_struct_id
+          id: ^schema_data_id
         },
         queue: "garbage_collection",
         worker: "Uppy.Schedulers.ObanScheduler.GarbageCollectionWorker"
@@ -489,7 +489,7 @@ defmodule Uppy.CoreTest do
     test "when scheduler is enabled, creates record with pending state | create presigned upload | insert job" do
       assert {:ok, %{
         presigned_upload: presigned_upload,
-        schema_data: schema_struct,
+        schema_data: schema_data,
         jobs: %{
           abort_upload: abort_upload_job
         }
@@ -516,20 +516,20 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: schema_struct_id,
+        id: schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         state: :pending, # should be pending
         # unique_identifier: nil,
         upload_id: nil
-      } = schema_struct
+      } = schema_data
 
       assert %Oban.Job{
         args: %{
           event: "uppy.abort_upload",
           bucket: "uppy-test",
           query: _,
-          id: ^schema_struct_id
+          id: ^schema_data_id
         },
         queue: "expired_upload",
         worker: "Uppy.Schedulers.ObanScheduler.ExpiredUploadWorker"
@@ -541,13 +541,13 @@ defmodule Uppy.CoreTest do
 
   describe "find_parts: " do
     test "returns a list of parts from storage" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           upload_id: "upload_id"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       sandbox_list_parts_payload =
         [
@@ -564,12 +564,12 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         parts: ^sandbox_list_parts_payload,
-        schema_data: find_parts_schema_struct
+        schema_data: find_parts_schema_data
       }} =
         Core.find_parts(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           nil,
           []
         )
@@ -580,38 +580,38 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: "upload_id",
         # assoc_id: nil,
         # user_id: nil
-      } = find_parts_schema_struct
+      } = find_parts_schema_data
     end
   end
 
   describe "presigned_part: " do
     test "returns presigned part payload and expected record" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           upload_id: "upload_id"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       assert {:ok, %{
         presigned_part: %{
           url: "https://presigned.url/temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           expires_at: ~U[2024-07-24 01:00:00Z]
         },
-        schema_data: presigned_part_schema_struct
+        schema_data: presigned_part_schema_data
       }} =
         Core.presigned_part(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           1,
           []
         )
@@ -622,26 +622,26 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: "upload_id",
         # assoc_id: nil,
         # user_id: nil,
-      } = presigned_part_schema_struct
+      } = presigned_part_schema_data
     end
   end
 
   describe "complete_multipart_upload: " do
     test "when scheduler is enabled, updates state to available | insert job" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           upload_id: "upload_id"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       sandbox_head_object_payload = %{
         content_length: 11,
@@ -670,7 +670,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         metadata: ^sandbox_head_object_payload,
-        schema_data: complete_multipart_upload_schema_struct,
+        schema_data: complete_multipart_upload_schema_data,
         jobs: %{
           process_upload: process_upload_job
         }
@@ -679,7 +679,7 @@ defmodule Uppy.CoreTest do
           @bucket,
           ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           %{},
           [{1, "e_tag"}],
           []
@@ -691,21 +691,21 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: "e_tag", # should be sandbox value
         # filename: nil,
-        id: ^schema_struct_id,
+        id: ^schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg", # should be in temp path
         last_modified: nil,
         # unique_identifier: nil,
         upload_id: "upload_id", # should be set
         # assoc_id: nil,
         # user_id: nil
-      } = complete_multipart_upload_schema_struct
+      } = complete_multipart_upload_schema_data
 
       assert %Oban.Job{
         args: %{
           event: "uppy.process_upload",
           bucket: "uppy-test",
           destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
-          id: ^schema_struct_id,
+          id: ^schema_data_id,
           pipeline: "",
           query: _,
         },
@@ -717,13 +717,13 @@ defmodule Uppy.CoreTest do
 
   describe "abort_multipart_upload: " do
     test "when scheduler is enabled, updates state to cancelled | insert job" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           upload_id: "upload_id"
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       StorageSandbox.set_abort_multipart_upload_responses([
         {
@@ -744,7 +744,7 @@ defmodule Uppy.CoreTest do
       ])
 
       assert {:ok, %{
-        schema_data: abort_upload_schema_struct,
+        schema_data: abort_upload_schema_data,
         metadata: abort_upload_metadata,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
@@ -753,7 +753,7 @@ defmodule Uppy.CoreTest do
         Core.abort_multipart_upload(
           @bucket,
           {"user_avatar_file_infos", FileInfoAbstract},
-          %{id: schema_struct_id},
+          %{id: schema_data_id},
           %{},
           []
         )
@@ -769,13 +769,13 @@ defmodule Uppy.CoreTest do
         status_code: 204
       } = abort_upload_metadata
 
-      assert schema_struct_id === abort_upload_schema_struct.id
+      assert schema_data_id === abort_upload_schema_data.id
 
       assert %Oban.Job{
         args: %{
           event: "uppy.delete_object_and_upload",
           bucket: "uppy-test",
-          id: ^schema_struct_id,
+          id: ^schema_data_id,
           query: _
         },
         queue: "garbage_collection",
@@ -801,7 +801,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         multipart_upload: multipart_upload,
-        schema_data: schema_struct,
+        schema_data: schema_data,
         jobs: %{
           abort_multipart_upload: abort_multipart_upload_job
         }
@@ -825,20 +825,20 @@ defmodule Uppy.CoreTest do
         content_type: nil,
         e_tag: nil,
         # filename: nil,
-        id: schema_struct_id,
+        id: schema_data_id,
         key: "temp/>DI_RESU<-user/unique_identifier-image.jpeg",
         last_modified: nil,
         state: :pending, # should be pending
         # unique_identifier: nil,
         upload_id: "upload_id" # upload_id should be set
-      } = schema_struct
+      } = schema_data
 
       assert %Oban.Job{
         args: %{
           event: "uppy.abort_multipart_upload",
           bucket: "uppy-test",
           query: _,
-          id: ^schema_struct_id
+          id: ^schema_data_id
         },
         queue: "expired_upload",
         worker: "Uppy.Schedulers.ObanScheduler.ExpiredUploadWorker"

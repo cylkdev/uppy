@@ -9,7 +9,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
 
   @type resolution :: map()
   @type schema :: Ecto.Queryable.t()
-  @type schema_struct :: Ecto.Schema.t()
+  @type schema_data :: Ecto.Schema.t()
   @type params :: map()
   @type opts :: keyword()
 
@@ -27,7 +27,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
       state: :unresolved,
       bucket: bucket,
       context: context,
-      value: schema_struct,
+      value: schema_data,
     } = resolution,
     opts
   ) do
@@ -36,7 +36,7 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
         bucket,
         context.destination_object,
         bucket,
-        schema_struct.key,
+        schema_data.key,
         opts
       ) do
       {:ok, Resolution.put_private(resolution, __MODULE__, %{

@@ -20,7 +20,7 @@ defmodule Uppy.Phases.PutPermanentImageObjectCopy do
       state: :unresolved,
       context: context,
       bucket: bucket,
-      value: schema_struct,
+      value: schema_data,
     } = resolution,
     opts
   ) do
@@ -31,7 +31,7 @@ defmodule Uppy.Phases.PutPermanentImageObjectCopy do
             bucket,
             context.destination_object,
             %{},
-            schema_struct.key,
+            schema_data.key,
             opts
           ) do
           {:ok, Resolution.put_private(resolution, __MODULE__, %{

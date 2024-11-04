@@ -11,13 +11,13 @@ defmodule Uppy.Phases.UpdateSchemaMetadataTest do
 
   describe "run/2" do
     test "copies schema data key object to destination object" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/<USER_ID>-user/unique_identifier-image.jpeg",
           state: :available
         })
 
-      schema_struct_id = schema_struct.id
+      schema_data_id = schema_data.id
 
       assert {:ok, %Resolution{
         state: :resolved,
@@ -25,7 +25,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadataTest do
           content_length: 11,
           content_type: "text/plain",
           e_tag: "e_tag",
-          id: ^schema_struct_id,
+          id: ^schema_data_id,
           key: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           last_modified: ~U[2024-07-24 01:00:00Z],
           upload_id: nil
@@ -39,7 +39,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadataTest do
             bucket: "uppy-test",
             query: {"user_avatar_file_infos", FileInfoAbstract},
             state: :unresolved,
-            value: schema_struct,
+            value: schema_data,
             context: %{
               destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
               metadata: %{

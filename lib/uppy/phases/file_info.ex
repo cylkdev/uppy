@@ -19,13 +19,13 @@ defmodule Uppy.Phases.FileInfo do
     %{
       state: :unresolved,
       bucket: bucket,
-      value: schema_struct,
+      value: schema_data,
     } = resolution,
     opts
   ) do
     Uppy.Utils.Logger.debug(@logger_prefix, "run | BEGIN | executing file info phase")
 
-    case describe_object_chunk(bucket, schema_struct.key, opts) do
+    case describe_object_chunk(bucket, schema_data.key, opts) do
       {:ok, file_info} ->
         Uppy.Utils.Logger.debug(@logger_prefix, "run | OK | retrieved file info\n\n#{inspect(file_info, pretty: true)}")
 

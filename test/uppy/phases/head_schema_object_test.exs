@@ -13,7 +13,7 @@ defmodule Uppy.Phases.HeadSchemaObjectTest do
 
   describe "run/2" do
     test "adds metadata to context" do
-      schema_struct =
+      schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
           key: "temp/<USER_ID>-user/unique_identifier-image.jpeg",
           state: :available
@@ -36,7 +36,7 @@ defmodule Uppy.Phases.HeadSchemaObjectTest do
 
       assert {:ok, %Resolution{
         state: :unresolved,
-        value: ^schema_struct,
+        value: ^schema_data,
         context: %{
           destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
           # metadata data from storage should exist
@@ -52,7 +52,7 @@ defmodule Uppy.Phases.HeadSchemaObjectTest do
           %Resolution{
             bucket: "uppy-test",
             state: :unresolved,
-            value: schema_struct,
+            value: schema_data,
             context: %{
               destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
             }

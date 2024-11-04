@@ -12,7 +12,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
       state: :unresolved,
       context: context,
       query: query,
-      value: schema_struct
+      value: schema_data
     } = resolution,
     opts
   ) do
@@ -23,10 +23,10 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
         context.metadata.content_type
       end
 
-    with {:ok, schema_struct} <-
+    with {:ok, schema_data} <-
       DBAction.update(
         query,
-        schema_struct,
+        schema_data,
         %{
           state: :completed,
           key: context.destination_object,
@@ -37,7 +37,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
         },
         opts
       ) do
-      {:ok, Resolution.put_result(resolution, schema_struct)}
+      {:ok, Resolution.put_result(resolution, schema_data)}
     end
   end
 
