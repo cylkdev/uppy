@@ -144,7 +144,7 @@ defmodule Uppy.CoreTest do
       schema_struct_id = schema_struct.id
 
       assert {:ok, %{
-        schema_struct: delete_object_and_upload_schema_struct,
+        schema_data: delete_object_and_upload_schema_struct,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
         }
@@ -241,7 +241,7 @@ defmodule Uppy.CoreTest do
         :ok,
         %{
           metadata: ^sandbox_head_object_payload,
-          schema_struct: delete_object_and_upload_schema_struct
+          schema_data: delete_object_and_upload_schema_struct
         }
       } =
         Core.delete_object_and_upload(
@@ -333,7 +333,7 @@ defmodule Uppy.CoreTest do
 
       assert {
         :ok,
-        %{schema_struct: delete_object_and_upload_schema_struct}
+        %{schema_data: delete_object_and_upload_schema_struct}
       } =
         Core.delete_object_and_upload(
           @bucket,
@@ -391,7 +391,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         metadata: ^sandbox_head_object_response,
-        schema_struct: complete_upload_schema_struct,
+        schema_data: complete_upload_schema_struct,
         jobs: %{
           process_upload: process_upload_job
         }
@@ -445,7 +445,7 @@ defmodule Uppy.CoreTest do
       schema_struct_id = schema_struct.id
 
       assert {:ok, %{
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
         }
@@ -489,7 +489,7 @@ defmodule Uppy.CoreTest do
     test "when scheduler is enabled, creates record with pending state | create presigned upload | insert job" do
       assert {:ok, %{
         presigned_upload: presigned_upload,
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         jobs: %{
           abort_upload: abort_upload_job
         }
@@ -564,7 +564,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         parts: ^sandbox_list_parts_payload,
-        schema_struct: find_parts_schema_struct
+        schema_data: find_parts_schema_struct
       }} =
         Core.find_parts(
           @bucket,
@@ -606,7 +606,7 @@ defmodule Uppy.CoreTest do
           url: "https://presigned.url/temp/>DI_RESU<-user/unique_identifier-image.jpeg",
           expires_at: ~U[2024-07-24 01:00:00Z]
         },
-        schema_struct: presigned_part_schema_struct
+        schema_data: presigned_part_schema_struct
       }} =
         Core.presigned_part(
           @bucket,
@@ -670,7 +670,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         metadata: ^sandbox_head_object_payload,
-        schema_struct: complete_multipart_upload_schema_struct,
+        schema_data: complete_multipart_upload_schema_struct,
         jobs: %{
           process_upload: process_upload_job
         }
@@ -744,7 +744,7 @@ defmodule Uppy.CoreTest do
       ])
 
       assert {:ok, %{
-        schema_struct: abort_upload_schema_struct,
+        schema_data: abort_upload_schema_struct,
         metadata: abort_upload_metadata,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
@@ -801,7 +801,7 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         multipart_upload: multipart_upload,
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         jobs: %{
           abort_multipart_upload: abort_multipart_upload_job
         }

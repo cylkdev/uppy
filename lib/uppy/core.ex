@@ -82,31 +82,24 @@ defmodule Uppy.Core do
   ...
   """
   def delete_object_and_upload(bucket, _query, %_{} = schema_struct, opts) do
-    if schema_struct.state in [:discarded, :cancelled] do
-      case Storage.head_object(bucket, schema_struct.key, opts) do
-        {:ok, metadata} ->
-          with {:ok, _} <- Storage.delete_object(bucket, schema_struct.key, opts),
-            {:ok, schema_struct} <- DBAction.delete(schema_struct, opts) do
-            {:ok, %{
-              metadata: metadata,
-              schema_struct: schema_struct
-            }}
-          end
+    case Storage.head_object(bucket, schema_struct.key, opts) do
+      {:ok, metadata} ->
+        with {:ok, _} <- Storage.delete_object(bucket, schema_struct.key, opts),
+          {:ok, schema_struct} <- DBAction.delete(schema_struct, opts) do
+          {:ok, %{
+            metadata: metadata,
+            schema_data: schema_struct
+          }}
+        end
 
-        {:error, %{code: :not_found}} ->
-          with {:ok, schema_struct} <- DBAction.delete(schema_struct, opts) do
-            {:ok, %{schema_struct: schema_struct}}
-          end
+      {:error, %{code: :not_found}} ->
+        with {:ok, schema_struct} <- DBAction.delete(schema_struct, opts) do
+          {:ok, %{schema_data: schema_struct}}
+        end
 
-        {:error, _} = error ->
-          error
+      {:error, _} = error ->
+        error
 
-      end
-    else
-      {:error, Error.call(:forbidden, "expected a state of discarded or cancelled", %{
-        bucket: bucket,
-        schema_struct: schema_struct
-      })}
     end
   end
 
@@ -133,7 +126,7 @@ defmodule Uppy.Core do
           opts
         ) do
       {:ok, %{
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         jobs: %{
           delete_object_and_upload: delete_object_and_upload_job
         }
@@ -160,7 +153,7 @@ defmodule Uppy.Core do
   ) do
     if schema_struct.upload_id do
       {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         query: query,
         bucket: bucket
       })}
@@ -234,7 +227,7 @@ defmodule Uppy.Core do
               ) do
               {:ok, %{
                 metadata: metadata,
-                schema_struct: schema_struct,
+                schema_data: schema_struct,
                 jobs: %{
                   process_upload: process_upload_job
                 }
@@ -255,7 +248,7 @@ defmodule Uppy.Core do
   def abort_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
     if schema_struct.upload_id do
       {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         query: query,
         bucket: bucket
       })}
@@ -294,7 +287,7 @@ defmodule Uppy.Core do
             opts
           ) do
           {:ok, %{
-            schema_struct: schema_struct,
+            schema_data: schema_struct,
             jobs: %{
               delete_object_and_upload: delete_object_and_upload_job
             }
@@ -329,7 +322,7 @@ defmodule Uppy.Core do
               ) do
               {:ok, %{
                 presigned_upload: presigned_upload,
-                schema_struct: schema_struct,
+                schema_data: schema_struct,
                 jobs: %{
                   abort_upload: abort_upload_job
                 }
@@ -359,7 +352,7 @@ defmodule Uppy.Core do
   ) do
     if is_nil(schema_struct.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
-        schema_struct: schema_struct
+        schema_data: schema_struct
       })}
     else
       with {:ok, parts} <-
@@ -372,7 +365,7 @@ defmodule Uppy.Core do
         ) do
         {:ok, %{
           parts: parts,
-          schema_struct: schema_struct
+          schema_data: schema_struct
         }}
       end
     end
@@ -392,7 +385,7 @@ defmodule Uppy.Core do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
         bucket: bucket,
         query: query,
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         part_number: part_number
       })}
     else
@@ -406,7 +399,7 @@ defmodule Uppy.Core do
           ) do
         {:ok, %{
           presigned_part: presigned_part,
-          schema_struct: schema_struct
+          schema_data: schema_struct
         }}
       end
     end
@@ -432,7 +425,7 @@ defmodule Uppy.Core do
   ) do
     if is_nil(schema_struct.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         query: query
       })}
     else
@@ -508,7 +501,7 @@ defmodule Uppy.Core do
               ) do
               {:ok, %{
                 metadata: metadata,
-                schema_struct: schema_struct,
+                schema_data: schema_struct,
                 jobs: %{
                   process_upload: process_upload_job
                 }
@@ -548,7 +541,7 @@ defmodule Uppy.Core do
   def abort_multipart_upload(bucket, query, %_{} = schema_struct, update_params, opts) do
     if is_nil(schema_struct.upload_id) do
       {:error, Error.call(:forbidden, "expected a multipart upload", %{
-        schema_struct: schema_struct,
+        schema_data: schema_struct,
         query: query
       })}
     else
@@ -614,7 +607,7 @@ defmodule Uppy.Core do
                 opts
               ) do
               {:ok, %{
-                schema_struct: schema_struct,
+                schema_data: schema_struct,
                 jobs: %{
                   delete_object_and_upload: delete_object_and_upload_job
                 }
@@ -653,7 +646,7 @@ defmodule Uppy.Core do
               ) do
               {:ok, %{
                 multipart_upload: multipart_upload,
-                schema_struct: schema_struct,
+                schema_data: schema_struct,
                 jobs: %{
                   abort_multipart_upload: abort_multipart_upload_job
                 }
