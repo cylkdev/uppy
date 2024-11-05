@@ -111,235 +111,6 @@ defmodule Uppy.Core do
     end
   end
 
-  ## Non-Multipart API
-
-  @doc """
-  ...
-  """
-  def queue_upload_for_deletion(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put(update_params, :state, :cancelled)
-
-    with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts),
-      {:ok, delete_object_and_upload_job} <-
-        Scheduler.queue_delete_object_and_upload(
-          bucket,
-          query,
-          schema_data.id,
-          opts
-        ) do
-      {:ok, %{
-        schema_data: schema_data,
-        jobs: %{
-          delete_object_and_upload: delete_object_and_upload_job
-        }
-      }}
-    end
-  end
-
-  def queue_upload_for_deletion(bucket, query, find_params, update_params, opts) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      queue_upload_for_deletion(bucket, query, schema_data, update_params, opts)
-    end
-  end
-
-  @doc """
-  ...
-  """
-  def complete_upload(
-    bucket,
-    destination_object,
-    query,
-    %_{} = schema_data,
-    update_params,
-    opts
-  ) do
-    if schema_data.upload_id do
-      {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-        schema_data: schema_data,
-        query: query,
-        bucket: bucket
-      })}
-    else
-      case Storage.head_object(bucket, schema_data.key, opts) do
-        {:ok, metadata} ->
-          do_complete_upload(
-            bucket,
-            destination_object,
-            query,
-            schema_data,
-            update_params,
-            metadata,
-            opts
-          )
-
-        {:error, _} = error ->
-          error
-
-      end
-    end
-  end
-
-  def complete_upload(
-    bucket,
-    destination_object,
-    query,
-    find_params,
-    update_params,
-    opts
-  ) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(
-        bucket,
-        destination_object,
-        query,
-        schema_data,
-        update_params,
-        opts
-      )
-    end
-  end
-
-  defp do_complete_upload(
-    bucket,
-    destination_object,
-    query,
-    schema_data,
-    update_params,
-    metadata,
-    opts
-  ) do
-    operation =
-      fn ->
-        update_params =
-          Map.merge(update_params, %{
-            state: :available,
-            e_tag: metadata.e_tag
-          })
-
-        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-          if Keyword.get(opts, :scheduler_enabled, true) do
-            with {:ok, move_upload_job} <-
-              Scheduler.queue_move_upload(
-                bucket,
-                destination_object,
-                query,
-                schema_data.id,
-                opts[:pipeline],
-                opts
-              ) do
-              {:ok, %{
-                metadata: metadata,
-                schema_data: schema_data,
-                jobs: %{
-                  move_upload: move_upload_job
-                }
-              }}
-            end
-          else
-            raise "not implemented"
-          end
-        end
-      end
-
-    DBAction.transaction(operation, opts)
-  end
-
-  @doc """
-  ...
-  """
-  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    if schema_data.upload_id do
-      {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
-        schema_data: schema_data,
-        query: query,
-        bucket: bucket
-      })}
-    else
-      do_abort_upload(bucket, query, schema_data, update_params, opts)
-    end
-  end
-
-  def abort_upload(bucket, query, find_params, update_params, opts) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_upload(bucket, query, schema_data, update_params, opts)
-    end
-  end
-
-  defp do_abort_upload(bucket, query, schema_data, update_params, opts) do
-    state = opts[:state] || :cancelled
-
-    unless state in @stale_states do
-      raise ArgumentError, "Expected state to be one of #{inspect(@stale_states)}"
-    end
-
-    update_params = Map.put(update_params, :state, state)
-
-    operation =
-      fn ->
-        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-          if Keyword.get(opts, :scheduler_enabled, true) do
-            with {:ok, delete_object_and_upload_job} <-
-              Scheduler.queue_delete_object_and_upload(
-                bucket,
-                query,
-                schema_data.id,
-                opts
-              ) do
-              {:ok, %{
-                schema_data: schema_data,
-                jobs: %{
-                  delete_object_and_upload: delete_object_and_upload_job
-                }
-              }}
-            end
-          else
-            raise "not implemented"
-          end
-        end
-      end
-
-    DBAction.transaction(operation, opts)
-  end
-
-  @doc """
-  ...
-  """
-  def start_upload(bucket, destination_object, query, create_params, opts) do
-    create_params =
-      Map.merge(create_params, %{
-        state: :pending,
-        key: destination_object
-      })
-
-    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, destination_object, opts) do
-      operation = fn ->
-        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
-          if Keyword.get(opts, :scheduler_enabled, true) do
-            with {:ok, abort_upload_job} <-
-              Scheduler.queue_abort_upload(
-                bucket,
-                query,
-                schema_data.id,
-                opts
-              ) do
-              {:ok, %{
-                presigned_upload: presigned_upload,
-                schema_data: schema_data,
-                jobs: %{
-                  abort_upload: abort_upload_job
-                }
-              }}
-            end
-          else
-            raise "not implemented"
-          end
-        end
-      end
-
-      DBAction.transaction(operation, opts)
-    end
-  end
-
   ## Multipart API
 
   @doc """
@@ -651,6 +422,235 @@ defmodule Uppy.Core do
                 schema_data: schema_data,
                 jobs: %{
                   abort_multipart_upload: abort_multipart_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
+        end
+      end
+
+      DBAction.transaction(operation, opts)
+    end
+  end
+
+  ## Non-Multipart API
+
+  @doc """
+  ...
+  """
+  def queue_upload_for_deletion(bucket, query, %_{} = schema_data, update_params, opts) do
+    update_params = Map.put(update_params, :state, :cancelled)
+
+    with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts),
+      {:ok, delete_object_and_upload_job} <-
+        Scheduler.queue_delete_object_and_upload(
+          bucket,
+          query,
+          schema_data.id,
+          opts
+        ) do
+      {:ok, %{
+        schema_data: schema_data,
+        jobs: %{
+          delete_object_and_upload: delete_object_and_upload_job
+        }
+      }}
+    end
+  end
+
+  def queue_upload_for_deletion(bucket, query, find_params, update_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      queue_upload_for_deletion(bucket, query, schema_data, update_params, opts)
+    end
+  end
+
+  @doc """
+  ...
+  """
+  def complete_upload(
+    bucket,
+    destination_object,
+    query,
+    %_{} = schema_data,
+    update_params,
+    opts
+  ) do
+    if schema_data.upload_id do
+      {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
+        schema_data: schema_data,
+        query: query,
+        bucket: bucket
+      })}
+    else
+      case Storage.head_object(bucket, schema_data.key, opts) do
+        {:ok, metadata} ->
+          do_complete_upload(
+            bucket,
+            destination_object,
+            query,
+            schema_data,
+            update_params,
+            metadata,
+            opts
+          )
+
+        {:error, _} = error ->
+          error
+
+      end
+    end
+  end
+
+  def complete_upload(
+    bucket,
+    destination_object,
+    query,
+    find_params,
+    update_params,
+    opts
+  ) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      complete_upload(
+        bucket,
+        destination_object,
+        query,
+        schema_data,
+        update_params,
+        opts
+      )
+    end
+  end
+
+  defp do_complete_upload(
+    bucket,
+    destination_object,
+    query,
+    schema_data,
+    update_params,
+    metadata,
+    opts
+  ) do
+    operation =
+      fn ->
+        update_params =
+          Map.merge(update_params, %{
+            state: :available,
+            e_tag: metadata.e_tag
+          })
+
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, move_upload_job} <-
+              Scheduler.queue_move_upload(
+                bucket,
+                destination_object,
+                query,
+                schema_data.id,
+                opts[:pipeline],
+                opts
+              ) do
+              {:ok, %{
+                metadata: metadata,
+                schema_data: schema_data,
+                jobs: %{
+                  move_upload: move_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
+        end
+      end
+
+    DBAction.transaction(operation, opts)
+  end
+
+  @doc """
+  ...
+  """
+  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+    if schema_data.upload_id do
+      {:error, Error.call(:forbidden, "expected a non-multipart upload", %{
+        schema_data: schema_data,
+        query: query,
+        bucket: bucket
+      })}
+    else
+      do_abort_upload(bucket, query, schema_data, update_params, opts)
+    end
+  end
+
+  def abort_upload(bucket, query, find_params, update_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      abort_upload(bucket, query, schema_data, update_params, opts)
+    end
+  end
+
+  defp do_abort_upload(bucket, query, schema_data, update_params, opts) do
+    state = opts[:state] || :cancelled
+
+    unless state in @stale_states do
+      raise ArgumentError, "Expected state to be one of #{inspect(@stale_states)}"
+    end
+
+    update_params = Map.put(update_params, :state, state)
+
+    operation =
+      fn ->
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, delete_object_and_upload_job} <-
+              Scheduler.queue_delete_object_and_upload(
+                bucket,
+                query,
+                schema_data.id,
+                opts
+              ) do
+              {:ok, %{
+                schema_data: schema_data,
+                jobs: %{
+                  delete_object_and_upload: delete_object_and_upload_job
+                }
+              }}
+            end
+          else
+            raise "not implemented"
+          end
+        end
+      end
+
+    DBAction.transaction(operation, opts)
+  end
+
+  @doc """
+  ...
+  """
+  def start_upload(bucket, destination_object, query, create_params, opts) do
+    create_params =
+      Map.merge(create_params, %{
+        state: :pending,
+        key: destination_object
+      })
+
+    with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, destination_object, opts) do
+      operation = fn ->
+        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
+          if Keyword.get(opts, :scheduler_enabled, true) do
+            with {:ok, abort_upload_job} <-
+              Scheduler.queue_abort_upload(
+                bucket,
+                query,
+                schema_data.id,
+                opts
+              ) do
+              {:ok, %{
+                presigned_upload: presigned_upload,
+                schema_data: schema_data,
+                jobs: %{
+                  abort_upload: abort_upload_job
                 }
               }}
             end

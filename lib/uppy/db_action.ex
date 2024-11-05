@@ -103,7 +103,7 @@ defmodule Uppy.DBAction do
       {:ok, {:ok, _} = res} -> res
       {:ok, {:error, _} = e} -> e
       {:error, {:error, _} = e} -> e
-      res -> res
+      {:error, _} = e -> e
     end
   end
 

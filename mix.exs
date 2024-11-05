@@ -49,7 +49,7 @@ defmodule Uppy.MixProject do
       {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
       {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
 
       {:finch, "~> 0.18.0", optional: true},
       {:proper_case, "~> 1.3", optional: true},
