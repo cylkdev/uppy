@@ -6,16 +6,16 @@ defmodule Uppy.Schemas.FileInfoAbstract do
   @timestamps_opts [type: :utc_datetime]
 
   @pending :pending
-
-  @states [
-    :pending, # waiting to be uploaded
-    :discarded, # timed out
-    :available, # file confirmed to exists,
-    :completed # file processed
+  @statuses [
+    @pending,   # waiting for object to be uploaded
+    :discarded, # upload marked as stale and object can be deleted
+    :available, # object exists in storage
+    :completed, # object processed and moved to permanent path
+    :cancelled  # upload cancelled by user
   ]
 
   schema "abstract table: file_infos" do
-    field :state, Ecto.Enum, values: @states, default: @pending
+    field :status, Ecto.Enum, values: @statuses, default: @pending
 
     field :assoc_id, :integer
 
@@ -33,7 +33,7 @@ defmodule Uppy.Schemas.FileInfoAbstract do
   @required_fields [:key]
 
   @allowed_fields [
-    :state,
+    :status,
     # :assoc_id,
     :content_length,
     :content_type,

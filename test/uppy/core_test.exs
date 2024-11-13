@@ -65,7 +65,6 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        state: :pending,
         content_length: nil,
         content_type: nil,
         e_tag: nil,
@@ -103,7 +102,6 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        state: :pending,
         content_length: nil,
         content_type: nil,
         e_tag: nil,
@@ -164,7 +162,6 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        state: :available,
         content_length: nil,
         content_type: nil,
         e_tag: "e_tag", # should be sandbox value
@@ -248,7 +245,6 @@ defmodule Uppy.CoreTest do
         )
 
       assert %Uppy.Schemas.FileInfoAbstract{
-        state: :pending,
         content_length: nil,
         content_type: nil,
         e_tag: nil,
@@ -341,7 +337,6 @@ defmodule Uppy.CoreTest do
         },
         bucket: @bucket,
         value: %Uppy.Schemas.FileInfoAbstract{
-          state: :completed,
           content_length: 11,
           content_type: "text/plain",
           e_tag: "e_tag",
@@ -392,7 +387,6 @@ defmodule Uppy.CoreTest do
         id: ^schema_data_id,
         key: "temp/image.jpeg", # should be in temp path
         last_modified: nil,
-        state: :available,
         upload_id: nil,
       } = confirm_upload_schema_data
     end
@@ -410,7 +404,6 @@ defmodule Uppy.CoreTest do
 
       assert {:ok, %{
         schema_data: %Uppy.Schemas.FileInfoAbstract{
-          state: :discarded,
           content_length: nil,
           content_type: nil,
           e_tag: nil,
@@ -444,7 +437,6 @@ defmodule Uppy.CoreTest do
           id: _id,
           key: "temp/image.jpeg",
           last_modified: nil,
-          state: :pending,
           upload_id: nil
         }
       }} =

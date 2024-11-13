@@ -5,7 +5,7 @@ defmodule Uppy.Repo.Migrations.CreateUserAvatarFileInfos do
     create table(:user_avatar_file_infos) do
       add :assoc_id, references(:user_avatars, on_update: :update_all)
 
-      add :state, :text, null: false
+      add :status, :text, null: false
 
       add :key, :text, null: false
       add :upload_id, :text

@@ -8,10 +8,6 @@ defmodule Uppy.Core do
     Storage
   }
 
-  @available :available
-  @discarded :discarded
-  @pending :pending
-
   def process_upload(
     bucket,
     query,
@@ -131,10 +127,7 @@ defmodule Uppy.Core do
         DBAction.update(
           query,
           schema_data,
-          Map.merge(update_params, %{
-            e_tag: metadata.e_tag,
-            state: @available
-          }),
+          Map.put(update_params, :e_tag, metadata.e_tag),
           opts
         ) do
       {:ok, %{
@@ -191,13 +184,7 @@ defmodule Uppy.Core do
           schema_data.upload_id,
           opts
         ),
-      {:ok, schema_data} <-
-        DBAction.update(
-          query,
-          schema_data,
-          Map.put(update_params, :state, @discarded),
-          opts
-        ) do
+      {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
       {:ok, %{
         metadata: metadata,
         schema_data: schema_data
@@ -236,10 +223,7 @@ defmodule Uppy.Core do
         DBAction.update(
           query,
           schema_data,
-          Map.merge(update_params, %{
-            e_tag: metadata.e_tag,
-            state: @available
-          }),
+          Map.put(update_params, :e_tag, metadata.e_tag),
           opts
         ) do
       {:ok, %{
@@ -266,13 +250,7 @@ defmodule Uppy.Core do
         })}
 
       {:error, %{code: :not_found}} ->
-        with {:ok, schema_data} <-
-          DBAction.update(
-            query,
-            schema_data,
-            Map.put(update_params, :state, @discarded),
-            opts
-          ) do
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
           {:ok, %{schema_data: schema_data}}
         end
 
@@ -292,12 +270,7 @@ defmodule Uppy.Core do
     create_params = Map.put(create_params, :key, key)
 
     with {:ok, presigned_upload} <- Storage.presigned_upload(bucket, key, opts),
-      {:ok, schema_data} <-
-        DBAction.create(
-          query,
-          Map.put(create_params, :state, @pending),
-          opts
-        ) do
+      {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
       {:ok, %{
         presigned_upload: presigned_upload,
         schema_data: schema_data

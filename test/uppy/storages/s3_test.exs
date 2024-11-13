@@ -7,7 +7,7 @@ defmodule Uppy.Storages.S3Test do
   @bucket "uppy-test"
 
   setup_all do
-    {:ok, _} = S3.put_object(@bucket, "seed.txt", "Hello world!", [])
+    {:ok, _} = S3.put_object("uppy-test", "seed.txt", "Hello world!", [])
   end
 
   describe "download_chunk_stream/4: " do
