@@ -28,7 +28,7 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
         query,
         schema_data,
         %{
-          state: :completed,
+          status: :completed,
           key: context.destination_object,
           e_tag: context.metadata.e_tag,
           content_type: content_type,
