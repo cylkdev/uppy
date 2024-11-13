@@ -13,16 +13,4 @@ if Mix.env() === :test do
     stacktrace: true,
     pool: Ecto.Adapters.SQL.Sandbox,
     pool_size: 10
-else
-  config :uppy, Uppy.Repo,
-    username: "postgres",
-    database: "uppy_test",
-    hostname: "localhost",
-    pool_size: 10,
-    show_sensitive_data_on_connection_error: true,
-    stacktrace: true
-end
-
-if is_nil(System.get_env("CI")) and File.exists?(Path.expand("config.secret.exs", __DIR__)) do
-  import_config "config.secret.exs"
 end

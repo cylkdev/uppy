@@ -10,7 +10,7 @@ defmodule Uppy.MixProject do
       version: @version,
       elixir: "~> 1.0",
       elixirc_paths: elixirc_paths(Mix.env()),
-      start_permanent: Mix.env() == :prod,
+      start_permanent: Mix.env() === :prod,
       deps: deps(),
       description: "Declarative comparisons and changes",
       docs: docs(),
@@ -51,16 +51,17 @@ defmodule Uppy.MixProject do
       {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
 
-      {:finch, "~> 0.18.0", optional: true},
+      {:sandbox_registry, "~> 0.1", only: :test, optional: true},
+      {:faker, "~> 0.18", only: :test, optional: true},
+
+      {:finch, "~> 0.17.0", optional: true},
       {:proper_case, "~> 1.3", optional: true},
       {:tzdata, "~> 1.1"},
 
       {:oban, "~> 2.17", optional: true},
 
       {:error_message, "~> 0.3.0", optional: true},
-      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "feat-actions-2.5.0"},
-      {:sandbox_registry, "~> 0.1", only: [:dev, :test], optional: true},
-      {:faker, "~> 0.18", only: [:dev, :test], optional: true},
+      {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
 
       {:ecto, "~> 3.11"},
       {:ecto_sql, "~> 3.11", optional: true},
@@ -77,7 +78,6 @@ defmodule Uppy.MixProject do
 
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
   defp package do

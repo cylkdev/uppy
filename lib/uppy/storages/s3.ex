@@ -3,13 +3,22 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @moduledoc """
     Implements the `Uppy.Storage` behaviour.
     """
-    alias Uppy.{Error, Utils}
+    alias Uppy.{
+      Error,
+      Storages.S3.Parser
+    }
 
     @behaviour Uppy.Storage
 
-    @default_opts [http_client: Uppy.Storages.S3.HTTP]
+    @config Application.compile_env(:uppy, __MODULE__, [])
 
     @one_minute_seconds 60
+
+    @s3_accelerate @config[:s3_accelerate] === true
+
+    @default_opts [
+      http_client: Uppy.Storages.S3.HTTP
+    ]
 
     def download_chunk_stream(bucket, object, chunk_size, opts) do
       opts = Keyword.merge(@default_opts, opts)
@@ -34,9 +43,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     def get_chunk!(bucket, object, start_byte, end_byte, opts) do
-      {:ok, chunk} = get_chunk(bucket, object, start_byte, end_byte, opts)
-
-      chunk
+      case get_chunk(bucket, object, start_byte, end_byte, opts) do
+        {:ok, chunk} -> chunk
+        error -> "Failed to get chunk with error\n\n#{inspect(error, pretty: true)}"
+      end
     end
 
     @impl true
@@ -90,36 +100,27 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     Implementation for `c:Uppy.Storage.presigned_url/4`.
     """
     def presigned_url(bucket, http_method, object, opts) do
+      opts = Keyword.merge(@default_opts, opts)
+
       opts =
-        @default_opts
-        |> Keyword.merge(opts)
-        |> s3_accelerate(http_method)
+        if http_method in [:post, :put] do
+          Keyword.put_new(opts, :s3_accelerate, @s3_accelerate)
+        else
+          opts
+        end
 
-      opts = Keyword.put_new(opts, :expires_in, @one_minute_seconds)
-
-      expires_in = opts[:expires_in]
+      expires_in = opts[:expires_in] || @one_minute_seconds
 
       with {:ok, url} <-
         :s3
         |> ExAws.Config.new(opts)
         |> ExAws.S3.presigned_url(http_method, bucket, object, opts)
         |> handle_response() do
-        {:ok,
-         %{
-           key: object,
-           url: url,
-           expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
-         }}
-      end
-    end
-
-    defp s3_accelerate(opts, http_method) do
-      if http_method in [:post, :put] do
-        s3_accelerate = opts[:s3_accelerate] === true
-
-        Keyword.put_new(opts, :s3_accelerate, s3_accelerate)
-      else
-        opts
+        {:ok, %{
+          key: object,
+          url: url,
+          expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
+        }}
       end
     end
 
@@ -271,7 +272,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       {:ok,
        %{
          e_tag: remove_quotations(headers["etag"]),
-         last_modified: Utils.date_time_from_rfc7231!(headers["last-modified"]),
+         last_modified: Parser.date_time_from_rfc7231!(headers["last-modified"]),
          content_type: headers["content-type"],
          content_length: String.to_integer(headers["content-length"])
        }}

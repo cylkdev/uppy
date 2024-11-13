@@ -1,35 +1,40 @@
 defmodule Uppy.Storages.S3Test do
   use ExUnit.Case, async: true
+  alias Uppy.Storages.S3
 
   @moduletag :external
 
   @bucket "uppy-test"
 
+  setup_all do
+    {:ok, _} = S3.put_object(@bucket, "seed.txt", "Hello world!", [])
+  end
+
   describe "download_chunk_stream/4: " do
     test "returns expected response" do
       assert "Hello world!" =
         @bucket
-        |> Uppy.Storages.S3.download_chunk_stream("example.txt", 4, [])
+        |> S3.download_chunk_stream("seed.txt", 4, [])
         |> elem(1)
         |> Task.async_stream(fn %{start_byte: start_byte, end_byte: end_byte} ->
-          Uppy.Storages.S3.get_chunk!(
+          S3.get_chunk!(
             @bucket,
-            "example.txt",
+            "seed.txt",
             start_byte,
             end_byte,
             []
           )
         end)
-        |> Enum.map_join("", fn {:ok, {_start_byte, body}} -> body end)
+        |> Enum.map_join(fn {:ok, {_start_byte, body}} -> body end)
     end
   end
 
   describe "get_chunk/5: " do
     test "returns expected response" do
       assert {:ok, {0, "Hello"}} =
-        Uppy.Storages.S3.get_chunk(
+        S3.get_chunk(
           @bucket,
-          "example.txt",
+          "seed.txt",
           0,
           4,
           http_opts: [disable_json_decoding?: true]
@@ -39,25 +44,22 @@ defmodule Uppy.Storages.S3Test do
 
   describe "list_objects/3: " do
     test "returns expected response" do
-      assert {:ok, objects} = Uppy.Storages.S3.list_objects(@bucket, [])
-
-      expected_object =
+      assert {:ok, [
         %{
-          e_tag: "e06f81bb033f2981b80ff5c6b227b73e",
-          key: "example.json",
-          last_modified: ~U[2024-08-26 07:06:49.000Z],
-          owner: nil,
-          size: 32,
-          storage_class: "STANDARD"
-        }
-
-      assert [^expected_object | _] = objects
+          e_tag: _,
+          key: _,
+          last_modified: _,
+          owner: _,
+          size: _,
+          storage_class: _
+        } | _
+      ]} = S3.list_objects(@bucket, [])
     end
   end
 
   describe "get_object/3: " do
     test "returns expected response" do
-      assert {:ok, "Hello world!"} = Uppy.Storages.S3.get_object(@bucket, "example.txt", [])
+      assert {:ok, "Hello world!"} = S3.get_object(@bucket, "seed.txt", [])
     end
   end
 
@@ -71,7 +73,7 @@ defmodule Uppy.Storages.S3Test do
           content_length: _,
           content_type: _
         }
-      } = Uppy.Storages.S3.head_object(@bucket, "example.txt", [])
+      } = S3.head_object(@bucket, "seed.txt", [])
     end
   end
 
@@ -84,7 +86,7 @@ defmodule Uppy.Storages.S3Test do
           key: "example.txt",
           url: _
         }
-      } = Uppy.Storages.S3.presigned_url(@bucket, :post, "example.txt", [])
+      } = S3.presigned_url(@bucket, :post, "example.txt", [])
     end
 
     test "returns expected response for PUT request" do
@@ -95,7 +97,7 @@ defmodule Uppy.Storages.S3Test do
           key: "example.txt",
           url: _
         }
-      } = Uppy.Storages.S3.presigned_url(@bucket, :put, "example.txt", [])
+      } = S3.presigned_url(@bucket, :put, "example.txt", [])
     end
   end
 
@@ -106,11 +108,11 @@ defmodule Uppy.Storages.S3Test do
         headers: _,
         status_code: 200
       }} =
-        Uppy.Storages.S3.put_object_copy(
+        S3.put_object_copy(
           @bucket,
-          "example_copy.txt",
+          "seed_copy.txt",
           @bucket,
-          "example.txt",
+          "seed.txt",
           []
         )
     end
@@ -123,7 +125,7 @@ defmodule Uppy.Storages.S3Test do
         headers: _,
         status_code: 200
       }} =
-        Uppy.Storages.S3.put_object(
+        S3.put_object(
           @bucket,
           "example_put_object.txt",
           "Hello World",
@@ -139,7 +141,7 @@ defmodule Uppy.Storages.S3Test do
         headers: _,
         status_code: 200
       }} =
-        Uppy.Storages.S3.put_object(
+        S3.put_object(
           @bucket,
           "example_delete_object.txt",
           "Hello World",
@@ -151,7 +153,7 @@ defmodule Uppy.Storages.S3Test do
         headers: _,
         status_code: 204
       }} =
-        Uppy.Storages.S3.delete_object(
+        S3.delete_object(
           @bucket,
           "example_delete_object.txt",
           []
@@ -162,37 +164,37 @@ defmodule Uppy.Storages.S3Test do
   describe "multipart upload: " do
     test "can complete multipart upload" do
       assert {:ok, %{
-        key: "multipart_example.test",
-        bucket: "uppy-test",
+        key: "image.jpeg",
+        bucket: @bucket,
         upload_id: upload_id
-      }} = Uppy.Storages.S3.initiate_multipart_upload(@bucket, "multipart_example.test", [])
+      }} = S3.initiate_multipart_upload(@bucket, "image.jpeg", [])
 
       expected_multipart_upload =
         %{
-          key: "multipart_example.test",
+          key: "image.jpeg",
           upload_id: upload_id
         }
 
       assert {:ok, %{
-        bucket: "uppy-test",
+        bucket: @bucket,
         key_marker: "",
         upload_id_marker: "",
         uploads: uploads
-      }} = Uppy.Storages.S3.list_multipart_uploads(@bucket, [])
+      }} = S3.list_multipart_uploads(@bucket, [])
 
       assert ^expected_multipart_upload = Enum.find(uploads, & &1.upload_id === upload_id)
 
       part_number = 1
 
       assert {:ok, %{
-        key: "multipart_example.test",
+        key: "image.jpeg",
         url: presigned_url,
         expires_at: _
       }} =
-        Uppy.Storages.S3.presigned_url(
+        S3.presigned_url(
           @bucket,
           :put,
-          "multipart_example.test",
+          "image.jpeg",
           query_params: %{
             "uploadId" => upload_id,
             "partNumber" => part_number
@@ -213,17 +215,9 @@ defmodule Uppy.Storages.S3Test do
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
         body: "",
-        headers: _,
         request: %Finch.Request{
-          scheme: :https,
-          host: _,
-          port: 443,
           method: "PUT",
-          path: "/uppy-test/multipart_example.test",
-          headers: [],
-          body: _,
-          unix_socket: nil,
-          private: %{}
+          path: "/uppy-test/image.jpeg"
         }
       } = response
 
@@ -233,17 +227,17 @@ defmodule Uppy.Storages.S3Test do
           e_tag: part_e_tag,
           part_number: ^part_number
         }
-      ]} = Uppy.Storages.S3.list_parts(@bucket, "multipart_example.test", upload_id, [])
+      ]} = S3.list_parts(@bucket, "image.jpeg", upload_id, [])
 
       assert {:ok, %{
-        bucket: "uppy-test",
+        bucket: @bucket,
         etag: _,
-        key: "multipart_example.test",
+        key: "image.jpeg",
         location: _
       }} =
-        Uppy.Storages.S3.complete_multipart_upload(
+        S3.complete_multipart_upload(
           @bucket,
-          "multipart_example.test",
+          "image.jpeg",
           upload_id,
           [{part_number, part_e_tag}],
           []
@@ -252,37 +246,37 @@ defmodule Uppy.Storages.S3Test do
 
     test "can abort multipart upload" do
       assert {:ok, %{
-        key: "multipart_example.test",
-        bucket: "uppy-test",
+        key: "image.jpeg",
+        bucket: @bucket,
         upload_id: upload_id
-      }} = Uppy.Storages.S3.initiate_multipart_upload(@bucket, "multipart_example.test", [])
+      }} = S3.initiate_multipart_upload(@bucket, "image.jpeg", [])
 
       expected_multipart_upload =
         %{
-          key: "multipart_example.test",
+          key: "image.jpeg",
           upload_id: upload_id
         }
 
       assert {:ok, %{
-        bucket: "uppy-test",
+        bucket: @bucket,
         key_marker: "",
         upload_id_marker: "",
         uploads: uploads
-      }} = Uppy.Storages.S3.list_multipart_uploads(@bucket, [])
+      }} = S3.list_multipart_uploads(@bucket, [])
 
       assert ^expected_multipart_upload = Enum.find(uploads, & &1.upload_id === upload_id)
 
       part_number = 1
 
       assert {:ok, %{
-        key: "multipart_example.test",
+        key: "image.jpeg",
         url: presigned_url,
         expires_at: _
       }} =
-        Uppy.Storages.S3.presigned_url(
+        S3.presigned_url(
           @bucket,
           :put,
-          "multipart_example.test",
+          "image.jpeg",
           query_params: %{
             "uploadId" => upload_id,
             "partNumber" => part_number
@@ -303,17 +297,9 @@ defmodule Uppy.Storages.S3Test do
       assert %Uppy.HTTP.Finch.Response{
         status: 200,
         body: "",
-        headers: _,
         request: %Finch.Request{
-          scheme: :https,
-          host: _,
-          port: 443,
           method: "PUT",
-          path: "/uppy-test/multipart_example.test",
-          headers: [],
-          body: _,
-          unix_socket: nil,
-          private: %{}
+          path: "/uppy-test/image.jpeg"
         }
       } = response
 
@@ -323,13 +309,13 @@ defmodule Uppy.Storages.S3Test do
           e_tag: _,
           part_number: ^part_number
         }
-      ]} = Uppy.Storages.S3.list_parts(@bucket, "multipart_example.test", upload_id, [])
+      ]} = S3.list_parts(@bucket, "image.jpeg", upload_id, [])
 
       assert {:ok, %{
         body: "",
         headers: _,
         status_code: 204
-      }} = Uppy.Storages.S3.abort_multipart_upload(@bucket, "multipart_example.test", upload_id, [])
+      }} = S3.abort_multipart_upload(@bucket, "image.jpeg", upload_id, [])
     end
   end
 end

@@ -12,6 +12,7 @@
   ],
   "skip_files": [
     "lib/uppy/application.ex",
-    "lib/uppy/config.ex"
+    "lib/uppy/config.ex",
+    "test/support/*"
   ]
 }

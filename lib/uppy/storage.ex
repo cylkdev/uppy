@@ -137,9 +137,7 @@ defmodule Uppy.Storage do
 
   @default_adapter Uppy.Storages.S3
 
-  @default_opts [
-    storage: [sandbox: Mix.env() === :test]
-  ]
+  @default_opts [storage: [sandbox: Mix.env() === :test]]
 
   def download_chunk_stream(bucket, object, chunk_size, opts) do
     opts = Keyword.merge(@default_opts, opts)

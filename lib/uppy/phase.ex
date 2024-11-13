@@ -11,7 +11,6 @@ defmodule Uppy.Phase do
   @type input :: term()
   @type opts :: keyword()
   @type phase :: module() | {module(), opts()}
-  @type phase_response :: {:ok, term()} | {:error, term()}
 
   @callback run(input :: input(), opts :: opts()) :: term()
 
@@ -24,7 +23,7 @@ defmodule Uppy.Phase do
     phase :: phase(),
     input :: input(),
     opts :: opts()
-  ) :: term()
+  ) :: {:ok, term()} | {:error, term()}
   def run(phase, input, opts) do
     phase.run(input, opts)
   end

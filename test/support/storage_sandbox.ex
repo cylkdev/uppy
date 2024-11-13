@@ -670,19 +670,19 @@ defmodule Uppy.StorageSandbox do
   @doc """
   Sets current pid to use actual caches rather than sandboxed
 
-  import Uppy.StorageSandbox, only: [disable_s3_sandbox: 1]
+  import Uppy.StorageSandbox, only: [disable_storage_sandbox: 1]
 
-  setup :disable_s3_sandbox
+  setup :disable_storage_sandbox
   """
-  @spec disable_s3_sandbox(map) :: :ok
-  def disable_s3_sandbox(_context) do
+  @spec disable_storage_sandbox(map) :: :ok
+  def disable_storage_sandbox(_context) do
     with {:error, :registry_not_started} <-
-           SandboxRegistry.register(@registry, @disabled, %{}, @keys) do
+      SandboxRegistry.register(@registry, @disabled, %{}, @keys) do
       raise_not_started!()
     end
   end
 
-  @doc "Check if sandbox for current pid was disabled by disable_s3_sandbox/1"
+  @doc "Check if sandbox for current pid was disabled by disable_storage_sandbox/1"
   @spec sandbox_disabled? :: boolean
   def sandbox_disabled? do
     case SandboxRegistry.lookup(@registry, @disabled) do
@@ -729,11 +729,12 @@ defmodule Uppy.StorageSandbox do
     key = {action, bucket}
 
     with funcs when is_map(funcs) <- Map.get(funcs, key, funcs),
-         regexes <- Enum.filter(funcs, fn {{_, k}, _v} -> is_struct(k, Regex) end),
-         {_regex, func} when is_function(func) <-
-           Enum.find(regexes, funcs, fn {{key, regex}, _v} ->
-             Regex.match?(regex, bucket) and key === action
-           end) do
+      regex_list <- Enum.filter(funcs, fn {{_, k}, _v} -> is_struct(k, Regex) end),
+      {_regex, func} when is_function(func) <-
+        Enum.find(regex_list, funcs, fn {{key, regex}, _v} ->
+          Regex.match?(regex, bucket) and key === action
+        end) do
+
       func
     else
       func when is_function(func) ->

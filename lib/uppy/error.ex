@@ -1,6 +1,6 @@
 defmodule Uppy.Error do
   @moduledoc """
-  Error Message Adapter Interface
+  This module provides
   """
   alias Uppy.Config
 
@@ -15,10 +15,12 @@ defmodule Uppy.Error do
         }
 
   @doc """
-  Executes the callback function in the module configured by `:error_adapter` to
-  create an error message. If the 2-arity function named `code` is exported this
-  function with the arguments `message` and `details` otherwise the 3-arity function
-  named `call` is executed with the arguments `code`, `message`, and `details`.
+  Executes callback functions in the configured error adapter and returns an error term.
+
+  If the adapter exports a named function for `code` this function
+  is executed as `adapter.code(message, details)` otherwise a
+  3-arity function named `call` must be defined and is
+  executed as `adapter.call(code, message, details)`.
 
   ### Examples
 
@@ -32,7 +34,27 @@ defmodule Uppy.Error do
     if Code.ensure_loaded?(adapter) and function_exported?(adapter, code, 2) do
       apply(adapter, code, [message, details])
     else
-      adapter.call(code, message, details)
+      if function_exported?(adapter, :call, 3) do
+        adapter.call(code, message, details)
+      else
+        raise """
+        Uppy error handler not configured.
+
+        To fix this error add the following configuration to you config.exs:
+
+        ```
+        # config.exs
+        import Config
+
+        config :uppy, error_adapter: ErrorMessage
+        ```
+
+        The adapter must export named functions for the error codes or a
+        `call/3` callback function.
+
+        See #{__MODULE__} module documentation for information.
+        """
+      end
     end
   end
 end

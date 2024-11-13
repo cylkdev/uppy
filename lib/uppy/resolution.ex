@@ -11,6 +11,7 @@ defmodule Uppy.Resolution do
     :query,
     :value,
     context: %{},
+    errors: [],
     private: %{},
     state: @unresolved
   ]

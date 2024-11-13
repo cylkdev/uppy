@@ -94,45 +94,39 @@ defmodule Uppy.DBAction do
   """
   @callback transaction(func :: function(), opts :: opts()) :: t_res(term())
 
-  def preload(struct_or_structs, opts) do
-    adapter!(opts).transaction(struct_or_structs, opts)
-  end
-
-  def transaction(func, opts) do
-    case adapter!(opts).transaction(func, opts) do
-      {:ok, {:ok, _} = res} -> res
-      {:ok, {:error, _} = e} -> e
-      {:error, {:error, _} = e} -> e
-      {:error, _} = e -> e
-    end
-  end
-
   def all(query, opts) do
     adapter!(opts).all(query, opts)
   end
 
-  def all(schema, params, opts) do
-    adapter!(opts).all(schema, params, opts)
+  def all(query, params, opts) do
+    adapter!(opts).all(query, params, opts)
   end
 
-  def create(schema, params, opts) do
-    adapter!(opts).create(schema, params, opts)
+  def create(query, params, opts) do
+    adapter!(opts).create(query, params, opts)
   end
 
-  def find(schema, params, opts) do
-    adapter!(opts).find(schema, params, opts)
+  def find(query, params, opts) do
+    adapter!(opts).find(query, params, opts)
   end
 
-  def update(schema, id_or_struct, params, opts) do
-    adapter!(opts).update(schema, id_or_struct, params, opts)
+  def update(query, id_or_struct, params, opts) do
+    adapter!(opts).update(query, id_or_struct, params, opts)
   end
 
   def delete(schema_data, opts) do
     adapter!(opts).delete(schema_data, opts)
   end
 
-  def delete(schema, id, opts) do
-    adapter!(opts).delete(schema, id, opts)
+  def delete(query, id, opts) do
+    adapter!(opts).delete(query, id, opts)
+  end
+
+  def transaction(func, opts) do
+    case adapter!(opts).transaction(func, opts) do
+      {:ok, res} -> res
+      {:error, _} = e -> e
+    end
   end
 
   defp adapter!(opts) do

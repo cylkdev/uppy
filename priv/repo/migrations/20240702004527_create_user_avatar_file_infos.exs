@@ -3,7 +3,10 @@ defmodule Uppy.Repo.Migrations.CreateUserAvatarFileInfos do
 
   def change do
     create table(:user_avatar_file_infos) do
+      add :assoc_id, references(:user_avatars, on_update: :update_all)
+
       add :state, :text, null: false
+
       add :key, :text, null: false
       add :upload_id, :text
 
@@ -11,10 +14,6 @@ defmodule Uppy.Repo.Migrations.CreateUserAvatarFileInfos do
       add :content_type, :text
       add :e_tag, :text
       add :last_modified, :naive_datetime
-
-      add :assoc_id, references(:user_avatars,
-        on_update: :update_all
-      )
 
       timestamps()
     end
