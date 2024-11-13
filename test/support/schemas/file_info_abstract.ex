@@ -6,12 +6,14 @@ defmodule Uppy.Schemas.FileInfoAbstract do
   @timestamps_opts [type: :utc_datetime]
 
   @pending :pending
+
   @statuses [
-    @pending,   # waiting for object to be uploaded
-    :discarded, # upload marked as stale and object can be deleted
-    :available, # object exists in storage
-    :completed, # object processed and moved to permanent path
-    :cancelled  # upload cancelled by user
+    @pending,    # waiting for object to be uploaded
+    :discarded,  # upload marked as stale and object can be deleted
+    :available,  # object exists in storage
+    :processing, # object is being processed by a pipeline
+    :completed,  # object exists in permanent path
+    :cancelled   # upload cancelled by user
   ]
 
   schema "abstract table: file_infos" do
