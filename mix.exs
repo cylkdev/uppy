@@ -45,7 +45,7 @@ defmodule Uppy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.35.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
       {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
