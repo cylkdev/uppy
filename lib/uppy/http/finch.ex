@@ -158,7 +158,12 @@ if Code.ensure_loaded?(Finch) do
     end
 
     @doc false
-    @spec make_patch_request(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    @spec make_patch_request(
+            url :: binary(),
+            body :: term() | nil,
+            headers :: headers(),
+            opts :: keyword()
+          ) :: t_res()
     def make_patch_request(url, body, headers, opts) do
       body = encode_json!(body, opts)
 
@@ -168,7 +173,12 @@ if Code.ensure_loaded?(Finch) do
     end
 
     @doc false
-    @spec make_post_request(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    @spec make_post_request(
+            url :: binary(),
+            body :: term() | nil,
+            headers :: headers(),
+            opts :: keyword()
+          ) :: t_res()
     def make_post_request(url, body, headers, opts) do
       body = encode_json!(body, opts)
 
@@ -178,7 +188,12 @@ if Code.ensure_loaded?(Finch) do
     end
 
     @doc false
-    @spec make_put_request(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    @spec make_put_request(
+            url :: binary(),
+            body :: term() | nil,
+            headers :: headers(),
+            opts :: keyword()
+          ) :: t_res()
     def make_put_request(url, body, headers, opts) do
       body = encode_json!(body, opts)
 
@@ -227,7 +242,7 @@ if Code.ensure_loaded?(Finch) do
         Uppy.Utils.Logger.warning(
           @logger_prefix,
           "make_request | ERROR | HTTP request failed ( #{attempt + 1} / #{max_retries} )" <>
-          "\n\nerror:\n\n#{inspect(error, pretty: true)}"
+            "\n\nerror:\n\n#{inspect(error, pretty: true)}"
         )
 
         if attempt < max_retries do
@@ -237,7 +252,10 @@ if Code.ensure_loaded?(Finch) do
 
           :timer.sleep(backoff)
 
-          Uppy.Utils.Logger.debug(@logger_prefix, "make_request | ERROR | retrying HTTP request ( #{attempt + 1} / #{max_retries} )")
+          Uppy.Utils.Logger.debug(
+            @logger_prefix,
+            "make_request | ERROR | retrying HTTP request ( #{attempt + 1} / #{max_retries} )"
+          )
 
           make_request_and_retry(request, attempt + 1, max_retries, opts)
         else
@@ -250,12 +268,13 @@ if Code.ensure_loaded?(Finch) do
 
     defp make_request(request, opts) do
       with {:ok, response} <- Finch.request(request, opts[:name], opts) do
-        {:ok, %Response{
-          request: request,
-          body: response.body,
-          status: response.status,
-          headers: response.headers
-        }}
+        {:ok,
+         %Response{
+           request: request,
+           body: response.body,
+           status: response.status,
+           headers: response.headers
+         }}
       end
     end
 
@@ -281,9 +300,13 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.patch("http://url.com", nil)
     """
-    @spec patch(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    @spec patch(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) ::
+            t_res()
     def patch(url, body, headers, opts \\ []) do
-      Utils.Logger.debug(@logger_prefix, "patch BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}")
+      Utils.Logger.debug(
+        @logger_prefix,
+        "patch BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}"
+      )
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_patch = opts[:http][:patch] || (&make_patch_request/4)
@@ -298,19 +321,27 @@ if Code.ensure_loaded?(Finch) do
     rescue
       # Nimble pool out of workers error
       e in RuntimeError ->
-        Uppy.Utils.Logger.error(@logger_prefix, "patch | ERROR | runtime error occurred #{inspect(e)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "patch | ERROR | runtime error occurred #{inspect(e)}"
+        )
 
-        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
-
+        {:error,
+         Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        Uppy.Utils.Logger.error(@logger_prefix, "patch | ERROR | process exited with reason #{inspect(reason)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "patch | ERROR | process exited with reason #{inspect(reason)}"
+        )
 
-        {:error, Error.call(:service_unavailable,
-          "HTTP connection pool exited with reason: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "HTTP connection pool exited with reason: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -320,9 +351,13 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.post("http://url.com", nil)
     """
-    @spec post(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    @spec post(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) ::
+            t_res()
     def post(url, body, headers, opts) do
-      Utils.Logger.debug(@logger_prefix, "post BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}")
+      Utils.Logger.debug(
+        @logger_prefix,
+        "post BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}"
+      )
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_post = opts[:http][:post] || (&make_post_request/4)
@@ -337,19 +372,27 @@ if Code.ensure_loaded?(Finch) do
     rescue
       # Nimble pool out of workers error
       e in RuntimeError ->
-        Uppy.Utils.Logger.error(@logger_prefix, "post | ERROR | runtime error occurred #{inspect(e)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "post | ERROR | runtime error occurred #{inspect(e)}"
+        )
 
-        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
-
+        {:error,
+         Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        Uppy.Utils.Logger.error(@logger_prefix, "post | ERROR | process exited with reason #{inspect(reason)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "post | ERROR | process exited with reason #{inspect(reason)}"
+        )
 
-        {:error, Error.call(:service_unavailable,
-          "HTTP connection pool exited with reason: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "HTTP connection pool exited with reason: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -359,9 +402,13 @@ if Code.ensure_loaded?(Finch) do
 
         iex> Uppy.HTTP.Finch.put("http://url.com", nil)
     """
-    @spec put(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) :: t_res()
+    @spec put(url :: binary(), body :: term() | nil, headers :: headers(), opts :: keyword()) ::
+            t_res()
     def put(url, body, headers, opts) do
-      Utils.Logger.debug(@logger_prefix, "put BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}")
+      Utils.Logger.debug(
+        @logger_prefix,
+        "put BEGIN | url=#{inspect(url)}, body=#{inspect(body)}, headers=#{inspect(headers)}"
+      )
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_put = opts[:http][:put] || (&make_put_request/4)
@@ -376,19 +423,27 @@ if Code.ensure_loaded?(Finch) do
     rescue
       # Nimble pool out of workers error
       e in RuntimeError ->
-        Uppy.Utils.Logger.error(@logger_prefix, "put | ERROR | runtime error occurred #{inspect(e)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "put | ERROR | runtime error occurred #{inspect(e)}"
+        )
 
-        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
-
+        {:error,
+         Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        Uppy.Utils.Logger.error(@logger_prefix, "put | ERROR | process exited with reason #{inspect(reason)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "put | ERROR | process exited with reason #{inspect(reason)}"
+        )
 
-        {:error, Error.call(:service_unavailable,
-          "HTTP connection pool exited with reason: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "HTTP connection pool exited with reason: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -400,7 +455,10 @@ if Code.ensure_loaded?(Finch) do
     """
     @spec head(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
     def head(url, headers, opts) do
-      Utils.Logger.debug(@logger_prefix, "head BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}")
+      Utils.Logger.debug(
+        @logger_prefix,
+        "head BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}"
+      )
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_head = opts[:http][:head] || (&make_head_request/3)
@@ -415,19 +473,27 @@ if Code.ensure_loaded?(Finch) do
     rescue
       # Nimble pool out of workers error
       e in RuntimeError ->
-        Uppy.Utils.Logger.error(@logger_prefix, "head | ERROR | runtime error occurred #{inspect(e)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "head | ERROR | runtime error occurred #{inspect(e)}"
+        )
 
-        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
-
+        {:error,
+         Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        Uppy.Utils.Logger.error(@logger_prefix, "head | ERROR | process exited with reason #{inspect(reason)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "head | ERROR | process exited with reason #{inspect(reason)}"
+        )
 
-        {:error, Error.call(:service_unavailable,
-          "HTTP connection pool exited with reason: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "HTTP connection pool exited with reason: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -439,7 +505,10 @@ if Code.ensure_loaded?(Finch) do
     """
     @spec get(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
     def get(url, headers, opts) do
-      Utils.Logger.debug(@logger_prefix, "get BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}")
+      Utils.Logger.debug(
+        @logger_prefix,
+        "get BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}"
+      )
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
 
@@ -455,19 +524,27 @@ if Code.ensure_loaded?(Finch) do
     rescue
       # Nimble pool out of workers error
       e in RuntimeError ->
-        Uppy.Utils.Logger.error(@logger_prefix, "get | ERROR | runtime error occurred #{inspect(e)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "get | ERROR | runtime error occurred #{inspect(e)}"
+        )
 
-        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
-
+        {:error,
+         Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        Uppy.Utils.Logger.error(@logger_prefix, "get | ERROR | process exited with reason #{inspect(reason)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "get | ERROR | process exited with reason #{inspect(reason)}"
+        )
 
-        {:error, Error.call(:service_unavailable,
-          "HTTP connection pool exited with reason: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "HTTP connection pool exited with reason: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     @doc """
@@ -479,7 +556,10 @@ if Code.ensure_loaded?(Finch) do
     """
     @spec delete(url :: binary(), headers :: headers(), opts :: keyword()) :: t_res()
     def delete(url, headers, opts) do
-      Utils.Logger.debug(@logger_prefix, "delete BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}")
+      Utils.Logger.debug(
+        @logger_prefix,
+        "delete BEGIN | url=#{inspect(url)}, headers=#{inspect(headers)}"
+      )
 
       opts = @default_opts |> Keyword.merge(opts) |> NimbleOptions.validate!(@definition)
       http_delete = opts[:http][:delete] || (&make_delete_request/3)
@@ -494,19 +574,27 @@ if Code.ensure_loaded?(Finch) do
     rescue
       # Nimble pool out of workers error
       e in RuntimeError ->
-        Uppy.Utils.Logger.error(@logger_prefix, "delete | ERROR | runtime error occurred #{inspect(e)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "delete | ERROR | runtime error occurred #{inspect(e)}"
+        )
 
-        {:error, Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
-
+        {:error,
+         Error.call(:service_unavailable, "HTTP request failed due to an unrecoverable error")}
     catch
       # Nimble pool out of workers error
       :exit, reason ->
-        Uppy.Utils.Logger.error(@logger_prefix, "delete | ERROR | process exited with reason #{inspect(reason)}")
+        Uppy.Utils.Logger.error(
+          @logger_prefix,
+          "delete | ERROR | process exited with reason #{inspect(reason)}"
+        )
 
-        {:error, Error.call(:service_unavailable,
-          "HTTP connection pool exited with reason: #{inspect(reason)}",
-          %{reason: reason}
-        )}
+        {:error,
+         Error.call(
+           :service_unavailable,
+           "HTTP connection pool exited with reason: #{inspect(reason)}",
+           %{reason: reason}
+         )}
     end
 
     defp run_and_measure(fnc, headers, method, opts) do
@@ -534,8 +622,8 @@ if Code.ensure_loaded?(Finch) do
     end
 
     defp handle_response({:ok, %Response{status: status, body: raw_body} = res}, opts)
-      when status in 200..299 do
-      if (raw_body in ["", nil]) or (opts[:disable_json_decoding?] === true) do
+         when status in 200..299 do
+      if raw_body in ["", nil] or opts[:disable_json_decoding?] === true do
         {:ok, {raw_body, res}}
       else
         case JSONEncoder.decode_json(raw_body, opts) do
@@ -548,12 +636,12 @@ if Code.ensure_loaded?(Finch) do
             {:ok, {body, res}}
 
           {:error, _} = e ->
-            {:error, Error.call(:internal_server_error, "failed to decode json", %{
-              error: e,
-              body: raw_body,
-              response: res
-            })}
-
+            {:error,
+             Error.call(:internal_server_error, "failed to decode json", %{
+               error: e,
+               body: raw_body,
+               response: res
+             })}
         end
       end
     end
@@ -617,12 +705,17 @@ if Code.ensure_loaded?(Finch) do
     # See docs: https://uppy.org/docs/0.25.1/api/api-errors.html
     defp error_code_map(api_name) do
       %{
-        400 => {:bad_request, "#{api_name}: The request could not be understood due to malformed syntax."},
+        400 =>
+          {:bad_request,
+           "#{api_name}: The request could not be understood due to malformed syntax."},
         401 => {:unauthorized, "#{api_name}: API key is wrong."},
         404 => {:not_found, "#{api_name}: The requested resource is not found."},
         409 => {:conflict, "#{api_name}: Resource already exists."},
-        422 => {:unprocessable_entity, "#{api_name}: Request is well-formed, but cannot be processed."},
-        503 => {:service_unavailable, "#{api_name}: Uppy is temporarily offline. Please try again later."}
+        422 =>
+          {:unprocessable_entity, "#{api_name}: Request is well-formed, but cannot be processed."},
+        503 =>
+          {:service_unavailable,
+           "#{api_name}: Uppy is temporarily offline. Please try again later."}
       }
     end
 

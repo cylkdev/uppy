@@ -19,26 +19,26 @@ defmodule Uppy.DBAction do
   Returns a list of database records.
   """
   @callback preload(
-    struct_or_structs :: schema_data() | list(schema_data()),
-    opts :: opts()
-  ) :: list(schema_data())
+              struct_or_structs :: schema_data() | list(schema_data()),
+              opts :: opts()
+            ) :: list(schema_data())
 
   @doc """
   Returns a list of database records.
   """
   @callback all(
-    query :: query(),
-    opts :: opts()
-  ) :: list(schema_data())
+              query :: query(),
+              opts :: opts()
+            ) :: list(schema_data())
 
   @doc """
   Returns a list of database records.
   """
   @callback all(
-    query :: query(),
-    params :: params(),
-    opts :: opts()
-  ) :: list(schema_data())
+              query :: query(),
+              params :: params(),
+              opts :: opts()
+            ) :: list(schema_data())
 
   @doc """
   Creates a database record.
@@ -131,7 +131,7 @@ defmodule Uppy.DBAction do
 
   defp adapter!(opts) do
     with nil <- opts[:db_action_adapter],
-      nil <- Config.db_action_adapter() do
+         nil <- Config.db_action_adapter() do
       @default_db_action_adapter
     end
   end

@@ -1,4 +1,4 @@
-defmodule Uppy.Pipelines.PostProcessingPipelineTest do
+defmodule Uppy.Pipelines.TransferPipelineTest do
   use Uppy.DataCase
-  doctest Uppy.Pipelines.PostProcessingPipeline
+  doctest Uppy.Pipelines.TransferPipeline
 end

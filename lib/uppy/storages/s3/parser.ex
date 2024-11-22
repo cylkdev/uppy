@@ -13,10 +13,10 @@ defmodule Uppy.Storages.S3.Parser do
   """
   @spec date_time_from_rfc7231!(binary(), binary(), atom()) :: DateTime.t()
   def date_time_from_rfc7231!(
-    string,
-    to_timezone \\ "Etc/UTC",
-    time_zone_database \\ Tzdata.TimeZoneDatabase
-  ) do
+        string,
+        to_timezone \\ "Etc/UTC",
+        time_zone_database \\ Tzdata.TimeZoneDatabase
+      ) do
     [day, month, year, time, timezone] = split_rfc7231!(string)
 
     [hour, minute, second] = time |> String.split(":") |> Enum.map(&String.to_integer/1)

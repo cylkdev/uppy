@@ -8,13 +8,13 @@ defmodule Uppy.Phases.HeadSchemaObject do
 
   @impl true
   def run(
-    %{
-      state: :unresolved,
-      bucket: bucket,
-      value: schema_data
-    } = resolution,
-    opts
-  ) do
+        %{
+          state: :unresolved,
+          bucket: bucket,
+          value: schema_data
+        } = resolution,
+        opts
+      ) do
     with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
       {:ok, Resolution.assign_context(resolution, :metadata, metadata)}
     end

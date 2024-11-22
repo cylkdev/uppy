@@ -23,25 +23,26 @@ defmodule Uppy.Phases.PutPermanentObjectCopy do
   """
   @spec run(resolution(), opts()) :: t_res(resolution())
   def run(
-    %{
-      state: :unresolved,
-      bucket: bucket,
-      context: context,
-      value: schema_data,
-    } = resolution,
-    opts
-  ) do
-    with {:ok, response} <-
-      Storage.put_object_copy(
-        bucket,
-        context.destination_object,
-        bucket,
-        schema_data.key,
+        %{
+          state: :unresolved,
+          bucket: bucket,
+          context: context,
+          value: schema_data
+        } = resolution,
         opts
       ) do
-      {:ok, Resolution.put_private(resolution, __MODULE__, %{
-        storage: response
-      })}
+    with {:ok, response} <-
+           Storage.put_object_copy(
+             bucket,
+             context.destination_object,
+             bucket,
+             schema_data.key,
+             opts
+           ) do
+      {:ok,
+       Resolution.put_private(resolution, __MODULE__, %{
+         storage: response
+       })}
     end
   end
 

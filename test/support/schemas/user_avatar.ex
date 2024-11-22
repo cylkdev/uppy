@@ -8,7 +8,8 @@ defmodule Uppy.Schemas.UserAvatar do
     field :name, :string
     field :description, :string
 
-    has_one :file_info, {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract}, foreign_key: :assoc_id
+    has_one :file_info, {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
+      foreign_key: :assoc_id
 
     timestamps()
   end

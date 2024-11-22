@@ -6,16 +6,18 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
 
   @behaviour Uppy.Phase
 
+  @completed :completed
+
   @impl true
   def run(
-    %{
-      state: :unresolved,
-      context: context,
-      query: query,
-      value: schema_data
-    } = resolution,
-    opts
-  ) do
+        %{
+          state: :unresolved,
+          context: context,
+          query: query,
+          value: schema_data
+        } = resolution,
+        opts
+      ) do
     content_type =
       if Map.has_key?(context, :file_info) do
         context.file_info.mimetype
@@ -24,19 +26,19 @@ defmodule Uppy.Phases.UpdateSchemaMetadata do
       end
 
     with {:ok, schema_data} <-
-      DBAction.update(
-        query,
-        schema_data,
-        %{
-          status: :completed,
-          key: context.destination_object,
-          e_tag: context.metadata.e_tag,
-          content_type: content_type,
-          content_length: context.metadata.content_length,
-          last_modified: context.metadata.last_modified
-        },
-        opts
-      ) do
+           DBAction.update(
+             query,
+             schema_data,
+             %{
+               status: @completed,
+               key: context.destination_object,
+               e_tag: context.metadata.e_tag,
+               content_type: content_type,
+               content_length: context.metadata.content_length,
+               last_modified: context.metadata.last_modified
+             },
+             opts
+           ) do
       {:ok, Resolution.put_result(resolution, schema_data)}
     end
   end

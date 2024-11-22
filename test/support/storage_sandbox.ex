@@ -29,7 +29,6 @@ defmodule Uppy.StorageSandbox do
   @type options :: keyword
   @type http_method :: :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
   @type upload_id :: binary()
-  @type part_number :: non_neg_integer()
   @type parts :: list(map())
   @type marker :: binary()
   @type start_byte :: non_neg_integer()
@@ -270,8 +269,8 @@ defmodule Uppy.StorageSandbox do
     end
   end
 
-  @spec list_parts_response(bucket, object, upload_id, marker | nil, options) :: any
-  def list_parts_response(bucket, object, upload_id, next_part_number_marker, options) do
+  @spec list_parts_response(bucket, object, upload_id, options) :: any
+  def list_parts_response(bucket, object, upload_id, options) do
     func = find!(:list_parts, bucket)
 
     case :erlang.fun_info(func)[:arity] do
@@ -285,10 +284,7 @@ defmodule Uppy.StorageSandbox do
         func.(object, upload_id)
 
       3 ->
-        func.(object, upload_id, next_part_number_marker)
-
-      4 ->
-        func.(object, upload_id, next_part_number_marker, options)
+        func.(object, upload_id, options)
 
       _ ->
         raise """
@@ -298,8 +294,7 @@ defmodule Uppy.StorageSandbox do
         fn -> ... end
         fn (object) -> ... end
         fn (object, upload_id) -> ... end
-        fn (object, upload_id, next_part_number_marker) -> ... end
-        fn (object, upload_id, next_part_number_marker, options) -> ... end
+        fn (object, upload_id, options) -> ... end
         """
     end
   end
@@ -677,7 +672,7 @@ defmodule Uppy.StorageSandbox do
   @spec disable_storage_sandbox(map) :: :ok
   def disable_storage_sandbox(_context) do
     with {:error, :registry_not_started} <-
-      SandboxRegistry.register(@registry, @disabled, %{}, @keys) do
+           SandboxRegistry.register(@registry, @disabled, %{}, @keys) do
       raise_not_started!()
     end
   end
@@ -729,12 +724,11 @@ defmodule Uppy.StorageSandbox do
     key = {action, bucket}
 
     with funcs when is_map(funcs) <- Map.get(funcs, key, funcs),
-      regex_list <- Enum.filter(funcs, fn {{_, k}, _v} -> is_struct(k, Regex) end),
-      {_regex, func} when is_function(func) <-
-        Enum.find(regex_list, funcs, fn {{key, regex}, _v} ->
-          Regex.match?(regex, bucket) and key === action
-        end) do
-
+         regex_list <- Enum.filter(funcs, fn {{_, k}, _v} -> is_struct(k, Regex) end),
+         {_regex, func} when is_function(func) <-
+           Enum.find(regex_list, funcs, fn {{key, regex}, _v} ->
+             Regex.match?(regex, bucket) and key === action
+           end) do
       func
     else
       func when is_function(func) ->

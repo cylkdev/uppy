@@ -234,10 +234,10 @@ defmodule Uppy.Storage do
   ...
   """
   @spec presigned_download(
-          bucket :: bucket(),
-          object :: object(),
-          opts :: opts()
-        ) :: t_res()
+    bucket :: bucket(),
+    object :: object(),
+    opts :: opts()
+  ) :: t_res()
   def presigned_download(bucket, object, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
@@ -261,10 +261,7 @@ defmodule Uppy.Storage do
     part_number,
     opts
   ) do
-    query_params = %{
-      "uploadId" => upload_id,
-      "partNumber" => part_number
-    }
+    query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
 
     opts =
       @default_opts
@@ -305,36 +302,30 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_presigned_url_response(bucket, http_method, object, opts)
-    else
-      bucket
-      |> adapter!(opts).presigned_url(http_method, object, opts)
-      |> handle_response()
-      |> handle_presigned_url_response()
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_presigned_url_response(bucket, http_method, object, opts)
+      else
+        adapter!(opts).presigned_url(bucket, http_method, object, opts)
+      end
+
+    case handle_response(response) do
+      {:ok, %{url: _, expires_at: _}} = res -> res
+      {:error, _} = e -> e
+      term ->
+        raise """
+        Storage adapter returned an invalid response.
+
+        Expected one of:
+
+        - {:ok, %{url: binary(), expires_at: DateTime.t()}}
+        - {:error, term()}
+
+        got:
+
+        #{inspect(term, pretty: true)}
+        """
     end
-  end
-
-  defp handle_presigned_url_response({:ok, %{url: url, expires_at: expires_at}} = ok)
-       when is_binary(url) and is_struct(expires_at, DateTime) do
-    ok
-  end
-
-  defp handle_presigned_url_response({:ok, term}) do
-    raise """
-    Expected one of:
-
-    {:ok, %{url: binary(), expires_at: DateTime.t()}}
-    {:error, term()}
-
-    got:
-
-    #{inspect(term, pretty: true)}
-    """
-  end
-
-  defp handle_presigned_url_response(response) do
-    response
   end
 
   @doc """
@@ -346,13 +337,14 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_list_multipart_uploads_response(bucket, opts)
-    else
-      bucket
-      |> adapter!(opts).list_multipart_uploads(opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_list_multipart_uploads_response(bucket, opts)
+      else
+        adapter!(opts).list_multipart_uploads(bucket, opts)
+      end
+
+    handle_response(response)
   end
 
   @doc """
@@ -368,13 +360,14 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_initiate_multipart_upload_response(bucket, object, opts)
-    else
-      bucket
-      |> adapter!(opts).initiate_multipart_upload(object, opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_initiate_multipart_upload_response(bucket, object, opts)
+      else
+        adapter!(opts).initiate_multipart_upload(bucket, object, opts)
+      end
+
+    handle_response(response)
   end
 
   @doc """
@@ -384,21 +377,21 @@ defmodule Uppy.Storage do
     bucket :: bucket(),
     object :: object(),
     upload_id :: upload_id(),
-    next_part_number_marker :: marker() | nil,
     opts :: opts()
   ) :: t_res()
-  def list_parts(bucket, object, upload_id, next_part_number_marker, opts) do
+  def list_parts(bucket, object, upload_id, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_list_parts_response(bucket, object, upload_id, next_part_number_marker, opts)
-    else
-      bucket
-      |> adapter!(opts).list_parts(object, upload_id, next_part_number_marker, opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_list_parts_response(bucket, object, upload_id, opts)
+      else
+        adapter!(opts).list_parts(bucket, object, upload_id, opts)
+      end
+
+    handle_response(response)
   end
 
   @doc """
@@ -415,13 +408,14 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts)
-    else
-      bucket
-      |> adapter!(opts).abort_multipart_upload(object, upload_id, opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts)
+      else
+        adapter!(opts).abort_multipart_upload(bucket, object, upload_id, opts)
+      end
+
+    handle_response(response)
   end
 
   @doc """
@@ -439,13 +433,14 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts)
-    else
-      bucket
-      |> adapter!(opts).complete_multipart_upload(object, upload_id, parts, opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts)
+      else
+        adapter!(opts).complete_multipart_upload(bucket, object, upload_id, parts, opts)
+      end
+
+    handle_response(response)
   end
 
   @doc """
@@ -469,69 +464,73 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_put_object_copy_response(
-        dest_bucket,
-        destination_object,
-        src_bucket,
-        source_object,
-        opts
-      )
-    else
-      dest_bucket
-      |> adapter!(opts).put_object_copy(
-        destination_object,
-        src_bucket,
-        source_object,
-        opts
-      )
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_put_object_copy_response(
+          dest_bucket,
+          destination_object,
+          src_bucket,
+          source_object,
+          opts
+        )
+      else
+        adapter!(opts).put_object_copy(
+          dest_bucket,
+          destination_object,
+          src_bucket,
+          source_object,
+          opts
+        )
+      end
+
+    handle_response(response)
   end
 
   @doc """
   ...
   """
   @spec put_object(
-    bucket :: bucket(),
-    object :: object(),
-    body :: body(),
-    opts :: opts()
-  ) :: t_res()
+          bucket :: bucket(),
+          object :: object(),
+          body :: body(),
+          opts :: opts()
+        ) :: t_res()
   def put_object(bucket, object, body, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_put_object_response(bucket, object, body, opts)
-    else
-      bucket
-      |> adapter!(opts).put_object(object, body, opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_put_object_response(bucket, object, body, opts)
+      else
+        adapter!(opts).put_object(bucket, object, body, opts)
+      end
+
+    handle_response(response)
   end
 
   @doc """
   ...
   """
   @spec delete_object(
-    bucket :: bucket(),
-    object :: object(),
-    opts :: opts()
-  ) :: t_res()
+          bucket :: bucket(),
+          object :: object(),
+          opts :: opts()
+        ) :: t_res()
   def delete_object(bucket, object, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_delete_object_response(bucket, object, opts)
-    else
-      bucket
-      |> adapter!(opts).delete_object(object, opts)
-      |> handle_response()
-    end
+    response =
+      if sandbox? && !sandbox_disabled?() do
+        sandbox_delete_object_response(bucket, object, opts)
+      else
+        adapter!(opts).delete_object(bucket, object, opts)
+      end
+
+    handle_response(response)
   end
 
   defp adapter!(opts) do
@@ -540,13 +539,12 @@ defmodule Uppy.Storage do
 
   defp handle_response({:ok, _} = ok), do: ok
   defp handle_response({:error, %{code: _, message: _, details: _}} = error), do: error
-
   defp handle_response(term) do
     raise """
     Expected one of:
 
-    `{:ok, term()}`
-    `{:error, %{code: term(), message: term(), details: term()}}`
+    - {:ok, term()}
+    - {:error, %{code: term(), message: term(), details: term()}}
 
     got:
 
@@ -588,38 +586,37 @@ defmodule Uppy.Storage do
       as: :initiate_multipart_upload_response
 
     defdelegate sandbox_list_parts_response(
-      bucket,
-      object,
-      upload_id,
-      next_part_number_marker,
-      opts
-    ),
-    to: Uppy.StorageSandbox,
-    as: :list_parts_response
+                  bucket,
+                  object,
+                  upload_id,
+                  opts
+                ),
+                to: Uppy.StorageSandbox,
+                as: :list_parts_response
 
     defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts),
       to: Uppy.StorageSandbox,
       as: :abort_multipart_upload_response
 
     defdelegate sandbox_complete_multipart_upload_response(
-      bucket,
-      object,
-      upload_id,
-      parts,
-      opts
-    ),
-    to: Uppy.StorageSandbox,
-    as: :complete_multipart_upload_response
+                  bucket,
+                  object,
+                  upload_id,
+                  parts,
+                  opts
+                ),
+                to: Uppy.StorageSandbox,
+                as: :complete_multipart_upload_response
 
     defdelegate sandbox_put_object_copy_response(
-      dest_bucket,
-      destination_object,
-      src_bucket,
-      source_object,
-      opts
-    ),
-    to: Uppy.StorageSandbox,
-    as: :put_object_copy_response
+                  dest_bucket,
+                  destination_object,
+                  src_bucket,
+                  source_object,
+                  opts
+                ),
+                to: Uppy.StorageSandbox,
+                as: :put_object_copy_response
 
     defdelegate sandbox_put_object_response(bucket, object, body, opts),
       to: Uppy.StorageSandbox,
@@ -714,14 +711,13 @@ defmodule Uppy.Storage do
       """
     end
 
-    defp sandbox_list_parts_response(bucket, object, upload_id, next_part_number_marker, opts) do
+    defp sandbox_list_parts_response(bucket, object, upload_id, opts) do
       raise """
       Cannot use StorageSandbox outside of test
 
       bucket: #{inspect(bucket)}
       object: #{inspect(object)}
       upload_id: #{inspect(upload_id)}
-      next_part_number_marker: #{inspect(next_part_number_marker)}
       opts: #{inspect(opts, pretty: true)}
       """
     end

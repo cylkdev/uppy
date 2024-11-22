@@ -6,12 +6,20 @@ defmodule Uppy.Schemas.FileInfoAbstract do
   @timestamps_opts [type: :utc_datetime]
 
   @pending :pending
+
   @statuses [
-    @pending,   # waiting for object to be uploaded
-    :discarded, # upload marked as stale and object can be deleted
-    :available, # object exists in storage
-    :completed, # object processed and moved to permanent path
-    :cancelled  # upload cancelled by user
+    # upload in progress
+    @pending,
+    # object marked as stale and can be deleted
+    :discarded,
+    # object exists in storage
+    :available,
+    # object is being processed by a pipeline
+    :processing,
+    # object is ready
+    :completed,
+    # upload cancelled by user
+    :cancelled
   ]
 
   schema "abstract table: file_infos" do
@@ -33,14 +41,14 @@ defmodule Uppy.Schemas.FileInfoAbstract do
   @required_fields [:key]
 
   @allowed_fields [
-    :status,
-    # :assoc_id,
-    :content_length,
-    :content_type,
-    :e_tag,
-    :last_modified,
-    :upload_id,
-  ] ++ @required_fields
+                    :status,
+                    :assoc_id,
+                    :content_length,
+                    :content_type,
+                    :e_tag,
+                    :last_modified,
+                    :upload_id
+                  ] ++ @required_fields
 
   @doc false
   def changeset(model_or_changeset, attrs \\ %{}) do

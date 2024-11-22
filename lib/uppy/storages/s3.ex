@@ -16,9 +16,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @s3_accelerate @config[:s3_accelerate] === true
 
-    @default_opts [
-      http_client: Uppy.Storages.S3.HTTP
-    ]
+    @default_opts [http_client: Uppy.Storages.S3.HTTP]
 
     def download_chunk_stream(bucket, object, chunk_size, opts) do
       opts = Keyword.merge(@default_opts, opts)
@@ -34,10 +32,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       request_opts = Keyword.put(opts, :range, "bytes=#{start_byte}-#{end_byte}")
 
       with {:ok, body} <-
-        bucket
-        |> ExAws.S3.get_object(object, request_opts)
-        |> ExAws.request(opts)
-        |> deserialize_response() do
+             bucket
+             |> ExAws.S3.get_object(object, request_opts)
+             |> ExAws.request(opts)
+             |> deserialize_response() do
         {:ok, {start_byte, body}}
       end
     end
@@ -112,15 +110,16 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       expires_in = opts[:expires_in] || @one_minute_seconds
 
       with {:ok, url} <-
-        :s3
-        |> ExAws.Config.new(opts)
-        |> ExAws.S3.presigned_url(http_method, bucket, object, opts)
-        |> handle_response() do
-        {:ok, %{
-          key: object,
-          url: url,
-          expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
-        }}
+             :s3
+             |> ExAws.Config.new(opts)
+             |> ExAws.S3.presigned_url(http_method, bucket, object, opts)
+             |> handle_response() do
+        {:ok,
+         %{
+           key: object,
+           url: url,
+           expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
+         }}
       end
     end
 
@@ -154,14 +153,16 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Storage.list_parts/4`.
     """
-    def list_parts(bucket, object, upload_id, next_part_number_marker \\ nil, opts) do
+    def list_parts(bucket, object, upload_id, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
       opts =
-        if next_part_number_marker do
-          query_params = %{"part-number-marker" => next_part_number_marker}
+        if Keyword.has_key?(opts, :part_number_marker) do
+          query_params = %{"part-number-marker" => opts[:part_number_marker]}
 
-          Keyword.update(opts, :query_params, query_params, &Map.merge(&1, query_params))
+          opts
+          |> Keyword.delete(:part_number_marker)
+          |> Keyword.update(:query_params, query_params, &Map.merge(&1, query_params))
         else
           opts
         end

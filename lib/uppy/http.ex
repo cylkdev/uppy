@@ -45,14 +45,14 @@ defmodule Uppy.HTTP do
   @type status :: non_neg_integer()
 
   @type http_response :: {
-    body(),
-    %{
-      optional(atom()) => any(),
-      body: body(),
-      status: status(),
-      headers: headers()
-    }
-  }
+          body(),
+          %{
+            optional(atom()) => any(),
+            body: body(),
+            status: status(),
+            headers: headers()
+          }
+        }
 
   @type t_res :: {:ok, http_response()} | {:error, any()}
 

@@ -20,8 +20,9 @@ defmodule Uppy.Pipeline do
   @type phase_options :: {phase :: phase(), opts :: opts()}
   @type phase_params :: phase() | phase_options()
   @type pipeline :: list(phase_params())
-  @type pipeline_response ::  {:ok, result :: result(), done :: phases()} |
-                              {:error, error_message :: error_message(), done :: phases()}
+  @type pipeline_response ::
+          {:ok, result :: result(), done :: phases()}
+          | {:error, error_message :: error_message(), done :: phases()}
 
   @type result :: term()
 
@@ -113,10 +114,10 @@ defmodule Uppy.Pipeline do
 
   """
   @spec replace(
-    pipeline :: pipeline(),
-    phase :: phase_params(),
-    replacement :: phase_params()
-  ) :: pipeline()
+          pipeline :: pipeline(),
+          phase :: phase_params(),
+          replacement :: phase_params()
+        ) :: pipeline()
   def replace(pipeline, phase, replacement) do
     Enum.map(pipeline, fn candidate ->
       case match_phase?(phase, candidate) do
@@ -204,10 +205,10 @@ defmodule Uppy.Pipeline do
 
   """
   @spec insert_before(
-    pipeline :: pipeline(),
-    phase :: phase_params(),
-    additional :: pipeline()
-  ) :: pipeline()
+          pipeline :: pipeline(),
+          phase :: phase_params(),
+          additional :: pipeline()
+        ) :: pipeline()
   def insert_before(pipeline, phase, additional) do
     beginning = before(pipeline, phase)
 
@@ -232,10 +233,10 @@ defmodule Uppy.Pipeline do
 
   """
   @spec insert_after(
-    pipeline :: pipeline(),
-    phase :: phase_params(),
-    additional :: pipeline()
-  ) :: pipeline()
+          pipeline :: pipeline(),
+          phase :: phase_params(),
+          additional :: pipeline()
+        ) :: pipeline()
   def insert_after(pipeline, phase, additional) do
     beginning = upto(pipeline, phase)
 
@@ -251,9 +252,9 @@ defmodule Uppy.Pipeline do
       [C]
   """
   @spec reject(
-    pipeline :: pipeline(),
-    pattern_or_function :: Regex.t() | function()
-  ) :: pipeline()
+          pipeline :: pipeline(),
+          pattern_or_function :: Regex.t() | function()
+        ) :: pipeline()
   def reject(pipeline, %Regex{} = pattern) do
     reject(pipeline, fn phase ->
       Regex.match?(pattern, Atom.to_string(phase))
@@ -275,10 +276,10 @@ defmodule Uppy.Pipeline do
       Uppy.Pipeline.run_phase([YourPhase], %{})
   """
   @spec run_phase(
-    pipeline :: pipeline(),
-    input :: input(),
-    done :: phases()
-  ) :: pipeline_response()
+          pipeline :: pipeline(),
+          input :: input(),
+          done :: phases()
+        ) :: pipeline_response()
   def run_phase(pipeline, input, done)
 
   def run_phase([], input, done) do

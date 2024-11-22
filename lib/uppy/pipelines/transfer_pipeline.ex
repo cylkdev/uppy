@@ -1,4 +1,4 @@
-defmodule Uppy.Pipelines.PostProcessingPipeline do
+defmodule Uppy.Pipelines.TransferPipeline do
   @moduledoc """
   ...
   """

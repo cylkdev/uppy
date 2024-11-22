@@ -24,41 +24,45 @@ defmodule Uppy.Phases.HeadSchemaObjectTest do
         {
           @bucket,
           fn ->
-            {:ok, %{
-              content_length: 11,
-              content_type: "text/plain",
-              e_tag: "e_tag",
-              last_modified: ~U[2024-07-24 01:00:00Z]
-            }}
+            {:ok,
+             %{
+               content_length: 11,
+               content_type: "text/plain",
+               e_tag: "e_tag",
+               last_modified: ~U[2024-07-24 01:00:00Z]
+             }}
           end
         }
       ])
 
-      assert {:ok, %Resolution{
-        state: :unresolved,
-        value: ^schema_data,
-        context: %{
-          destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
-          # metadata data from storage should exist
-          metadata: %{
-            content_length: 11,
-            content_type: "text/plain",
-            e_tag: "e_tag",
-            last_modified: ~U[2024-07-24 01:00:00Z]
-          }
-        }
-      }} =
-        HeadSchemaObject.run(
-          %Resolution{
-            bucket: "uppy-test",
-            state: :unresolved,
-            value: schema_data,
-            context: %{
-              destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
-            }
-          },
-          []
-        )
+      assert {:ok,
+              %Resolution{
+                state: :unresolved,
+                value: ^schema_data,
+                context: %{
+                  destination_object:
+                    ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg",
+                  # metadata data from storage should exist
+                  metadata: %{
+                    content_length: 11,
+                    content_type: "text/plain",
+                    e_tag: "e_tag",
+                    last_modified: ~U[2024-07-24 01:00:00Z]
+                  }
+                }
+              }} =
+               HeadSchemaObject.run(
+                 %Resolution{
+                   bucket: "uppy-test",
+                   state: :unresolved,
+                   value: schema_data,
+                   context: %{
+                     destination_object:
+                       ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
+                   }
+                 },
+                 []
+               )
     end
   end
 end

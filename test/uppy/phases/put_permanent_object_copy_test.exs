@@ -21,41 +21,45 @@ defmodule Uppy.Phases.PutPermanentObjectCopyTest do
         {
           ~r|.*|,
           fn ->
-            {:ok, %{
-              body: "body",
-              headers: [
-                {"x-amz-id-2", "amz_id"},
-                {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
-                {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
-                {"x-amz-server-side-encryption", "AES256"},
-                {"content-type", "application/xml"},
-                {"server", "AmazonS3"},
-                {"content-length", "224"}
-              ],
-              status_code: 200
-            }}
+            {:ok,
+             %{
+               body: "body",
+               headers: [
+                 {"x-amz-id-2", "amz_id"},
+                 {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
+                 {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
+                 {"x-amz-server-side-encryption", "AES256"},
+                 {"content-type", "application/xml"},
+                 {"server", "AmazonS3"},
+                 {"content-length", "224"}
+               ],
+               status_code: 200
+             }}
           end
         }
       ])
 
-      assert {:ok, %Resolution{
-        state: :unresolved,
-        value: ^schema_data,
-        context: %{
-          destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
-        }
-      }} =
-        PutPermanentObjectCopy.run(
-          %Resolution{
-            bucket: "uppy-test",
-            state: :unresolved,
-            value: schema_data,
-            context: %{
-              destination_object: ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
-            }
-          },
-          []
-        )
+      assert {:ok,
+              %Resolution{
+                state: :unresolved,
+                value: ^schema_data,
+                context: %{
+                  destination_object:
+                    ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
+                }
+              }} =
+               PutPermanentObjectCopy.run(
+                 %Resolution{
+                   bucket: "uppy-test",
+                   state: :unresolved,
+                   value: schema_data,
+                   context: %{
+                     destination_object:
+                       ">DI_GRO<-organization/user-avatars/unique_identifier-image.jpeg"
+                   }
+                 },
+                 []
+               )
     end
   end
 end

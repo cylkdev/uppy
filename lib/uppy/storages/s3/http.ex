@@ -58,10 +58,11 @@ defmodule Uppy.Storages.S3.HTTP do
   end
 
   defp handle_response({:ok, {_body, %{status: status, headers: headers, body: raw_body}}}) do
-    {:ok, %{
-      status_code: status,
-      body: raw_body,
-      headers: headers
-    }}
+    {:ok,
+     %{
+       status_code: status,
+       body: raw_body,
+       headers: headers
+     }}
   end
 end

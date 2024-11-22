@@ -13,7 +13,7 @@ Uppy.Repo.start_link()
 Uppy.StorageSandbox.start_link()
 Uppy.HTTP.Finch.start_link()
 
-Application.put_all_env([
+Application.put_all_env(
   ecto_shorts: [
     repo: Uppy.Repo,
     error_module: EctoShorts.Actions.Error
@@ -28,4 +28,4 @@ Application.put_all_env([
       secret_access_key: ["<UPPY_SECRET_ACCESS_KEY>"]
     ]
   ]
-])
+)
