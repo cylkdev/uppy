@@ -52,7 +52,7 @@ defmodule Uppy.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:sandbox_registry, "~> 0.1", only: :test, optional: true},
       {:faker, "~> 0.18", only: :test, optional: true},
-      {:finch, "~> 0.17.0", optional: true},
+      {:finch, "~> 0.17", optional: true},
       {:proper_case, "~> 1.3", optional: true},
       {:tzdata, "~> 1.1"},
       {:oban, "~> 2.17", optional: true},
