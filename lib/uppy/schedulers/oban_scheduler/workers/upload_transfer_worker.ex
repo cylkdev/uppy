@@ -14,7 +14,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTransferWorker do
 
   alias Uppy.{
     Schedulers.ObanScheduler,
-    Schedulers.ObanScheduler.Action,
+    Schedulers.ObanScheduler.CommonAction,
     Schedulers.ObanScheduler.Events,
     Schedulers.ObanScheduler.WorkerAPI
   }
@@ -33,10 +33,10 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTransferWorker do
         attempt: @max_attempts,
         args: args
       }) do
-    Action.insert(
-      ObanScheduler.Config.scheduler()[:upload_transfer_worker],
+    CommonAction.insert(
+      __MODULE__,
       args,
-      ObanScheduler.Config.scheduler()[:worker_options]
+      ObanScheduler.Config.scheduler()
     )
   end
 
@@ -56,7 +56,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTransferWorker do
       WorkerAPI.query_from_arguments(args),
       String.to_integer(id),
       WorkerAPI.string_to_module(pipeline),
-      ObanScheduler.Config.scheduler()[:worker_options]
+      ObanScheduler.Config.scheduler()
     )
   end
 end

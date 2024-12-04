@@ -3,19 +3,21 @@ defmodule Uppy.Schedulers.ObanScheduler do
   ...
   """
 
-  alias Uppy.{
-    Schedulers.ObanScheduler,
-    Schedulers.ObanScheduler.Action,
-    Schedulers.ObanScheduler.Events,
-    Schedulers.ObanScheduler.WorkerAPI
+  alias Uppy.Schedulers.{
+    ObanScheduler,
+    ObanScheduler.CommonAction,
+    ObanScheduler.Events,
+    ObanScheduler.WorkerAPI,
+    ObanScheduler.Workers
   }
 
   @doc """
   ...
   """
   def queue_move_upload(bucket, destination, query, id, pipeline, opts) do
-    Action.insert(
-      ObanScheduler.Config.scheduler()[:upload_transfer_worker],
+    opts = Keyword.merge(ObanScheduler.Config.scheduler(), opts)
+
+    params =
       query
       |> WorkerAPI.query_to_arguments()
       |> Map.merge(%{
@@ -24,42 +26,44 @@ defmodule Uppy.Schedulers.ObanScheduler do
         destination: destination,
         id: id,
         pipeline: pipeline
-      }),
-      opts
-    )
+      })
+
+    CommonAction.insert(Workers.UploadTransferWorker, params, opts)
   end
 
   @doc """
   ...
   """
   def queue_abort_multipart_upload(bucket, query, id, opts) do
-    Action.insert(
-      ObanScheduler.Config.scheduler()[:upload_timeout_worker],
+    opts = Keyword.merge(ObanScheduler.Config.scheduler(), opts)
+
+    params =
       query
       |> WorkerAPI.query_to_arguments()
       |> Map.merge(%{
         event: Events.abort_multipart_upload(),
         bucket: bucket,
         id: id
-      }),
-      opts
-    )
+      })
+
+    CommonAction.insert(Workers.UploadTimeoutWorker, params, opts)
   end
 
   @doc """
   ...
   """
   def queue_abort_upload(bucket, query, id, opts) do
-    Action.insert(
-      ObanScheduler.Config.scheduler()[:upload_timeout_worker],
+    opts = Keyword.merge(ObanScheduler.Config.scheduler(), opts)
+
+    params =
       query
       |> WorkerAPI.query_to_arguments()
       |> Map.merge(%{
         event: Events.abort_upload(),
         bucket: bucket,
         id: id
-      }),
-      opts
-    )
+      })
+
+    CommonAction.insert(Workers.UploadTimeoutWorker, params, opts)
   end
 end

@@ -1,4 +1,4 @@
-defmodule Uppy.Uploader do
+defmodule Uppy.Upload do
   @moduledoc """
   ...
   """

@@ -139,16 +139,16 @@ defmodule Uppy.Storage do
 
   @default_opts [storage: [sandbox: Mix.env() === :test]]
 
-  def download_chunk_stream(bucket, object, chunk_size, opts) do
+  def object_chunk_stream(bucket, object, chunk_size, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
     sandbox? = opts[:storage][:sandbox]
 
     if sandbox? && !sandbox_disabled?() do
-      sandbox_download_chunk_stream_response(bucket, object, chunk_size, opts)
+      sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts)
     else
       bucket
-      |> adapter!(opts).download_chunk_stream(object, chunk_size, opts)
+      |> adapter!(opts).object_chunk_stream(object, chunk_size, opts)
       |> handle_response()
     end
   end
@@ -553,9 +553,9 @@ defmodule Uppy.Storage do
   end
 
   if Mix.env() === :test do
-    defdelegate sandbox_download_chunk_stream_response(bucket, object, chunk_size, opts),
+    defdelegate sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts),
       to: Uppy.StorageSandbox,
-      as: :download_chunk_stream_response
+      as: :object_chunk_stream_response
 
     defdelegate sandbox_get_chunk_response(bucket, object, start_byte, end_byte, opts),
       to: Uppy.StorageSandbox,
@@ -628,7 +628,7 @@ defmodule Uppy.Storage do
 
     defdelegate sandbox_disabled?, to: Uppy.StorageSandbox
   else
-    defp sandbox_download_chunk_stream_response(bucket, object, chunk_size, opts) do
+    defp sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts) do
       raise """
       Cannot use StorageSandbox outside of test
 

@@ -3,7 +3,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
   ...
   """
 
-  alias Uppy.Uploader
+  alias Uppy.Upload
 
   @discarded :discarded
 
@@ -66,7 +66,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
   """
   def abort_multipart_upload(bucket, query, id, opts) do
     with {:error, %{code: :not_found} = e} <-
-           Uploader.abort_multipart_upload(
+           Upload.abort_multipart_upload(
              bucket,
              query,
              %{id: id},
@@ -86,7 +86,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
   """
   def abort_upload(bucket, query, id, opts) do
     with {:error, %{code: :not_found} = e} <-
-           Uploader.abort_upload(
+           Upload.abort_upload(
              bucket,
              query,
              %{id: id},
@@ -105,7 +105,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
   ...
   """
   def move_upload(bucket, destination_object, query, id, pipeline, opts) do
-    Uploader.move_upload(
+    Upload.move_upload(
       bucket,
       destination_object,
       query,

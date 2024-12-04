@@ -10,20 +10,23 @@ defmodule Uppy.Storages.S3Test do
     {:ok, _} = S3.put_object("uppy-test", "seed.txt", "Hello world!", [])
   end
 
-  describe "download_chunk_stream/4: " do
+  describe "object_chunk_stream/4: " do
     test "returns expected response" do
       assert "Hello world!" =
                @bucket
-               |> S3.download_chunk_stream("seed.txt", 4, [])
+               |> S3.object_chunk_stream("seed.txt", 4, [])
                |> elem(1)
                |> Task.async_stream(fn %{start_byte: start_byte, end_byte: end_byte} ->
-                 S3.get_chunk!(
-                   @bucket,
-                   "seed.txt",
-                   start_byte,
-                   end_byte,
-                   []
-                 )
+                case S3.get_chunk(
+                  @bucket,
+                  "seed.txt",
+                  start_byte,
+                  end_byte,
+                  []
+                ) do
+                  {:ok, chunk} -> chunk
+                  {:error, e} -> raise "Failed to get chunk with error: #{inspect(e)}"
+                end
                end)
                |> Enum.map_join(fn {:ok, {_start_byte, body}} -> body end)
     end
