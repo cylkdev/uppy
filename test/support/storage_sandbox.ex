@@ -20,7 +20,7 @@ defmodule Uppy.StorageSandbox do
           | :put_object_copy
           | :put_object
           | :delete_object
-          | :download_chunk_stream
+          | :object_chunk_stream
           | :get_chunk
   @type bucket :: binary()
   @type prefix :: binary()
@@ -40,9 +40,9 @@ defmodule Uppy.StorageSandbox do
     Registry.start_link(keys: @keys, name: @registry)
   end
 
-  @spec download_chunk_stream_response(bucket, object, chunk_size, options) :: any
-  def download_chunk_stream_response(bucket, object, chunk_size, options) do
-    func = find!(:download_chunk_stream, bucket)
+  @spec object_chunk_stream_response(bucket, object, chunk_size, options) :: any
+  def object_chunk_stream_response(bucket, object, chunk_size, options) do
+    func = find!(:object_chunk_stream, bucket)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->

@@ -16,9 +16,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @s3_accelerate @config[:s3_accelerate] === true
 
-    @default_opts [http_client: Uppy.Storages.S3.HTTP]
+    @default_opts [
+      region: "us-west-1",
+      http_client: Uppy.Storages.S3.HTTP
+    ]
 
-    def download_chunk_stream(bucket, object, chunk_size, opts) do
+    def object_chunk_stream(bucket, object, chunk_size, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
       with {:ok, metadata} <- head_object(bucket, object, opts) do
@@ -29,21 +32,17 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     def get_chunk(bucket, object, start_byte, end_byte, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
-      request_opts = Keyword.put(opts, :range, "bytes=#{start_byte}-#{end_byte}")
+      s3_opts =
+        opts
+        |> Keyword.get(:s3, [])
+        |> Keyword.put(:range, "bytes=#{start_byte}-#{end_byte}")
 
       with {:ok, body} <-
              bucket
-             |> ExAws.S3.get_object(object, request_opts)
+             |> ExAws.S3.get_object(object, s3_opts)
              |> ExAws.request(opts)
              |> deserialize_response() do
         {:ok, {start_byte, body}}
-      end
-    end
-
-    def get_chunk!(bucket, object, start_byte, end_byte, opts) do
-      case get_chunk(bucket, object, start_byte, end_byte, opts) do
-        {:ok, chunk} -> chunk
-        error -> "Failed to get chunk with error\n\n#{inspect(error, pretty: true)}"
       end
     end
 
@@ -54,12 +53,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     def list_objects(bucket, prefix \\ nil, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
-      opts =
-        if prefix in [nil, ""] do
-          Keyword.delete(opts, :prefix)
-        else
-          Keyword.put(opts, :prefix, prefix)
-        end
+      opts = if prefix in [nil, ""], do: opts, else: Keyword.put(opts, :prefix, prefix)
 
       bucket
       |> ExAws.S3.list_objects_v2(opts)
@@ -144,7 +138,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       opts = Keyword.merge(@default_opts, opts)
 
       bucket
-      |> ExAws.S3.initiate_multipart_upload(object)
+      |> ExAws.S3.initiate_multipart_upload(object, opts)
       |> ExAws.request(opts)
       |> deserialize_response()
     end
@@ -156,7 +150,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     def list_parts(bucket, object, upload_id, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
-      opts =
+      s3_opts =
         if Keyword.has_key?(opts, :part_number_marker) do
           query_params = %{"part-number-marker" => opts[:part_number_marker]}
 
@@ -164,11 +158,11 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
           |> Keyword.delete(:part_number_marker)
           |> Keyword.update(:query_params, query_params, &Map.merge(&1, query_params))
         else
-          opts
+          Keyword.take(opts, [:query_params])
         end
 
       bucket
-      |> ExAws.S3.list_parts(object, upload_id, opts)
+      |> ExAws.S3.list_parts(object, upload_id, s3_opts)
       |> ExAws.request(opts)
       |> deserialize_response()
     end

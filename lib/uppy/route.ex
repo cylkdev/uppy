@@ -24,16 +24,6 @@ defmodule Uppy.Route do
   @callback valid?(path :: path()) :: boolean()
 
   @doc """
-  Invokes callback function `__config__/0`.
-
-  ### Examples
-
-      iex> Uppy.Route.__config__(Uppy.Routes.TemporaryRoute)
-      []
-  """
-  def __config__(adapter), do: adapter.__config__()
-
-  @doc """
   Invokes callback function `valid?/1`.
 
   ### Examples

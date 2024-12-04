@@ -15,7 +15,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTimeoutWorker do
 
   alias Uppy.{
     Schedulers.ObanScheduler,
-    Schedulers.ObanScheduler.Action,
+    Schedulers.ObanScheduler.CommonAction,
     Schedulers.ObanScheduler.Events,
     Schedulers.ObanScheduler.WorkerAPI
   }
@@ -36,10 +36,10 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTimeoutWorker do
         attempt: @max_attempts,
         args: args
       }) do
-    Action.insert(
-      ObanScheduler.Config.scheduler()[:upload_timeout_worker],
+    CommonAction.insert(
+      __MODULE__,
       args,
-      ObanScheduler.Config.scheduler()[:worker_options]
+      ObanScheduler.Config.scheduler()
     )
   end
 
@@ -55,7 +55,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTimeoutWorker do
       bucket,
       WorkerAPI.query_from_arguments(args),
       String.to_integer(id),
-      ObanScheduler.Config.scheduler()[:worker_options]
+      ObanScheduler.Config.scheduler()
     )
   end
 
@@ -71,7 +71,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.UploadTimeoutWorker do
       bucket,
       WorkerAPI.query_from_arguments(args),
       String.to_integer(id),
-      ObanScheduler.Config.scheduler()[:worker_options]
+      ObanScheduler.Config.scheduler()
     )
   end
 end

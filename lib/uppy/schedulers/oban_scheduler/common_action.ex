@@ -19,9 +19,9 @@ defmodule Uppy.Schedulers.ObanScheduler.CommonAction do
 
   defp build_changeset(worker, params, opts) do
     if Keyword.has_key?(opts, :worker) do
-      Oban.Job.new(params, opts)
+      Oban.Job.new(params, Keyword.take(opts, []))
     else
-      worker.new(params, opts)
+      worker.new(params, Keyword.take(opts, []))
     end
   end
 
