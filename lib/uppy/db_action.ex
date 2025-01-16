@@ -124,8 +124,10 @@ defmodule Uppy.DBAction do
 
   def transaction(func, opts) do
     case adapter!(opts).transaction(func, opts) do
-      {:ok, res} -> res
+      {:ok, {:ok, _} = ok} -> ok
+      {:ok, {:error, _} = e} -> e
       {:error, _} = e -> e
+      term -> term
     end
   end
 

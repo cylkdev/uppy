@@ -6,10 +6,10 @@ defmodule Uppy.Repo.Migrations.CreateUserAvatarFileInfos do
       add :assoc_id, references(:user_avatars, on_update: :update_all)
 
       add :status, :text, null: false
-
+      add :filename, :text, null: false
       add :key, :text, null: false
+      add :unique_identifier, :text
       add :upload_id, :text
-
       add :content_length, :integer
       add :content_type, :text
       add :e_tag, :text
