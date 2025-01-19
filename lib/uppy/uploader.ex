@@ -154,16 +154,16 @@ defmodule Uppy.Uploader do
       opts = unquote(opts)
 
       @bucket opts[:bucket]
-
       @query opts[:query]
-
-      @default_opts Keyword.take(opts, [:permanent_object_key, :temporary_object_key])
+      @default_opts opts[:options]
 
       def bucket, do: @bucket
 
       def query, do: @query
 
       def all(params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
         Uppy.UploaderTemplate.all(
           __MODULE__,
           params,
@@ -172,6 +172,8 @@ defmodule Uppy.Uploader do
       end
 
       def create(params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
         Uppy.UploaderTemplate.create(
           __MODULE__,
           params,
@@ -180,6 +182,8 @@ defmodule Uppy.Uploader do
       end
 
       def find(params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
         Uppy.UploaderTemplate.find(
           __MODULE__,
           params,
@@ -188,6 +192,8 @@ defmodule Uppy.Uploader do
       end
 
       def update(find_params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
         Uppy.UploaderTemplate.update(
           __MODULE__,
           find_params_or_struct,
@@ -197,6 +203,8 @@ defmodule Uppy.Uploader do
       end
 
       def delete(id_or_struct, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
         Uppy.UploaderTemplate.delete(
           __MODULE__,
           id_or_struct,
