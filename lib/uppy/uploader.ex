@@ -1,335 +1,311 @@
 defmodule Uppy.Uploader do
-  @moduledoc """
-  ...
-  """
-
   alias Uppy.{
     Core,
-    DBAction,
-    Route,
-    Scheduler
+    DBAction
   }
 
-  @available :available
-  @cancelled :cancelled
-  @pending :pending
-
-  @unique_identifier_byte_size 4
-
-  @doc """
-  ...
-  """
-  def find_parts(bucket, query, find_params_or_schema_data, opts) do
-    with {:ok, res} <-
-           Core.find_parts(
-             bucket,
-             query,
-             find_params_or_schema_data,
-             opts
-           ) do
-      {:ok,
-       %{
-         parts: res.parts,
-         schema_data: res.schema_data
-       }}
-    end
+  def all(adapter, params, opts \\ []) do
+    DBAction.all(adapter.query(), params, opts)
   end
 
-  @doc """
-  ...
-  """
-  def presigned_part(bucket, query, find_params_or_schema_data, part_number, opts) do
-    with {:ok, res} <-
-           Core.presigned_part(bucket, query, find_params_or_schema_data, part_number, opts) do
-      {:ok,
-       %{
-         presigned_part: res.presigned_part,
-         schema_data: res.schema_data
-       }}
-    end
+  def create(adapter, params, opts \\ []) do
+    DBAction.create(adapter.query(), params, opts)
   end
 
-  @doc """
-  ...
-  """
-  def complete_multipart_upload(
-        bucket,
-        route_params,
-        query,
-        find_params_or_schema_data,
-        update_params,
-        parts,
-        opts
+  def find(adapter, params, opts \\ []) do
+    DBAction.find(adapter.query(), params, opts)
+  end
+
+  def update(adapter, find_params_or_struct, update_params, opts \\ []) do
+    DBAction.update(adapter.query(), find_params_or_struct, update_params, opts)
+  end
+
+  def delete(adapter, id_or_struct, opts \\ []) do
+    DBAction.delete(adapter.query(), id_or_struct, opts)
+  end
+
+  def move_to_destination(
+        adapter,
+        destination_object,
+        find_params_or_struct,
+        opts \\ []
       ) do
-    update_params =
-      Map.merge(
-        %{
-          status: @available,
-          unique_identifier: generate_unique_identifier(opts)
-        },
-        update_params
-      )
-
-    with {:ok, %{metadata: metadata, schema_data: schema_data}} <-
-           Core.complete_multipart_upload(
-             bucket,
-             query,
-             find_params_or_schema_data,
-             update_params,
-             parts,
-             opts
-           ),
-         destination_object <-
-           build_permanent_key(
-             route_params,
-             schema_data.unique_identifier,
-             schema_data.filename,
-             opts
-           ),
-         {:ok, job} <-
-           Scheduler.queue_move_upload(
-             bucket,
-             destination_object,
-             query,
-             schema_data.id,
-             opts[:pipeline] || Uppy.Pipelines.TransferPipeline,
-             opts
-           ) do
-      {:ok,
-       %{
-         metadata: metadata,
-         schema_data: schema_data,
-         destination: destination_object,
-         jobs: %{
-           move_upload: job
-         }
-       }}
-    end
-  end
-
-  @doc """
-  ...
-  """
-  def abort_multipart_upload(bucket, query, find_params_or_schema_data, update_params, opts) do
-    with {:ok, res} <-
-           Core.abort_multipart_upload(
-             bucket,
-             query,
-             find_params_or_schema_data,
-             Map.put_new(update_params, :status, @cancelled),
-             opts
-           ) do
-      {:ok,
-       %{
-         metadata: res.metadata,
-         schema_data: res.schema_data
-       }}
-    end
-  end
-
-  @doc """
-  ...
-  """
-  def start_multipart_upload(bucket, route_params, query, create_params, opts) do
-    with create_params <- prepare_create_params(route_params, create_params, opts),
-         {:ok, res} <- Core.start_multipart_upload(bucket, query, create_params, opts),
-         {:ok, job} <-
-           Scheduler.queue_abort_multipart_upload(
-             bucket,
-             query,
-             res.schema_data.id,
-             opts
-           ) do
-      {:ok,
-       %{
-         multipart_upload: res.multipart_upload,
-         schema_data: res.schema_data,
-         jobs: %{abort_multipart_upload: job}
-       }}
-    end
-  end
-
-  @doc """
-  ...
-  """
-  def move_upload(bucket, destination_object, query, %_{} = schema_data, opts) do
-    process_upload(
-      bucket,
-      query,
-      schema_data,
-      opts[:pipeline] || Uppy.Pipelines.TransferPipeline,
-      %{destination_object: destination_object},
-      Keyword.delete(opts, :pipeline)
+    Core.move_to_destination(
+      adapter.bucket(),
+      destination_object,
+      adapter.query(),
+      find_params_or_struct,
+      opts
     )
   end
 
-  def move_upload(bucket, destination_object, query, find_params, opts) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      move_upload(bucket, destination_object, query, schema_data, opts)
-    end
+  def find_parts(
+        adapter,
+        find_params_or_struct,
+        opts \\ []
+      ) do
+    Core.find_parts(
+      adapter.bucket(),
+      adapter.query(),
+      find_params_or_struct,
+      opts
+    )
   end
 
-  @doc """
-  ...
-  """
-  def process_upload(bucket, query, find_params_or_schema_data, pipeline, context, opts) do
-    with {:ok, res} <-
-          Core.process_upload(
-            bucket,
-            query,
-            find_params_or_schema_data,
-            pipeline,
-            context,
-            opts
-          ) do
-      {:ok, %{
-        resolution: res.resolution,
-        done: res.done
-      }}
-    end
+  def sign_part(
+        adapter,
+        find_params_or_struct,
+        part_number,
+        opts \\ []
+      ) do
+    Core.sign_part(
+      adapter.bucket(),
+      adapter.query(),
+      find_params_or_struct,
+      part_number,
+      opts
+    )
   end
 
-  @doc """
-  ...
-  """
-  def complete_upload(
-    bucket,
-    route_params,
-    query,
-    find_params_or_schema_data,
-    update_params,
-    opts
-  ) do
-    update_params =
-      Map.merge(
-        %{
-          status: @available,
-          unique_identifier: generate_unique_identifier(opts)
-        },
-        update_params
-      )
-
-    with {:ok, %{metadata: metadata, schema_data: schema_data}} <-
-           Core.confirm_upload(
-             bucket,
-             query,
-             find_params_or_schema_data,
-             update_params,
-             opts
-           ),
-         destination_object <-
-           build_permanent_key(
-             route_params,
-             schema_data.unique_identifier,
-             schema_data.filename,
-             opts
-           ),
-         {:ok, job} <-
-           Scheduler.queue_move_upload(
-             bucket,
-             destination_object,
-             query,
-             schema_data.id,
-             opts[:pipeline] || Uppy.Pipelines.TransferPipeline,
-             opts
-           ) do
-      {:ok, %{
-        metadata: metadata,
-        schema_data: schema_data,
-        destination: destination_object,
-        jobs: %{
-          move_upload: job
-        }
-      }}
-    end
+  def complete_multipart_upload(
+        adapter,
+        find_params_or_struct,
+        builder_params,
+        update_params,
+        parts,
+        opts \\ []
+      ) do
+    Core.complete_multipart_upload(
+      adapter.bucket(),
+      adapter.query(),
+      builder_params,
+      find_params_or_struct,
+      update_params,
+      parts,
+      opts
+    )
   end
 
-  @doc """
-  ...
-  """
-  def abort_upload(bucket, query, find_params_or_schema_data, update_params, opts) do
-    with {:ok, res} <-
-           Core.abort_upload(
-             bucket,
-             query,
-             find_params_or_schema_data,
-             Map.put_new(update_params, :status, @cancelled),
-             opts
-           ) do
-      {:ok, %{schema_data: res.schema_data}}
-    end
+  def abort_multipart_upload(
+        adapter,
+        find_params_or_struct,
+        update_params,
+        opts \\ []
+      ) do
+    Core.abort_multipart_upload(
+      adapter.bucket(),
+      adapter.query(),
+      find_params_or_struct,
+      update_params,
+      opts
+    )
   end
 
-  @doc """
-  ...
-  """
-  def start_upload(bucket, route_params, query, create_params, opts) do
-    with create_params <- prepare_create_params(route_params, create_params, opts),
-         {:ok, res} <- Core.start_upload(bucket, query, create_params, opts),
-         {:ok, job} <-
-           Scheduler.queue_abort_upload(
-             bucket,
-             query,
-             res.schema_data.id,
-             opts
-           ) do
-      {:ok,
-       %{
-         presigned_upload: res.presigned_upload,
-         schema_data: res.schema_data,
-         jobs: %{abort_upload: job}
-       }}
-    end
+  def create_multipart_upload(adapter, filename, builder_params, create_params, opts \\ []) do
+    Core.create_multipart_upload(
+      adapter.bucket(),
+      adapter.query(),
+      filename,
+      builder_params,
+      create_params,
+      opts
+    )
   end
 
-  defp prepare_create_params(route_params, create_params, opts) do
-    filename = create_params.filename
+  def complete_upload(adapter, builder_params, find_params_or_struct, update_params, opts \\ []) do
+    Core.complete_upload(
+      adapter.bucket(),
+      adapter.query(),
+      builder_params,
+      find_params_or_struct,
+      update_params,
+      opts
+    )
+  end
 
-    unique_identifier =
-      if Map.has_key?(create_params, :unique_identifier) do
-        create_params.unique_identifier
-      else
-        create_params[:timestamp] || :os.system_time() |> to_string() |> String.reverse()
+  def abort_upload(
+        adapter,
+        find_params_or_struct,
+        update_params,
+        opts \\ []
+      ) do
+    Core.abort_upload(
+      adapter.bucket(),
+      adapter.query(),
+      find_params_or_struct,
+      update_params,
+      opts
+    )
+  end
+
+  def create_upload(adapter, filename, builder_params, create_params, opts \\ []) do
+    Core.create_upload(
+      adapter.bucket(),
+      adapter.query(),
+      filename,
+      builder_params,
+      create_params,
+      opts
+    )
+  end
+
+  defmacro __using__(opts \\ []) do
+    quote do
+      opts = unquote(opts)
+
+      @bucket opts[:bucket]
+
+      @query opts[:query]
+
+      @default_opts Keyword.take(opts, [:permanent_object_key, :temporary_object_key])
+
+      def bucket, do: @bucket
+
+      def query, do: @query
+
+      def all(params, opts \\ []) do
+        Uppy.UploaderTemplate.all(
+          __MODULE__,
+          params,
+          opts
+        )
       end
 
-    key = build_temporary_key(route_params, unique_identifier, filename, opts)
+      def create(params, opts \\ []) do
+        Uppy.UploaderTemplate.create(
+          __MODULE__,
+          params,
+          opts
+        )
+      end
 
-    create_params
-    |> Map.delete(:timestamp)
-    |> Map.merge(%{
-      status: @pending,
-      filename: filename,
-      key: key
-    })
-  end
+      def find(params, opts \\ []) do
+        Uppy.UploaderTemplate.find(
+          __MODULE__,
+          params,
+          opts
+        )
+      end
 
-  defp build_permanent_key(route_params, unique_identifier, filename, opts) do
-    opts
-    |> permanent_route!()
-    |> Route.path("#{unique_identifier}-#{filename}", route_params)
-  end
+      def update(find_params_or_struct, update_params, opts \\ []) do
+        Uppy.UploaderTemplate.update(
+          __MODULE__,
+          find_params_or_struct,
+          update_params,
+          opts
+        )
+      end
 
-  defp build_temporary_key(route_params, unique_identifier, filename, opts) do
-    opts
-    |> temporary_route!()
-    |> Route.path("#{unique_identifier}-#{filename}", route_params)
-  end
+      def delete(id_or_struct, opts \\ []) do
+        Uppy.UploaderTemplate.delete(
+          __MODULE__,
+          id_or_struct,
+          opts
+        )
+      end
 
-  defp permanent_route!(opts) do
-    opts[:permanent_route_adapter] || Uppy.Routes.PermanentRoute
-  end
+      def move_to_destination(destination_object, find_params_or_struct, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-  defp temporary_route!(opts) do
-    opts[:temporary_route_adapter] || Uppy.Routes.TemporaryRoute
-  end
+        Uppy.UploaderTemplate.move_to_destination(
+          __MODULE__,
+          destination_object,
+          find_params_or_struct,
+          opts
+        )
+      end
 
-  defp generate_unique_identifier(opts) do
-    byte_size = opts[:unique_identifier_byte_size] || @unique_identifier_byte_size
-    bytes = :crypto.strong_rand_bytes(byte_size)
+      def complete_multipart_upload(
+            find_params_or_struct,
+            update_params,
+            parts,
+            builder_params \\ %{},
+            opts \\ []
+          ) do
+        opts = Keyword.merge(@default_opts, opts)
 
-    encoding = opts[:base_encode] || :encode32
-    encoding_opts = opts[:base_encode_options] || [padding: false]
+        Uppy.UploaderTemplate.complete_multipart_upload(
+          __MODULE__,
+          find_params_or_struct,
+          update_params,
+          parts,
+          builder_params,
+          opts
+        )
+      end
 
-    apply(Base, encoding, [bytes, encoding_opts])
+      def abort_multipart_upload(find_params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uppy.UploaderTemplate.abort_multipart_upload(
+          __MODULE__,
+          find_params_or_struct,
+          update_params,
+          opts
+        )
+      end
+
+      def create_multipart_upload(filename, create_params, builder_params \\ %{}, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uppy.UploaderTemplate.create_multipart_upload(
+          __MODULE__,
+          filename,
+          create_params,
+          builder_params,
+          opts
+        )
+      end
+
+      def complete_upload(find_params_or_struct, update_params, builder_params \\ %{}, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uppy.UploaderTemplate.complete_upload(
+          __MODULE__,
+          find_params_or_struct,
+          update_params,
+          builder_params,
+          opts
+        )
+      end
+
+      def abort_upload(find_params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uppy.UploaderTemplate.abort_upload(
+          __MODULE__,
+          find_params_or_struct,
+          update_params,
+          opts
+        )
+      end
+
+      def create_upload(filename, create_params, builder_params \\ %{}, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uppy.UploaderTemplate.create_upload(
+          __MODULE__,
+          filename,
+          create_params,
+          builder_params,
+          opts
+        )
+      end
+
+      defoverridable create_upload: 3,
+                     create_upload: 2,
+                     abort_upload: 3,
+                     abort_upload: 2,
+                     complete_upload: 3,
+                     complete_upload: 2,
+                     create_multipart_upload: 3,
+                     create_multipart_upload: 2,
+                     abort_multipart_upload: 3,
+                     abort_multipart_upload: 2,
+                     complete_multipart_upload: 4,
+                     complete_multipart_upload: 3,
+                     move_to_destination: 3,
+                     move_to_destination: 2
+    end
   end
 end

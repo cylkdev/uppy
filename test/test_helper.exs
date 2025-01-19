@@ -9,7 +9,6 @@ for app <- [:oban, :postgrex] do
 end
 
 Uppy.Repo.start_link()
-
 Uppy.StorageSandbox.start_link()
 Uppy.HTTP.Finch.start_link()
 

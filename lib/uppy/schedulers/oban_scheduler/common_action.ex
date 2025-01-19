@@ -3,7 +3,15 @@ defmodule Uppy.Schedulers.ObanScheduler.CommonAction do
   ...
   """
 
-  alias Uppy.Schedulers.ObanScheduler
+  def query_to_args({source, query}), do: %{source: source, query: to_string(query)}
+  def query_to_args(query), do: %{query: to_string(query)}
+
+  def get_args_query(%{"source" => source, "query" => query}),
+    do: {source, string_to_module(query)}
+
+  def get_args_query(%{"query" => query}), do: string_to_module(query)
+
+  defp string_to_module(string), do: string |> String.split(".") |> Module.safe_concat()
 
   def insert(changeset, opts) do
     opts
@@ -26,8 +34,9 @@ defmodule Uppy.Schedulers.ObanScheduler.CommonAction do
   end
 
   defp oban_name!(opts) do
-    with nil <- opts[:oban][:name] || ObanScheduler.Config.oban()[:name] do
-      raise ArgumentError, "Oban not configured."
+    with nil <- opts[:oban_name],
+         nil <- Uppy.Config.oban_name() do
+      Uppy.Oban
     end
   end
 end

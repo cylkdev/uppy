@@ -1,69 +1,18 @@
 defmodule Uppy.Schedulers.ObanScheduler do
-  @moduledoc """
-  ...
-  """
+  @moduledoc false
 
-  alias Uppy.Schedulers.{
-    ObanScheduler,
-    ObanScheduler.CommonAction,
-    ObanScheduler.Events,
-    ObanScheduler.WorkerAPI,
-    ObanScheduler.Workers
+  alias Uppy.Schedulers.ObanScheduler.Workers.{
+    AbortExpiredMultipartUploadWorker,
+    AbortExpiredUploadWorker,
+    PostProessingWorker
   }
 
-  @doc """
-  ...
-  """
-  def queue_move_upload(bucket, destination, query, id, pipeline, opts) do
-    opts = Keyword.merge(ObanScheduler.Config.scheduler(), opts)
+  defdelegate queue_move_to_destination(bucket, query, id, dest_object, opts),
+    to: PostProessingWorker
 
-    params =
-      query
-      |> WorkerAPI.query_to_arguments()
-      |> Map.merge(%{
-        event: Events.move_upload(),
-        bucket: bucket,
-        destination: destination,
-        id: id,
-        pipeline: pipeline
-      })
+  defdelegate queue_abort_expired_multipart_upload(bucket, query, id, opts),
+    to: AbortExpiredMultipartUploadWorker
 
-    CommonAction.insert(Workers.UploadTransferWorker, params, opts)
-  end
-
-  @doc """
-  ...
-  """
-  def queue_abort_multipart_upload(bucket, query, id, opts) do
-    opts = Keyword.merge(ObanScheduler.Config.scheduler(), opts)
-
-    params =
-      query
-      |> WorkerAPI.query_to_arguments()
-      |> Map.merge(%{
-        event: Events.abort_multipart_upload(),
-        bucket: bucket,
-        id: id
-      })
-
-    CommonAction.insert(Workers.UploadTimeoutWorker, params, opts)
-  end
-
-  @doc """
-  ...
-  """
-  def queue_abort_upload(bucket, query, id, opts) do
-    opts = Keyword.merge(ObanScheduler.Config.scheduler(), opts)
-
-    params =
-      query
-      |> WorkerAPI.query_to_arguments()
-      |> Map.merge(%{
-        event: Events.abort_upload(),
-        bucket: bucket,
-        id: id
-      })
-
-    CommonAction.insert(Workers.UploadTimeoutWorker, params, opts)
-  end
+  defdelegate queue_abort_expired_upload(bucket, query, id, opts),
+    to: AbortExpiredUploadWorker
 end

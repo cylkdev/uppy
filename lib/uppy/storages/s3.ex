@@ -1,12 +1,34 @@
 if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
   defmodule Uppy.Storages.S3 do
     @moduledoc """
-    Implements the `Uppy.Storage` behaviour.
+    Amazon S3
+
+    This module implements the `Uppy.Storage` behaviour.
+
+    ## Getting started
+
+    1. Add the dependencies to your `mix.exs` file:
+
+    ```elixir
+    # mix.exs
+    defp deps do
+      [
+        {:ex_aws, "~> 2.1"},
+        {:ex_aws_s3, "~> 2.0"},
+        {:sweet_xml, "~> 0.6"}
+      ]
+    end
+    ```
+
+    2. Add the adapter to your `config.exs` file:
+
+    ```elixir
+    # config.exs
+    config :uppy, storage_adapter: Uppy.Storages.S3
+    ```
     """
-    alias Uppy.{
-      Error,
-      Storages.S3.Parser
-    }
+    alias Uppy.Error
+    alias Uppy.Storages.S3.Parser
 
     @behaviour Uppy.Storage
 
@@ -49,8 +71,12 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @impl true
     @doc """
     Implementation for `c:Uppy.Storage.list_objects/3`.
+
+    ### Examples
+
+        iex> Uppy.Storages.S3.list_objects("your_bucket", "your/prefix")
     """
-    def list_objects(bucket, prefix \\ nil, opts) do
+    def list_objects(bucket, prefix \\ "", opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
 
       opts = if prefix in [nil, ""], do: opts, else: Keyword.put(opts, :prefix, prefix)
@@ -64,6 +90,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @impl true
     @doc """
     Implementation for `c:Uppy.Storage.get_object/3`.
+
+    ### Examples
+
+        iex> Uppy.Storages.S3.get_object("your_bucket", "example_image.jpeg")
     """
     def get_object(bucket, object, opts) do
       opts = Keyword.merge(@default_opts, opts)
@@ -77,6 +107,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @impl true
     @doc """
     Implementation for `c:Uppy.Storage.head_object/3`.
+
+    ### Examples
+
+        iex> Uppy.Storages.S3.head_object("your_bucket", "example_image.jpeg")
     """
     def head_object(bucket, object, opts) do
       opts = Keyword.merge(@default_opts, opts)
@@ -89,9 +123,41 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Storage.presigned_url/4`.
+    Implementation for `c:Uppy.Storage.sign_part/5`.
+
+    ### Examples
+
+        iex> Uppy.Storages.S3.sign_part("your_bucket", "example_image.jpeg", "upload_id", 1)
     """
-    def presigned_url(bucket, http_method, object, opts) do
+    def sign_part(bucket, object, upload_id, part_number, opts \\ []) do
+      query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
+
+      opts =
+        @default_opts
+        |> Keyword.merge(opts)
+        |> Keyword.update(:query_params, query_params, &Map.merge(&1, query_params))
+
+      case Keyword.get(opts, :http_method, :put) do
+        :put ->
+          pre_sign(bucket, :put, object, opts)
+
+        :post ->
+          pre_sign(bucket, :post, object, opts)
+
+        term ->
+          raise "Expected the option `:http_method` to be one of `[:put, :post]`, got: #{inspect(term)}"
+      end
+    end
+
+    @impl true
+    @doc """
+    Implementation for `c:Uppy.Storage.pre_sign/4`.
+
+    ### Examples
+
+        iex> Uppy.Storages.S3.presigned_url("your_bucket", :put, "example_image.jpeg")
+    """
+    def pre_sign(bucket, http_method, object, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
       opts =
@@ -132,9 +198,9 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     @impl true
     @doc """
-    Implementation for `c:Uppy.Storage.initiate_multipart_upload/3`.
+    Implementation for `c:Uppy.Storage.create_multipart_upload/3`.
     """
-    def initiate_multipart_upload(bucket, object, opts) do
+    def create_multipart_upload(bucket, object, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
       bucket

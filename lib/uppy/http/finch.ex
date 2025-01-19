@@ -268,15 +268,17 @@ if Code.ensure_loaded?(Finch) do
 
     defp make_request(request, opts) do
       with {:ok, response} <- Finch.request(request, opts[:name], opts) do
-        response =
-          %Response{
-            request: request,
-            body: response.body,
-            status: response.status,
-            headers: response.headers
-          }
+        response = %Response{
+          request: request,
+          body: response.body,
+          status: response.status,
+          headers: response.headers
+        }
 
-        Uppy.Utils.Logger.debug(@logger_prefix, "make_request | OK | response\n\n#{inspect(response, pretty: true)}")
+        Uppy.Utils.Logger.debug(
+          @logger_prefix,
+          "make_request | OK | response\n\n#{inspect(response, pretty: true)}"
+        )
 
         {:ok, response}
       end

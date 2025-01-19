@@ -8,26 +8,27 @@ defmodule Uppy.StorageSandbox do
   @keys :unique
 
   @type action ::
-          :list_objects
+          :abort_multipart_upload
+          | :complete_multipart_upload
+          | :create_multipart_upload
+          | :delete_object
+          | :get_chunk
           | :get_object
           | :head_object
-          | :presigned_url
           | :list_multipart_uploads
-          | :initiate_multipart_upload
+          | :list_objects
           | :list_parts
-          | :abort_multipart_upload
-          | :complete_multipart_upload
-          | :put_object_copy
-          | :put_object
-          | :delete_object
           | :object_chunk_stream
-          | :get_chunk
+          | :pre_sign
+          | :put_object
+          | :put_object_copy
   @type bucket :: binary()
   @type prefix :: binary()
   @type object :: binary()
   @type body :: term()
-  @type options :: keyword
-  @type http_method :: :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
+  @type options :: keyword()
+  @type http_method ::
+          :get | :head | :post | :put | :delete | :connect | :options | :trace | :patch
   @type upload_id :: binary()
   @type parts :: list(map())
   @type marker :: binary()
@@ -59,11 +60,11 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported:
+        Function arity not supported.
 
         #{inspect(func)}
 
-        Please provide a function that takes between zero to two args:
+        Please provide a function that takes zero (0) to three (3) arguments.
 
         fn -> ... end
         fn (object) -> ... end
@@ -95,11 +96,11 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported:
+        Function arity not supported.
 
         #{inspect(func)}
 
-        Please provide a function that takes between zero to two args:
+        Please provide a function that takes zero (0) to four (4) arguments.
 
         fn -> ... end
         fn (object) -> ... end
@@ -126,11 +127,11 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported:
+        Function arity not supported.
 
         #{inspect(func)}
 
-        Please provide a function that takes between zero to two args:
+        Please provide a function that takes zero (0) to two (2) arguments.
 
         fn -> ... end
         fn (prefix) -> ... end
@@ -155,9 +156,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one or two args.
+
+        Please provide a function that takes zero (0) to two (2) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, options) -> ... end
@@ -181,9 +185,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, or two args.
+
+        Please provide a function that takes zero (0) to two (2) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, options) -> ... end
@@ -191,9 +198,45 @@ defmodule Uppy.StorageSandbox do
     end
   end
 
-  @spec presigned_url_response(bucket, http_method, object, options) :: any
-  def presigned_url_response(bucket, http_method, object, options) do
-    func = find!(:presigned_url, bucket)
+  def sign_part_response(bucket, object, upload_id, part_number, options) do
+    func = find!(:sign_part, bucket)
+
+    case :erlang.fun_info(func)[:arity] do
+      0 ->
+        func.()
+
+      1 ->
+        func.(object)
+
+      2 ->
+        func.(object, upload_id)
+
+      3 ->
+        func.(object, upload_id, part_number)
+
+      4 ->
+        func.(object, upload_id, part_number, options)
+
+      _ ->
+        raise """
+        Function arity not supported.
+
+        #{inspect(func)}
+
+        Please provide a function that takes zero (0) to four (4) arguments.
+
+        fn -> ... end
+        fn (object) -> ... end
+        fn (object, upload_id) -> ... end
+        fn (object, upload_id, part_number) -> ... end
+        fn (object, upload_id, part_number, options) -> ... end
+        """
+    end
+  end
+
+  @spec pre_sign_response(bucket, http_method, object, options) :: any
+  def pre_sign_response(bucket, http_method, object, options) do
+    func = find!(:pre_sign, bucket)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -210,9 +253,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, two or three args.
+
+        Please provide a function that takes zero (0) to three (3) arguments.
+
         fn -> ... end
         fn (http_method) -> ... end
         fn (http_method, object) -> ... end
@@ -234,18 +280,21 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, or one arg.
+
+        Please provide a function that takes zero (0) to one (1) argument.
+
         fn -> ... end
         fn (options) -> ... end
         """
     end
   end
 
-  @spec initiate_multipart_upload_response(bucket, object, options) :: any
-  def initiate_multipart_upload_response(bucket, object, options) do
-    func = find!(:initiate_multipart_upload, bucket)
+  @spec create_multipart_upload_response(bucket, object, options) :: any
+  def create_multipart_upload_response(bucket, object, options) do
+    func = find!(:create_multipart_upload, bucket)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -259,9 +308,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, or two args.
+
+        Please provide a function that takes zero (0) to two (2) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, options) -> ... end
@@ -288,9 +340,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, two, or three args.
+
+        Please provide a function that takes zero (0) to three (3) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, upload_id) -> ... end
@@ -318,9 +373,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, two, or three args.
+
+        Please provide a function that takes zero (0) to three (3) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, upload_id) -> ... end
@@ -351,9 +409,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, two, three, or four args.
+
+        Please provide a function that takes zero (0) to four (4) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, upload_id) -> ... end
@@ -363,15 +424,22 @@ defmodule Uppy.StorageSandbox do
     end
   end
 
-  @spec put_object_copy_response(bucket, object, bucket, object, options) :: any
+  @doc """
+  Returns the response set for the current process.
+
+  ### Examples
+
+      iex> Uppy.StorageSandbox.put_object_copy_response("destination_bucket", "example_copy.txt", "source_bucket", "example.txt", [])
+  """
+  @spec put_object_copy_response(bucket(), object(), bucket(), object(), options()) :: any()
   def put_object_copy_response(
-        dest_bucket,
+        destination_bucket,
         destination_object,
-        src_bucket,
+        source_bucket,
         source_object,
         options
       ) do
-    func = find!(:put_object_copy, dest_bucket)
+    func = find!(:put_object_copy, destination_bucket)
 
     case :erlang.fun_info(func)[:arity] do
       0 ->
@@ -381,28 +449,38 @@ defmodule Uppy.StorageSandbox do
         func.(destination_object)
 
       2 ->
-        func.(destination_object, src_bucket)
+        func.(destination_object, source_bucket)
 
       3 ->
-        func.(destination_object, src_bucket, source_object)
+        func.(destination_object, source_bucket, source_object)
 
       4 ->
-        func.(destination_object, src_bucket, source_object, options)
+        func.(destination_object, source_bucket, source_object, options)
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, two, three or four args.
+
+        Please provide a function that takes zero (0) to four (4) arguments.
+
         fn -> ... end
         fn (destination_object) -> ... end
-        fn (destination_object, src_bucket) -> ... end
-        fn (destination_object, src_bucket, source_object) -> ... end
-        fn (destination_object, src_bucket, source_object, options) -> ... end
+        fn (destination_object, source_bucket) -> ... end
+        fn (destination_object, source_bucket, source_object) -> ... end
+        fn (destination_object, source_bucket, source_object, options) -> ... end
         """
     end
   end
 
+  @doc """
+  Returns the response set for the current process.
+
+  ### Examples
+
+      iex> Uppy.StorageSandbox.put_object_response("your_bucket", "example.txt", "Hello world!", [])
+  """
   @spec put_object_response(bucket, object, body, options) :: any
   def put_object_response(bucket, object, body, options) do
     func = find!(:put_object, bucket)
@@ -422,9 +500,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one, two, three or four args.
+
+        Please provide a function that takes zero (0) to three (3) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, body) -> ... end
@@ -433,7 +514,14 @@ defmodule Uppy.StorageSandbox do
     end
   end
 
-  @spec delete_object_response(bucket, object, options) :: any
+  @doc """
+  Returns the response set for the current process.
+
+  ### Examples
+
+      iex> Uppy.StorageSandbox.delete_object_response("your_bucket", "example.txt", [])
+  """
+  @spec delete_object_response(bucket(), object(), options()) :: any()
   def delete_object_response(bucket, object, options) do
     func = find!(:delete_object, bucket)
 
@@ -449,9 +537,12 @@ defmodule Uppy.StorageSandbox do
 
       _ ->
         raise """
-        This function's signature is not supported.
+        Function arity not supported.
+
         #{inspect(func)}
-        Please provide a function that takes either zero, one or two args.
+
+        Please provide a function that takes zero (0) to two (2) arguments.
+
         fn -> ... end
         fn (object) -> ... end
         fn (object, options) -> ... end
@@ -545,10 +636,23 @@ defmodule Uppy.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_presigned_url_responses([{binary(), fun}]) :: :ok
-  def set_presigned_url_responses(tuples) do
+  @spec set_pre_sign_responses([{binary(), fun}]) :: :ok
+  def set_pre_sign_responses(tuples) do
     tuples
-    |> Map.new(fn {bucket, func} -> {{:presigned_url, bucket}, func} end)
+    |> Map.new(fn {bucket, func} -> {{:pre_sign, bucket}, func} end)
+    |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
+    |> then(fn
+      :ok -> :ok
+      {:error, :registry_not_started} -> raise_not_started!()
+    end)
+
+    Process.sleep(@sleep)
+  end
+
+  @spec set_sign_part_responses([{binary(), fun}]) :: :ok
+  def set_sign_part_responses(tuples) do
+    tuples
+    |> Map.new(fn {bucket, func} -> {{:sign_part, bucket}, func} end)
     |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
     |> then(fn
       :ok -> :ok
@@ -571,10 +675,10 @@ defmodule Uppy.StorageSandbox do
     Process.sleep(@sleep)
   end
 
-  @spec set_initiate_multipart_upload_responses([{binary(), fun}]) :: :ok
-  def set_initiate_multipart_upload_responses(tuples) do
+  @spec set_create_multipart_upload_responses([{binary(), fun}]) :: :ok
+  def set_create_multipart_upload_responses(tuples) do
     tuples
-    |> Map.new(fn {bucket, func} -> {{:initiate_multipart_upload, bucket}, func} end)
+    |> Map.new(fn {bucket, func} -> {{:create_multipart_upload, bucket}, func} end)
     |> then(&SandboxRegistry.register(@registry, @state, &1, @keys))
     |> then(fn
       :ok -> :ok

@@ -10,52 +10,130 @@ defmodule Uppy.CoreTest do
 
   @bucket "uppy-test"
 
-  setup do
-    StorageSandbox.set_presigned_url_responses([
-      {
-        @bucket,
-        fn _http_method, object ->
-          {
-            :ok,
-            %{
-              url: "https://presigned.url/#{object}",
-              expires_at: ~U[2024-07-24 01:00:00Z]
-            }
-          }
-        end
-      }
-    ])
-  end
-
-  ## Multipart API
-
-  describe "find_parts: " do
-    test "returns a list of parts from storage" do
+  describe "move_to_destination " do
+    test "can move existing object to location" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          key: "temp/image.jpeg",
+          status: :completed,
+          filename: "image.jpeg",
+          key: "temp/-user/timestamp-image.jpeg"
+        })
+
+      schema_data_id = schema_data.id
+
+      StorageSandbox.set_head_object_responses([
+        {@bucket,
+         fn ->
+           {:ok,
+            %{
+              content_length: 11,
+              content_type: "text/plain",
+              e_tag: "e_tag",
+              last_modified: ~U[2024-07-24 01:00:00Z]
+            }}
+         end}
+      ])
+
+      StorageSandbox.set_put_object_copy_responses([
+        {
+          ~r|.*|,
+          fn ->
+            {:ok,
+             %{
+               body: "body",
+               headers: [
+                 {"x-amz-id-2", "<amz_id>"},
+                 {"x-amz-request-id", "<x_amz_request_id>"},
+                 {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
+                 {"x-amz-server-side-encryption", "<x_amz_server_side_encryption>"},
+                 {"content-type", "<content_type>"},
+                 {"server", "<server>"},
+                 {"content-length", "<content_length>"}
+               ],
+               status_code: 200
+             }}
+          end
+        }
+      ])
+
+      StorageSandbox.set_delete_object_responses([
+        {
+          ~r|.*|,
+          fn ->
+            {:ok,
+             %{
+               body: "",
+               headers: [
+                 {"x-amz-id-2", "<x_amz_id_2>"},
+                 {"x-amz-request-id", "<x_amz_request_id>"},
+                 {"date", "Sat, 16 Sep 2023 04:13:38 GMT"},
+                 {"server", "<server>"}
+               ],
+               status_code: 204
+             }}
+          end
+        }
+      ])
+
+      assert {:ok, result} =
+               Core.move_to_destination(
+                 @bucket,
+                 {"user_avatar_file_infos", FileInfoAbstract},
+                 %{id: schema_data_id},
+                 "permanent/destination_image.jpeg",
+                 []
+               )
+
+      assert %{input: input, done: done} = result
+
+      assert [Uppy.Phases.MoveToDestination] = done
+
+      assert %{
+               state: :resolved,
+               bucket: @bucket,
+               destination_object: "permanent/destination_image.jpeg",
+               query: {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
+               schema_data: %Uppy.Schemas.FileInfoAbstract{
+                 status: :completed,
+                 content_length: 11,
+                 content_type: nil,
+                 e_tag: "e_tag",
+                 filename: "image.jpeg",
+                 key: "permanent/destination_image.jpeg",
+                 last_modified: %DateTime{},
+                 upload_id: nil
+               }
+             } = input
+    end
+  end
+
+  describe "find_parts: " do
+    test "returns parts" do
+      schema_data =
+        Fixture.UserAvatarFileInfo.insert!(%{
+          status: :pending,
+          filename: "image.jpeg",
+          key: "temp/-user/timestamp-image.jpeg",
           upload_id: "upload_id"
         })
 
       schema_data_id = schema_data.id
 
-      sandbox_list_parts_payload = [
-        %{
-          size: 1,
-          etag: "e_tag",
-          part_number: 1
-        }
-      ]
-
       StorageSandbox.set_list_parts_responses([
-        {@bucket, fn -> {:ok, sandbox_list_parts_payload} end}
+        {@bucket,
+         fn ->
+           {:ok,
+            [
+              %{
+                size: 1,
+                etag: "e_tag",
+                part_number: 1
+              }
+            ]}
+         end}
       ])
 
-      assert {:ok,
-              %{
-                parts: ^sandbox_list_parts_payload,
-                schema_data: find_parts_schema_data
-              }} =
+      assert {:ok, result} =
                Core.find_parts(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
@@ -63,37 +141,57 @@ defmodule Uppy.CoreTest do
                  []
                )
 
+      assert %{
+               parts: parts,
+               schema_data: schema_data
+             } = result
+
+      assert [
+               %{
+                 size: 1,
+                 etag: "e_tag",
+                 part_number: 1
+               }
+             ] = parts
+
       assert %Uppy.Schemas.FileInfoAbstract{
+               status: :pending,
                content_length: nil,
                content_type: nil,
                e_tag: nil,
                id: ^schema_data_id,
-               key: "temp/image.jpeg",
+               key: "temp/-user/timestamp-image.jpeg",
                last_modified: nil,
                upload_id: "upload_id"
-             } = find_parts_schema_data
+             } = schema_data
     end
   end
 
-  describe "presigned_part: " do
-    test "returns presigned part payload and expected record" do
+  describe "sign_part: " do
+    test "can pre-sign part" do
+      StorageSandbox.set_sign_part_responses([
+        {@bucket,
+         fn ->
+           {:ok,
+            %{
+              url: "http://url/temp/image.jpeg",
+              expires_at: ~U[2024-07-24 01:00:00Z]
+            }}
+         end}
+      ])
+
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          key: "temp/image.jpeg",
+          status: :pending,
+          filename: "image.jpeg",
+          key: "temp/-user/timestamp-image.jpeg",
           upload_id: "upload_id"
         })
 
       schema_data_id = schema_data.id
 
-      assert {:ok,
-              %{
-                presigned_part: %{
-                  url: "https://presigned.url/temp/image.jpeg",
-                  expires_at: ~U[2024-07-24 01:00:00Z]
-                },
-                schema_data: presigned_part_schema_data
-              }} =
-               Core.presigned_part(
+      assert {:ok, result} =
+               Core.sign_part(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: schema_data_id},
@@ -101,82 +199,104 @@ defmodule Uppy.CoreTest do
                  []
                )
 
+      assert %{
+               sign_part: sign_part,
+               schema_data: schema_data
+             } = result
+
+      assert %{
+               url: "http://url/temp/image.jpeg",
+               expires_at: ~U[2024-07-24 01:00:00Z]
+             } = sign_part
+
       assert %Uppy.Schemas.FileInfoAbstract{
                content_length: nil,
                content_type: nil,
                e_tag: nil,
                id: ^schema_data_id,
-               key: "temp/image.jpeg",
+               key: "temp/-user/timestamp-image.jpeg",
                last_modified: nil,
                upload_id: "upload_id"
-             } = presigned_part_schema_data
+             } = schema_data
     end
   end
 
   describe "complete_multipart_upload: " do
-    test "when scheduler is enabled, updates state to available | insert job" do
+    test "can complete multipart upload" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          key: "temp/image.jpeg",
+          status: :pending,
+          filename: "image.jpeg",
+          key: "temp/-user/timestamp-image.jpeg",
           upload_id: "upload_id"
         })
 
       schema_data_id = schema_data.id
 
-      sandbox_head_object_payload = %{
-        content_length: 11,
-        content_type: "text/plain",
-        e_tag: "e_tag",
-        last_modified: ~U[2024-07-24 01:00:00Z]
-      }
-
       StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, sandbox_head_object_payload} end}
+        {@bucket,
+         fn ->
+           {:ok,
+            %{
+              content_length: 11,
+              content_type: "text/plain",
+              e_tag: "e_tag",
+              last_modified: ~U[2024-07-24 01:00:00Z]
+            }}
+         end}
       ])
 
       StorageSandbox.set_complete_multipart_upload_responses([
-        {@bucket, fn object ->
-          {:ok, %{
-            location: "https://s3.com/#{object}",
-            bucket: @bucket,
-            key: object,
-            e_tag: "e_tag"
-          }}
-        end}
+        {@bucket, fn -> {:ok, %{}} end}
       ])
 
-      assert {:ok, %{
-                metadata: ^sandbox_head_object_payload,
-                schema_data: complete_multipart_upload_schema_data
-              }} =
+      assert {:ok, result} =
                Core.complete_multipart_upload(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: schema_data_id},
-                 %{},
+                 %{unique_identifier: "unique_id"},
                  [{1, "e_tag"}],
+                 %{},
                  []
                )
 
+      assert %{
+               destination_object: destination_object,
+               metadata: metadata,
+               schema_data: schema_data
+             } = result
+
+      assert "-uploads/file_info_abstract/unique_id-image.jpeg" = destination_object
+
+      assert %{
+               content_length: 11,
+               content_type: "text/plain",
+               e_tag: "e_tag",
+               last_modified: ~U[2024-07-24 01:00:00Z]
+             } = metadata
+
       assert %Uppy.Schemas.FileInfoAbstract{
+               status: :completed,
                content_length: nil,
                content_type: nil,
-               # should be sandbox value
                e_tag: "e_tag",
                id: ^schema_data_id,
-               # should be in temp path
-               key: "temp/image.jpeg",
+               unique_identifier: "unique_id",
+               filename: "image.jpeg",
+               key: "temp/-user/timestamp-image.jpeg",
                last_modified: nil,
-               # should be set
                upload_id: "upload_id"
-             } = complete_multipart_upload_schema_data
+             } = schema_data
     end
   end
 
   describe "abort_multipart_upload: " do
-    test "when archived is true, aborts storage upload | inserts job to delete object" do
+    test "can abort multipart upload" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
+          status: :pending,
+          filename: "image.jpeg",
           key: "temp/image.jpeg",
           upload_id: "upload_id"
         })
@@ -202,7 +322,7 @@ defmodule Uppy.CoreTest do
         }
       ])
 
-      assert {:ok, %{schema_data: abort_upload_schema_data}} =
+      assert {:ok, result} =
                Core.abort_multipart_upload(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
@@ -211,13 +331,24 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert schema_data_id === abort_upload_schema_data.id
+      assert %{schema_data: schema_data} = result
+
+      assert %Uppy.Schemas.FileInfoAbstract{
+               status: :aborted,
+               content_length: nil,
+               content_type: nil,
+               e_tag: nil,
+               id: ^schema_data_id,
+               key: "temp/image.jpeg",
+               last_modified: nil,
+               upload_id: "upload_id"
+             } = schema_data
     end
   end
 
-  describe "start_multipart_upload: " do
-    test "creates record, creates presigned upload, and creates job" do
-      StorageSandbox.set_initiate_multipart_upload_responses([
+  describe "create_multipart_upload/6: " do
+    test "can create multipart upload" do
+      StorageSandbox.set_create_multipart_upload_responses([
         {
           @bucket,
           fn object ->
@@ -231,198 +362,115 @@ defmodule Uppy.CoreTest do
         }
       ])
 
-      assert {:ok,
-              %{
-                multipart_upload: %{
-                  bucket: @bucket,
-                  key: "temp/image.jpeg",
-                  upload_id: "upload_id"
-                },
-                schema_data: schema_data
-              }} =
-               Core.start_multipart_upload(
+      assert {:ok, result} =
+               Core.create_multipart_upload(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
-                 %{key: "temp/image.jpeg"},
-                 []
+                 "image.jpeg",
+                 %{},
+                 %{},
+                 timestamp: "timestamp"
                )
 
+      assert %{
+               multipart_upload: multipart_upload,
+               schema_data: schema_data
+             } = result
+
+      assert %{
+               bucket: @bucket,
+               key: "temp/-user/timestamp-image.jpeg",
+               upload_id: "upload_id"
+             } = multipart_upload
+
       assert %Uppy.Schemas.FileInfoAbstract{
+               status: :pending,
                content_length: nil,
                content_type: nil,
                e_tag: nil,
-               id: _,
-               key: "temp/image.jpeg",
+               filename: "image.jpeg",
+               key: "temp/-user/timestamp-image.jpeg",
                last_modified: nil,
-               # upload_id should be set
                upload_id: "upload_id"
              } = schema_data
     end
   end
 
-  describe "&process_upload/6: " do
-    test "moves object to permanent path" do
+  describe "complete_upload: " do
+    test "can complete upload" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          key: "temp/image.jpeg",
-          e_tag: "e_tag"
+          status: :pending,
+          filename: "image.jpeg",
+          key: "temp/image.jpeg"
         })
 
       schema_data_id = schema_data.id
 
-      # Uppy.Phases.HeadSchemaObject
-
-      sandbox_head_object_payload = %{
-        content_length: 11,
-        content_type: "text/plain",
-        e_tag: "e_tag",
-        last_modified: ~U[2024-07-24 01:00:00Z]
-      }
-
-      # object must exist
-      StorageSandbox.set_head_object_responses([
-        {@bucket, fn -> {:ok, sandbox_head_object_payload} end}
-      ])
-
-      # Uppy.Phases.PutPermanentObjectCopy
-
-      StorageSandbox.set_put_object_copy_responses([
-        {
-          ~r|.*|,
-          fn ->
-            {:ok,
-             %{
-               body: "body",
-               headers: [
-                 {"x-amz-id-2", "amz_id"},
-                 {"x-amz-request-id", "C6KG1R8WTNFSTX5F"},
-                 {"date", "Sat, 16 Sep 2023 01:57:35 GMT"},
-                 {"x-amz-server-side-encryption", "AES256"},
-                 {"content-type", "application/xml"},
-                 {"server", "AmazonS3"},
-                 {"content-length", "224"}
-               ],
-               status_code: 200
-             }}
-          end
-        }
-      ])
-
-      # Uppy.Phases.FileInfo
-
-      StorageSandbox.set_get_chunk_responses([
-        {@bucket, fn -> {:ok, {0, "Hello world!"}} end}
-      ])
-
-      assert {:ok,
-              %{
-                done: done,
-                resolution: resolution
-              }} =
-               Core.process_upload(
-                 @bucket,
-                 {"user_avatar_file_infos", FileInfoAbstract},
-                 %{id: schema_data_id},
-                 Uppy.Pipelines.TransferPipeline,
-                 %{destination_object: "permanent/image.jpeg"},
-                 []
-               )
-
-      assert [
-               Uppy.Phases.UpdateSchemaMetadata,
-               Uppy.Phases.PutPermanentObjectCopy,
-               Uppy.Phases.HeadSchemaObject
-             ] = done
-
-      assert %Uppy.Resolution{
-               state: :resolved,
-               context: %{
-                 destination_object: "permanent/image.jpeg",
-                 metadata: ^sandbox_head_object_payload
-               },
-               bucket: @bucket,
-               value: %Uppy.Schemas.FileInfoAbstract{
-                 content_length: 11,
-                 content_type: "text/plain",
-                 e_tag: "e_tag",
-                 id: ^schema_data_id,
-                 key: "permanent/image.jpeg",
-                 last_modified: ~U[2024-07-24 01:00:00Z],
-                 upload_id: nil
-               }
-             } = resolution
-    end
-  end
-
-  describe "confirm_upload: " do
-    test "when object exists, updates state to :available and updates :e_tag" do
-      schema_data = Fixture.UserAvatarFileInfo.insert!(%{key: "temp/image.jpeg"})
-
-      schema_data_id = schema_data.id
-
-      expected_metadata = %{
-        content_length: 11,
-        content_type: "text/plain",
-        e_tag: "e_tag",
-        last_modified: ~U[2024-07-24 01:00:00Z]
-      }
-
       StorageSandbox.set_head_object_responses([
         {@bucket,
          fn ->
-           {:ok, expected_metadata}
+           {:ok,
+            %{
+              content_length: 11,
+              content_type: "text/plain",
+              e_tag: "e_tag",
+              last_modified: ~U[2024-07-24 01:00:00Z]
+            }}
          end}
       ])
 
-      assert {:ok,
-              %{
-                metadata: ^expected_metadata,
-                schema_data: confirm_upload_schema_data
-              }} =
-               Core.confirm_upload(
+      assert {:ok, result} =
+               Core.complete_upload(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: schema_data_id},
                  %{},
+                 %{},
                  []
                )
 
+      assert %{
+               metadata: metadata,
+               schema_data: schema_data
+             } = result
+
+      assert %{
+               content_length: 11,
+               content_type: "text/plain",
+               e_tag: "e_tag",
+               last_modified: ~U[2024-07-24 01:00:00Z]
+             } = metadata
+
       assert %Uppy.Schemas.FileInfoAbstract{
+               status: :completed,
                content_length: nil,
                content_type: nil,
-               # should be sandbox value
                e_tag: "e_tag",
                id: ^schema_data_id,
-               # should be in temp path
                key: "temp/image.jpeg",
                last_modified: nil,
                upload_id: nil
-             } = confirm_upload_schema_data
+             } = schema_data
     end
   end
 
-  describe "abort_upload: " do
-    test "when object not found, update state to discarded" do
+  describe "abort_upload/4: " do
+    test "can abort upload" do
       StorageSandbox.set_head_object_responses([
         {@bucket, fn -> {:error, %{code: :not_found}} end}
       ])
 
-      schema_data = Fixture.UserAvatarFileInfo.insert!(%{key: "temp/image.jpeg"})
+      schema_data =
+        Fixture.UserAvatarFileInfo.insert!(%{
+          status: :pending,
+          filename: "image.jpeg",
+          key: "temp/image.jpeg"
+        })
 
       schema_data_id = schema_data.id
 
-      assert {:ok,
-              %{
-                schema_data: %Uppy.Schemas.FileInfoAbstract{
-                  content_length: nil,
-                  content_type: nil,
-                  e_tag: nil,
-                  id: ^schema_data_id,
-                  key: "temp/image.jpeg",
-                  last_modified: nil,
-                  upload_id: nil
-                }
-              }} =
+      assert {:ok, result} =
                Core.abort_upload(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
@@ -430,33 +478,65 @@ defmodule Uppy.CoreTest do
                  %{},
                  []
                )
+
+      assert %{
+               schema_data: %Uppy.Schemas.FileInfoAbstract{
+                 status: :aborted,
+                 content_length: nil,
+                 content_type: nil,
+                 e_tag: nil,
+                 id: ^schema_data_id,
+                 key: "temp/image.jpeg",
+                 last_modified: nil,
+                 upload_id: nil
+               }
+             } = result
     end
   end
 
-  describe "start_upload: " do
-    test "when params valid, returns result with :pending state and presigned url for the key" do
-      assert {:ok,
+  describe "create_upload/6: " do
+    test "can create upload" do
+      StorageSandbox.set_pre_sign_responses([
+        {
+          @bucket,
+          fn _http_method, object ->
+            {
+              :ok,
               %{
-                presigned_upload: %{
-                  url: "https://presigned.url/temp/image.jpeg",
-                  expires_at: %DateTime{}
-                },
-                schema_data: %Uppy.Schemas.FileInfoAbstract{
-                  content_length: nil,
-                  content_type: nil,
-                  e_tag: nil,
-                  id: _id,
-                  key: "temp/image.jpeg",
-                  last_modified: nil,
-                  upload_id: nil
-                }
-              }} =
-               Core.start_upload(
+                url: "http://url/#{object}",
+                expires_at: ~U[2024-07-24 01:00:00Z]
+              }
+            }
+          end
+        }
+      ])
+
+      assert {:ok, result} =
+               Core.create_upload(
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
-                 %{key: "temp/image.jpeg"},
-                 []
+                 "image.jpeg",
+                 %{},
+                 %{},
+                 timestamp: "timestamp"
                )
+
+      assert %{
+               signed_upload: %{
+                 url: "http://url/temp/-user/timestamp-image.jpeg",
+                 expires_at: %DateTime{}
+               },
+               schema_data: %Uppy.Schemas.FileInfoAbstract{
+                 status: :pending,
+                 content_length: nil,
+                 content_type: nil,
+                 e_tag: nil,
+                 filename: "image.jpeg",
+                 key: "temp/-user/timestamp-image.jpeg",
+                 last_modified: nil,
+                 upload_id: nil
+               }
+             } = result
     end
   end
 end

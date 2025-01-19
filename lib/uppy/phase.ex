@@ -19,11 +19,7 @@ defmodule Uppy.Phase do
 
   Raises if the phase does not define the function `run/2`.
   """
-  @spec run(
-          phase :: phase(),
-          input :: input(),
-          opts :: opts()
-        ) :: {:ok, term()} | {:error, term()}
+  @spec run(phase :: phase(), input :: input(), opts :: opts()) :: term()
   def run(phase, input, opts) do
     phase.run(input, opts)
   end
