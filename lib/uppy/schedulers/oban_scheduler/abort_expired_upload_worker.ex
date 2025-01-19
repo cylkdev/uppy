@@ -27,13 +27,13 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredUploadWorker do
   end
 
   def perform(%{
-    args:
-      %{
-        "event" => @event_abort_expired_upload,
-        "bucket" => bucket,
-        "id" => id
-      } = args
-  }) do
+        args:
+          %{
+            "event" => @event_abort_expired_upload,
+            "bucket" => bucket,
+            "id" => id
+          } = args
+      }) do
     with {:error, %{code: :not_found}} <-
            Core.abort_upload(
              bucket,

@@ -17,7 +17,7 @@ defmodule Uppy.Phases.MoveToDestination do
         } = input,
         opts
       ) do
-        IO.inspect(input, label: "INPUT")
+    IO.inspect(input, label: "INPUT")
     src_object = schema_data.key
 
     with {:ok, metadata} <- Storage.head_object(bucket, src_object, opts),

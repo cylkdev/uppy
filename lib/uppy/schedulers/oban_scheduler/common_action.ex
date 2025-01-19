@@ -36,7 +36,7 @@ defmodule Uppy.Schedulers.ObanScheduler.CommonAction do
   defp oban_name!(opts) do
     with nil <- opts[:oban_name],
          nil <- Uppy.Config.oban_name() do
-      Oban
+      Uppy.Oban
     end
   end
 end

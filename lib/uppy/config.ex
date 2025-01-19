@@ -3,16 +3,6 @@ defmodule Uppy.Config do
   @app :uppy
 
   @doc false
-  @spec app :: :uppy
-  def app, do: @app
-
-  @doc false
-  @spec repo :: module() | nil
-  def repo do
-    Application.get_env(@app, :repo) || Uppy.Repo
-  end
-
-  @doc false
   @spec error_adapter :: module() | nil
   def error_adapter do
     Application.get_env(@app, :error_adapter) || ErrorMessage
@@ -44,13 +34,9 @@ defmodule Uppy.Config do
 
   @doc false
   @spec storage_adapter :: module() | nil
-  def storage_adapter do
-    Application.get_env(@app, :storage_adapter) || Uppy.Storages.S3
-  end
+  def storage_adapter, do: Application.get_env(@app, :storage_adapter) || Uppy.Storages.S3
 
-  def oban_name do
-    Application.get_env(@app, :oban_name) || Oban
-  end
+  def oban_name, do: Application.get_env(@app, :oban_name) || Uppy.Oban
 
   def pipeline_resolver, do: Application.get_env(@app, :pipeline_resolver)
 end

@@ -25,13 +25,13 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredMultipartUploadWorke
   end
 
   def perform(%{
-    args:
-      %{
-        "event" => @event_abort_expired_multipart_upload,
-        "bucket" => bucket,
-        "id" => id
-      } = args
-  }) do
+        args:
+          %{
+            "event" => @event_abort_expired_multipart_upload,
+            "bucket" => bucket,
+            "id" => id
+          } = args
+      }) do
     with {:error, %{code: :not_found}} <-
            Core.abort_multipart_upload(
              bucket,

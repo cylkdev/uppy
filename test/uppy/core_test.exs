@@ -16,7 +16,7 @@ defmodule Uppy.CoreTest do
         Fixture.UserAvatarFileInfo.insert!(%{
           status: :completed,
           filename: "image.jpeg",
-          key: "temp/-user/timestamp-image.jpeg",
+          key: "temp/-user/timestamp-image.jpeg"
         })
 
       schema_data_id = schema_data.id
@@ -61,16 +61,16 @@ defmodule Uppy.CoreTest do
           ~r|.*|,
           fn ->
             {:ok,
-            %{
-              body: "",
-              headers: [
-                {"x-amz-id-2", "<x_amz_id_2>"},
-                {"x-amz-request-id", "<x_amz_request_id>"},
-                {"date", "Sat, 16 Sep 2023 04:13:38 GMT"},
-                {"server", "<server>"}
-              ],
-              status_code: 204
-            }}
+             %{
+               body: "",
+               headers: [
+                 {"x-amz-id-2", "<x_amz_id_2>"},
+                 {"x-amz-request-id", "<x_amz_request_id>"},
+                 {"date", "Sat, 16 Sep 2023 04:13:38 GMT"},
+                 {"server", "<server>"}
+               ],
+               status_code: 204
+             }}
           end
         }
       ])
@@ -89,21 +89,21 @@ defmodule Uppy.CoreTest do
       assert [Uppy.Phases.MoveToDestination] = done
 
       assert %{
-        state: :resolved,
-        bucket: @bucket,
-        destination_object: "permanent/destination_image.jpeg",
-        query: {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
-        schema_data: %Uppy.Schemas.FileInfoAbstract{
-          status: :completed,
-          content_length: 11,
-          content_type: nil,
-          e_tag: "e_tag",
-          filename: "image.jpeg",
-          key: "permanent/destination_image.jpeg",
-          last_modified: %DateTime{},
-          upload_id: nil
-        }
-      } = input
+               state: :resolved,
+               bucket: @bucket,
+               destination_object: "permanent/destination_image.jpeg",
+               query: {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
+               schema_data: %Uppy.Schemas.FileInfoAbstract{
+                 status: :completed,
+                 content_length: 11,
+                 content_type: nil,
+                 e_tag: "e_tag",
+                 filename: "image.jpeg",
+                 key: "permanent/destination_image.jpeg",
+                 last_modified: %DateTime{},
+                 upload_id: nil
+               }
+             } = input
     end
   end
 

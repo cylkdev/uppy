@@ -215,7 +215,13 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def complete_multipart_upload(find_params_or_struct, update_params, parts, builder_params \\ %{}, opts \\ []) do
+      def complete_multipart_upload(
+            find_params_or_struct,
+            update_params,
+            parts,
+            builder_params \\ %{},
+            opts \\ []
+          ) do
         opts = Keyword.merge(@default_opts, opts)
 
         Uppy.UploaderTemplate.complete_multipart_upload(

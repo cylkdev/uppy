@@ -22,14 +22,14 @@ defmodule Uppy.Core do
 
   def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
     with {:ok, input, done} <-
-      %{
-        bucket: bucket,
-        query: query,
-        schema_data: schema_data,
-        destination_object: dest_object
-      }
-      |> Uppy.Core.PipelineInput.new!()
-      |> Pipeline.run(get_phases(bucket, query, schema_data, dest_object, opts)) do
+           %{
+             bucket: bucket,
+             query: query,
+             schema_data: schema_data,
+             destination_object: dest_object
+           }
+           |> Uppy.Core.PipelineInput.new!()
+           |> Pipeline.run(get_phases(bucket, query, schema_data, dest_object, opts)) do
       {:ok, %{input: input, done: done}}
     end
   end
@@ -334,45 +334,45 @@ defmodule Uppy.Core do
       if Keyword.get(opts, :enable_scheduler?, false) do
         op = fn ->
           with {:ok, schema_data} <-
-                  DBAction.update(
-                    query,
-                    schema_data,
-                    Map.put(update_params, :e_tag, metadata.e_tag),
-                    opts
-                  ),
-                {:ok, job} <-
-                  Scheduler.queue_move_to_destination(
-                    bucket,
-                    query,
-                    schema_data.id,
-                    dest_object,
-                    opts
-                  ) do
+                 DBAction.update(
+                   query,
+                   schema_data,
+                   Map.put(update_params, :e_tag, metadata.e_tag),
+                   opts
+                 ),
+               {:ok, job} <-
+                 Scheduler.queue_move_to_destination(
+                   bucket,
+                   query,
+                   schema_data.id,
+                   dest_object,
+                   opts
+                 ) do
             {:ok,
-              %{
-                metadata: metadata,
-                schema_data: schema_data,
-                destination_object: dest_object,
-                jobs: %{move_to_destination: job}
-              }}
+             %{
+               metadata: metadata,
+               schema_data: schema_data,
+               destination_object: dest_object,
+               jobs: %{move_to_destination: job}
+             }}
           end
         end
 
         DBAction.transaction(op, opts)
       else
         with {:ok, schema_data} <-
-                DBAction.update(
-                  query,
-                  schema_data,
-                  Map.put(update_params, :e_tag, metadata.e_tag),
-                  opts
-                ) do
+               DBAction.update(
+                 query,
+                 schema_data,
+                 Map.put(update_params, :e_tag, metadata.e_tag),
+                 opts
+               ) do
           {:ok,
-            %{
-              metadata: metadata,
-              schema_data: schema_data,
-              destination_object: dest_object
-            }}
+           %{
+             metadata: metadata,
+             schema_data: schema_data,
+             destination_object: dest_object
+           }}
         end
       end
     end
