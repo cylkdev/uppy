@@ -20,6 +20,25 @@ defmodule Uppy.DBAction do
   """
   @callback preload(
               struct_or_structs :: schema_data() | list(schema_data()),
+              preloads :: term(),
+              opts :: opts()
+            ) :: list(schema_data())
+
+  @callback update_all(
+    query :: query(),
+    params :: map(),
+    updates :: list(),
+    opts :: opts()
+  ) ::  {non_neg_integer(), nil | list()}
+
+  @doc """
+  Calculate the given aggregate over the given field.
+  """
+  @callback aggregate(
+              query :: query(),
+              params :: map(),
+              aggregate :: :avg | :count | :max | :min | :sum,
+              field :: atom(),
               opts :: opts()
             ) :: list(schema_data())
 
@@ -94,6 +113,18 @@ defmodule Uppy.DBAction do
   """
   @callback transaction(func :: function(), opts :: opts()) :: t_res(term())
 
+  def update_all(query, params, updates, opts) do
+    adapter!(opts).update_all(query, params, updates, opts)
+  end
+
+  def aggregate(query, params, aggregate, field, opts) do
+    adapter!(opts).aggregate(query, params, aggregate, field, opts)
+  end
+
+  def preload(struct_or_structs, preloads, opts) do
+    adapter!(opts).preload(struct_or_structs, preloads, opts)
+  end
+
   def all(query, opts) do
     adapter!(opts).all(query, opts)
   end
@@ -114,8 +145,8 @@ defmodule Uppy.DBAction do
     adapter!(opts).update(query, id_or_struct, params, opts)
   end
 
-  def delete(schema_data, opts) do
-    adapter!(opts).delete(schema_data, opts)
+  def delete(struct, opts) do
+    adapter!(opts).delete(struct, opts)
   end
 
   def delete(query, id, opts) do
@@ -126,8 +157,7 @@ defmodule Uppy.DBAction do
     case adapter!(opts).transaction(func, opts) do
       {:ok, {:ok, _} = ok} -> ok
       {:ok, {:error, _} = e} -> e
-      {:error, _} = e -> e
-      term -> term
+      res -> res
     end
   end
 

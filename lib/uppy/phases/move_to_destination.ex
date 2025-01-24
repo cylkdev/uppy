@@ -4,8 +4,6 @@ defmodule Uppy.Phases.MoveToDestination do
 
   @behaviour Uppy.Phase
 
-  @completed :completed
-
   @impl true
   def run(
         %{
@@ -17,7 +15,6 @@ defmodule Uppy.Phases.MoveToDestination do
         } = input,
         opts
       ) do
-    IO.inspect(input, label: "INPUT")
     src_object = schema_data.key
 
     with {:ok, metadata} <- Storage.head_object(bucket, src_object, opts),
@@ -34,7 +31,7 @@ defmodule Uppy.Phases.MoveToDestination do
              query,
              schema_data,
              %{
-               status: @completed,
+               state: :ready,
                key: dest_object,
                e_tag: metadata.e_tag,
                content_length: metadata.content_length,

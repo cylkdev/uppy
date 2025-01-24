@@ -1,8 +1,8 @@
-defmodule Uppy.Schedulers.ObanScheduler.Workers.PostProessingWorker do
+defmodule Uppy.Schedulers.ObanScheduler.Workers.MoveToDestinationWorker do
   @max_attempts 10
 
   use Oban.Worker,
-    queue: :post_processing,
+    queue: :move_to_destination,
     max_attempts: @max_attempts,
     unique: [
       period: 300,
@@ -17,7 +17,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.PostProessingWorker do
   @event_move_to_destination "uppy.move_to_destination"
 
   def perform(%{attempt: @max_attempts, args: args}) do
-    CommonAction.insert(__MODULE__, args, [])
+    CommonAction.insert(__MODULE__, args, CommonAction.random_minutes(), [])
   end
 
   def perform(%Oban.Job{
@@ -38,7 +38,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.PostProessingWorker do
     )
   end
 
-  def queue_move_to_destination(bucket, query, id, dest_object, opts) do
+  def queue_move_to_destination(bucket, query, id, dest_object, schedule_in_or_at, opts) do
     params =
       query
       |> CommonAction.query_to_args()
@@ -49,6 +49,6 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.PostProessingWorker do
         id: id
       })
 
-    CommonAction.insert(__MODULE__, params, opts)
+    CommonAction.insert(__MODULE__, params, schedule_in_or_at, opts)
   end
 end

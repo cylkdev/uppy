@@ -5,7 +5,7 @@ defmodule Uppy.Schemas.FileInfoAbstract do
 
   @timestamps_opts [type: :utc_datetime]
 
-  @status_list [
+  @states [
     :aborted,
     :completed,
     :expired,
@@ -15,7 +15,7 @@ defmodule Uppy.Schemas.FileInfoAbstract do
   ]
 
   schema "abstract table: file_infos" do
-    field :status, Ecto.Enum, values: @status_list
+    field :state, Ecto.Enum, values: @states
 
     field :assoc_id, :integer
 
@@ -39,7 +39,7 @@ defmodule Uppy.Schemas.FileInfoAbstract do
 
   @allowed_fields [
                     :assoc_id,
-                    :status,
+                    :state,
                     :content_length,
                     :content_type,
                     :e_tag,

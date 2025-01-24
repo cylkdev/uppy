@@ -23,7 +23,7 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredUploadWorker do
   def event_abort_expired_upload, do: @event_abort_expired_upload
 
   def perform(%{attempt: @max_attempts, args: args}) do
-    CommonAction.insert(__MODULE__, args, [])
+    CommonAction.insert(__MODULE__, args, CommonAction.random_minutes(), [])
   end
 
   def perform(%{
@@ -39,14 +39,14 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredUploadWorker do
              bucket,
              CommonAction.get_args_query(args),
              %{id: id},
-             %{status: :expired},
+             %{state: :expired},
              []
            ) do
       {:ok, "skipping - object or record not found"}
     end
   end
 
-  def queue_abort_expired_upload(bucket, query, id, opts) do
+  def queue_abort_expired_upload(bucket, query, id, schedule_in_or_at, opts) do
     params =
       query
       |> CommonAction.query_to_args()
@@ -56,6 +56,6 @@ defmodule Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredUploadWorker do
         id: id
       })
 
-    CommonAction.insert(__MODULE__, params, opts)
+    CommonAction.insert(__MODULE__, params, schedule_in_or_at, opts)
   end
 end

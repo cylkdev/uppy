@@ -14,7 +14,7 @@ defmodule Uppy.CoreTest do
     test "can move existing object to location" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :completed,
+          state: :completed,
           filename: "image.jpeg",
           key: "temp/-user/timestamp-image.jpeg"
         })
@@ -93,8 +93,8 @@ defmodule Uppy.CoreTest do
                bucket: @bucket,
                destination_object: "permanent/destination_image.jpeg",
                query: {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
-               schema_data: %Uppy.Schemas.FileInfoAbstract{
-                 status: :completed,
+               schema_data: %{
+                 state: :ready,
                  content_length: 11,
                  content_type: nil,
                  e_tag: "e_tag",
@@ -111,7 +111,7 @@ defmodule Uppy.CoreTest do
     test "returns parts" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :pending,
+          state: :pending,
           filename: "image.jpeg",
           key: "temp/-user/timestamp-image.jpeg",
           upload_id: "upload_id"
@@ -154,8 +154,8 @@ defmodule Uppy.CoreTest do
                }
              ] = parts
 
-      assert %Uppy.Schemas.FileInfoAbstract{
-               status: :pending,
+      assert %{
+               state: :pending,
                content_length: nil,
                content_type: nil,
                e_tag: nil,
@@ -182,7 +182,7 @@ defmodule Uppy.CoreTest do
 
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :pending,
+          state: :pending,
           filename: "image.jpeg",
           key: "temp/-user/timestamp-image.jpeg",
           upload_id: "upload_id"
@@ -200,16 +200,16 @@ defmodule Uppy.CoreTest do
                )
 
       assert %{
-               sign_part: sign_part,
+               signed_part_upload: signed_part_upload,
                schema_data: schema_data
              } = result
 
       assert %{
                url: "http://url/temp/image.jpeg",
                expires_at: ~U[2024-07-24 01:00:00Z]
-             } = sign_part
+             } = signed_part_upload
 
-      assert %Uppy.Schemas.FileInfoAbstract{
+      assert %{
                content_length: nil,
                content_type: nil,
                e_tag: nil,
@@ -225,7 +225,7 @@ defmodule Uppy.CoreTest do
     test "can complete multipart upload" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :pending,
+          state: :pending,
           filename: "image.jpeg",
           key: "temp/-user/timestamp-image.jpeg",
           upload_id: "upload_id"
@@ -253,11 +253,11 @@ defmodule Uppy.CoreTest do
       assert {:ok, result} =
                Core.complete_multipart_upload(
                  @bucket,
+                 %{},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: schema_data_id},
                  %{unique_identifier: "unique_id"},
                  [{1, "e_tag"}],
-                 %{},
                  []
                )
 
@@ -276,8 +276,8 @@ defmodule Uppy.CoreTest do
                last_modified: ~U[2024-07-24 01:00:00Z]
              } = metadata
 
-      assert %Uppy.Schemas.FileInfoAbstract{
-               status: :completed,
+      assert %{
+               state: :completed,
                content_length: nil,
                content_type: nil,
                e_tag: "e_tag",
@@ -295,7 +295,7 @@ defmodule Uppy.CoreTest do
     test "can abort multipart upload" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :pending,
+          state: :pending,
           filename: "image.jpeg",
           key: "temp/image.jpeg",
           upload_id: "upload_id"
@@ -333,8 +333,8 @@ defmodule Uppy.CoreTest do
 
       assert %{schema_data: schema_data} = result
 
-      assert %Uppy.Schemas.FileInfoAbstract{
-               status: :aborted,
+      assert %{
+               state: :aborted,
                content_length: nil,
                content_type: nil,
                e_tag: nil,
@@ -365,9 +365,9 @@ defmodule Uppy.CoreTest do
       assert {:ok, result} =
                Core.create_multipart_upload(
                  @bucket,
+                 %{},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  "image.jpeg",
-                 %{},
                  %{},
                  timestamp: "timestamp"
                )
@@ -383,8 +383,8 @@ defmodule Uppy.CoreTest do
                upload_id: "upload_id"
              } = multipart_upload
 
-      assert %Uppy.Schemas.FileInfoAbstract{
-               status: :pending,
+      assert %{
+               state: :pending,
                content_length: nil,
                content_type: nil,
                e_tag: nil,
@@ -400,7 +400,7 @@ defmodule Uppy.CoreTest do
     test "can complete upload" do
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :pending,
+          state: :pending,
           filename: "image.jpeg",
           key: "temp/image.jpeg"
         })
@@ -423,9 +423,9 @@ defmodule Uppy.CoreTest do
       assert {:ok, result} =
                Core.complete_upload(
                  @bucket,
+                 %{},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: schema_data_id},
-                 %{},
                  %{},
                  []
                )
@@ -442,8 +442,8 @@ defmodule Uppy.CoreTest do
                last_modified: ~U[2024-07-24 01:00:00Z]
              } = metadata
 
-      assert %Uppy.Schemas.FileInfoAbstract{
-               status: :completed,
+      assert %{
+               state: :completed,
                content_length: nil,
                content_type: nil,
                e_tag: "e_tag",
@@ -463,7 +463,7 @@ defmodule Uppy.CoreTest do
 
       schema_data =
         Fixture.UserAvatarFileInfo.insert!(%{
-          status: :pending,
+          state: :pending,
           filename: "image.jpeg",
           key: "temp/image.jpeg"
         })
@@ -480,8 +480,8 @@ defmodule Uppy.CoreTest do
                )
 
       assert %{
-               schema_data: %Uppy.Schemas.FileInfoAbstract{
-                 status: :aborted,
+               schema_data: %{
+                 state: :aborted,
                  content_length: nil,
                  content_type: nil,
                  e_tag: nil,
@@ -514,9 +514,9 @@ defmodule Uppy.CoreTest do
       assert {:ok, result} =
                Core.create_upload(
                  @bucket,
+                 %{},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  "image.jpeg",
-                 %{},
                  %{},
                  timestamp: "timestamp"
                )
@@ -526,8 +526,8 @@ defmodule Uppy.CoreTest do
                  url: "http://url/temp/-user/timestamp-image.jpeg",
                  expires_at: %DateTime{}
                },
-               schema_data: %Uppy.Schemas.FileInfoAbstract{
-                 status: :pending,
+               schema_data: %{
+                 state: :pending,
                  content_length: nil,
                  content_type: nil,
                  e_tag: nil,

@@ -17,19 +17,22 @@ defmodule Uppy.Core do
   @uploads "uploads"
   @user "user"
 
-  @perm_prefix ""
+  @default_permanent_prefix ""
   @temp_prefix "temp/"
 
+  @one_day :timer.hours(24)
+
   def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
+    input =
+      Uppy.Core.PipelineInput.new!(%{
+        bucket: bucket,
+        query: query,
+        schema_data: schema_data,
+        destination_object: dest_object
+      })
+
     with {:ok, input, done} <-
-           %{
-             bucket: bucket,
-             query: query,
-             schema_data: schema_data,
-             destination_object: dest_object
-           }
-           |> Uppy.Core.PipelineInput.new!()
-           |> Pipeline.run(get_phases(bucket, query, schema_data, dest_object, opts)) do
+           Pipeline.run(input, get_phases(bucket, query, schema_data, dest_object, opts)) do
       {:ok, %{input: input, done: done}}
     end
   end
@@ -78,7 +81,10 @@ defmodule Uppy.Core do
   end
 
   def find_parts(bucket, query, find_params, opts) do
-    find_params = Map.put_new(find_params, :upload_id, %{!=: nil})
+    find_params =
+      find_params
+      |> Map.put_new(:state, @pending)
+      |> Map.put_new(:upload_id, %{!=: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       find_parts(bucket, query, schema_data, opts)
@@ -86,7 +92,7 @@ defmodule Uppy.Core do
   end
 
   def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
-    with {:ok, sign_part} <-
+    with {:ok, signed_part_upload} <-
            Storage.sign_part(
              bucket,
              schema_data.key,
@@ -96,14 +102,17 @@ defmodule Uppy.Core do
            ) do
       {:ok,
        %{
-         sign_part: sign_part,
+         signed_part_upload: signed_part_upload,
          schema_data: schema_data
        }}
     end
   end
 
   def sign_part(bucket, query, find_params, part_number, opts) do
-    find_params = Map.merge(%{status: @pending, upload_id: %{!=: nil}}, find_params)
+    find_params =
+      find_params
+      |> Map.put_new(:state, @pending)
+      |> Map.put_new(:upload_id, %{!=: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       sign_part(bucket, query, schema_data, part_number, opts)
@@ -112,11 +121,11 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
         bucket,
+        object_desc,
         query,
         %_{} = schema_data,
         update_params,
         parts,
-        builder_params,
         opts
       ) do
     unique_identifier = Map.get(update_params, :unique_identifier, generate_unique_identifier())
@@ -130,17 +139,18 @@ defmodule Uppy.Core do
 
     dest_object =
       basename
-      |> build_permanent_object_key(schema_data, builder_params, opts)
+      |> build_permanent_object_key(schema_data, object_desc, opts)
       |> URI.encode()
 
     update_params =
-      Map.merge(update_params, %{
-        status: @completed,
-        unique_identifier: unique_identifier
-      })
+      update_params
+      |> Map.put_new(:state, @completed)
+      |> Map.put(:unique_identifier, unique_identifier)
+
+    schedule_in_or_at = opts[:schedule][:move_to_destination] || @one_day
 
     with {:ok, metadata} <- do_complete_mpu(bucket, schema_data, parts, opts) do
-      if Keyword.get(opts, :enable_scheduler?, false) do
+      if Keyword.get(opts, :scheduler_enabled, true) do
         op = fn ->
           with {:ok, schema_data} <-
                  DBAction.update(
@@ -155,6 +165,7 @@ defmodule Uppy.Core do
                    query,
                    schema_data.id,
                    dest_object,
+                   schedule_in_or_at,
                    opts
                  ) do
             {:ok,
@@ -189,23 +200,26 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
         bucket,
+        object_desc,
         query,
         find_params,
         update_params,
         parts,
-        builder_params,
         opts
       ) do
-    find_params = Map.merge(%{status: @pending, upload_id: %{!=: nil}}, find_params)
+    find_params =
+      find_params
+      |> Map.put_new(:state, @pending)
+      |> Map.put_new(:upload_id, %{!=: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
+        object_desc,
         query,
         schema_data,
         update_params,
         parts,
-        builder_params,
         opts
       )
     end
@@ -226,7 +240,7 @@ defmodule Uppy.Core do
   end
 
   def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put(update_params, :status, @aborted)
+    update_params = Map.put_new(update_params, :state, @aborted)
 
     with {:ok, metadata} <-
            Storage.abort_multipart_upload(
@@ -245,14 +259,17 @@ defmodule Uppy.Core do
   end
 
   def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
-    find_params = Map.merge(%{status: @pending, upload_id: %{!=: nil}}, find_params)
+    find_params =
+      find_params
+      |> Map.put_new(:state, @pending)
+      |> Map.put_new(:upload_id, %{!=: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       abort_multipart_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
-  def create_multipart_upload(bucket, query, filename, create_params, builder_params, opts) do
+  def create_multipart_upload(bucket, object_desc, query, filename, create_params, opts) do
     timestamp = opts[:timestamp] || String.reverse("#{:os.system_time()}")
 
     basename =
@@ -264,20 +281,22 @@ defmodule Uppy.Core do
 
     key =
       basename
-      |> build_temporary_object_key(builder_params, opts)
+      |> build_temporary_object_key(object_desc, opts)
       |> URI.encode()
 
     create_params =
       Map.merge(create_params, %{
-        status: @pending,
+        state: @pending,
         filename: filename,
         key: key
       })
 
+    schedule_in_or_at = opts[:schedule][:abort_expired_multipart_upload] || @one_day
+
     with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
       create_params = Map.put(create_params, :upload_id, multipart_upload.upload_id)
 
-      if Keyword.get(opts, :enable_scheduler?, false) do
+      if Keyword.get(opts, :scheduler_enabled, true) do
         op = fn ->
           with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
                {:ok, job} <-
@@ -285,6 +304,7 @@ defmodule Uppy.Core do
                    bucket,
                    query,
                    schema_data.id,
+                   schedule_in_or_at,
                    opts
                  ) do
             {:ok,
@@ -309,7 +329,7 @@ defmodule Uppy.Core do
     end
   end
 
-  def complete_upload(bucket, query, %_{} = schema_data, update_params, builder_params, opts) do
+  def complete_upload(bucket, object_desc, query, %_{} = schema_data, update_params, opts) do
     unique_identifier = Map.get(update_params, :unique_identifier, generate_unique_identifier())
 
     basename =
@@ -321,17 +341,19 @@ defmodule Uppy.Core do
 
     dest_object =
       basename
-      |> build_permanent_object_key(schema_data, builder_params, opts)
+      |> build_permanent_object_key(schema_data, object_desc, opts)
       |> URI.encode()
 
     update_params =
       Map.merge(update_params, %{
-        status: @completed,
+        state: @completed,
         unique_identifier: unique_identifier
       })
 
+    schedule_in_or_at = opts[:schedule][:move_to_destination]
+
     with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      if Keyword.get(opts, :enable_scheduler?, false) do
+      if Keyword.get(opts, :scheduler_enabled, true) do
         op = fn ->
           with {:ok, schema_data} <-
                  DBAction.update(
@@ -346,6 +368,7 @@ defmodule Uppy.Core do
                    query,
                    schema_data.id,
                    dest_object,
+                   schedule_in_or_at,
                    opts
                  ) do
             {:ok,
@@ -378,16 +401,19 @@ defmodule Uppy.Core do
     end
   end
 
-  def complete_upload(bucket, query, find_params, update_params, builder_params, opts) do
-    find_params = Map.merge(%{status: @pending, upload_id: %{==: nil}}, find_params)
+  def complete_upload(bucket, object_desc, query, find_params, update_params, opts) do
+    find_params =
+      find_params
+      |> Map.put_new(:state, @pending)
+      |> Map.put_new(:upload_id, %{==: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, query, schema_data, update_params, builder_params, opts)
+      complete_upload(bucket, object_desc, query, schema_data, update_params, opts)
     end
   end
 
   def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put(update_params, :status, @aborted)
+    update_params = Map.put_new(update_params, :state, @aborted)
 
     case Storage.head_object(bucket, schema_data.key, opts) do
       {:ok, metadata} ->
@@ -409,14 +435,17 @@ defmodule Uppy.Core do
   end
 
   def abort_upload(bucket, query, find_params, update_params, opts) do
-    find_params = Map.merge(%{status: @pending, upload_id: %{==: nil}}, find_params)
+    find_params =
+      find_params
+      |> Map.put_new(:state, @pending)
+      |> Map.put_new(:upload_id, %{==: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       abort_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
-  def create_upload(bucket, query, filename, create_params, builder_params, opts) do
+  def create_upload(bucket, object_desc, query, filename, create_params, opts) do
     timestamp = opts[:timestamp] || String.reverse("#{:os.system_time()}")
 
     basename =
@@ -428,22 +457,30 @@ defmodule Uppy.Core do
 
     key =
       basename
-      |> build_temporary_object_key(builder_params, opts)
+      |> build_temporary_object_key(object_desc, opts)
       |> URI.encode()
 
     create_params =
       Map.merge(create_params, %{
-        status: @pending,
+        state: @pending,
         filename: filename,
         key: key
       })
 
+    schedule_in_or_at = opts[:schedule][:abort_expired_upload] || @one_day
+
     with {:ok, signed_upload} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
-      if Keyword.get(opts, :enable_scheduler?, false) do
+      if Keyword.get(opts, :scheduler_enabled, true) do
         op = fn ->
           with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
                {:ok, job} <-
-                 Scheduler.queue_abort_expired_upload(bucket, query, schema_data.id, opts) do
+                 Scheduler.queue_abort_expired_upload(
+                   bucket,
+                   query,
+                   schema_data.id,
+                   schedule_in_or_at,
+                   opts
+                 ) do
             {:ok,
              %{
                signed_upload: signed_upload,
@@ -466,18 +503,31 @@ defmodule Uppy.Core do
     end
   end
 
-  defp build_permanent_object_key(basename, %module{} = schema_data, builder_params, opts) do
+  defp build_permanent_object_key(basename, %module{} = schema_data, object_desc, opts) do
     case opts[:permanent_object_key] do
       fun when is_function(fun, 3) ->
         fun.(basename, schema_data, opts)
 
       adapter when is_atom(adapter) and not is_nil(adapter) ->
-        adapter.build_permanent_object_key(basename, builder_params, opts)
+        adapter.build_permanent_object_key(basename, object_desc, opts)
 
       _ ->
-        prefix = builder_params[:prefix] || @perm_prefix
-        partition_id = builder_params[:partition_id]
-        partition_name = builder_params[:partition_name] || @uploads
+        prefix = object_desc[:permanent_object_prefix] || @default_permanent_prefix
+
+        partition_id =
+          case object_desc[:permanent_object_partition_id] do
+            nil ->
+              nil
+
+            partition_id ->
+              if Keyword.get(opts, :reverse_partition_id?, true) do
+                partition_id |> to_string() |> String.reverse()
+              else
+                partition_id
+              end
+          end
+
+        partition_name = object_desc[:permanent_object_partition_name] || @uploads
 
         resource_name = module |> Module.split() |> List.last() |> Macro.underscore()
 
@@ -490,8 +540,8 @@ defmodule Uppy.Core do
     end
   end
 
-  defp build_temporary_object_key(basename, builder_params, opts) do
-    case opts[:temporary_object_key][:resolver] do
+  defp build_temporary_object_key(basename, object_desc, opts) do
+    case opts[:temporary_object_key] do
       fun when is_function(fun, 2) ->
         fun.(basename, opts)
 
@@ -499,9 +549,22 @@ defmodule Uppy.Core do
         adapter.build_temporary_object_key(adapter, basename, opts)
 
       _ ->
-        prefix = builder_params[:prefix] || @temp_prefix
-        partition_id = builder_params[:partition_id]
-        partition_name = builder_params[:partition_name] || @user
+        prefix = object_desc[:temporary_object_prefix] || @temp_prefix
+
+        partition_id =
+          case object_desc[:temporary_object_partition_id] do
+            nil ->
+              nil
+
+            partition_id ->
+              if Keyword.get(opts, :reverse_partition_id?, true) do
+                partition_id |> to_string() |> String.reverse()
+              else
+                partition_id
+              end
+          end
+
+        partition_name = object_desc[:temporary_object_partition_name] || @user
 
         Path.join([prefix, Enum.join([partition_id, partition_name], "-"), basename])
     end

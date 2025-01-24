@@ -4,15 +4,17 @@ defmodule Uppy.Schedulers.ObanScheduler do
   alias Uppy.Schedulers.ObanScheduler.Workers.{
     AbortExpiredMultipartUploadWorker,
     AbortExpiredUploadWorker,
-    PostProessingWorker
+    MoveToDestinationWorker
   }
 
-  defdelegate queue_move_to_destination(bucket, query, id, dest_object, opts),
-    to: PostProessingWorker
+  @behaviour Uppy.Scheduler
 
-  defdelegate queue_abort_expired_multipart_upload(bucket, query, id, opts),
+  defdelegate queue_move_to_destination(bucket, query, id, dest_object, schedule_in_or_at, opts),
+    to: MoveToDestinationWorker
+
+  defdelegate queue_abort_expired_multipart_upload(bucket, query, id, schedule_in_or_at, opts),
     to: AbortExpiredMultipartUploadWorker
 
-  defdelegate queue_abort_expired_upload(bucket, query, id, opts),
+  defdelegate queue_abort_expired_upload(bucket, query, id, schedule_in_or_at, opts),
     to: AbortExpiredUploadWorker
 end

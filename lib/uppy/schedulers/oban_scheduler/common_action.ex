@@ -3,6 +3,10 @@ defmodule Uppy.Schedulers.ObanScheduler.CommonAction do
   ...
   """
 
+  def random_minutes do
+    Enum.random(:timer.minutes(30)..:timer.minutes(60))
+  end
+
   def query_to_args({source, query}), do: %{source: source, query: to_string(query)}
   def query_to_args(query), do: %{query: to_string(query)}
 
@@ -13,16 +17,28 @@ defmodule Uppy.Schedulers.ObanScheduler.CommonAction do
 
   defp string_to_module(string), do: string |> String.split(".") |> Module.safe_concat()
 
-  def insert(changeset, opts) do
+  def insert(changeset, schedule_in_or_at, opts) do
     opts
     |> oban_name!()
-    |> Oban.insert(changeset, opts)
+    |> Oban.insert(changeset, put_schedule_opts(opts, schedule_in_or_at))
   end
 
-  def insert(worker, params, opts) do
+  defp put_schedule_opts(opts, schedule_in) when is_integer(schedule_in) do
+    Keyword.put(opts, :schedule_in, schedule_in)
+  end
+
+  defp put_schedule_opts(opts, schedule_at) when is_struct(schedule_at, DateTime) do
+    Keyword.put(opts, :schedule_at, schedule_at)
+  end
+
+  defp put_schedule_opts(opts, _) do
+    opts
+  end
+
+  def insert(worker, params, schedule_in_or_at, opts) do
     worker
     |> build_changeset(params, opts)
-    |> insert(opts)
+    |> insert(schedule_in_or_at, opts)
   end
 
   defp build_changeset(worker, params, opts) do

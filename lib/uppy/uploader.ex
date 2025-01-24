@@ -69,16 +69,16 @@ defmodule Uppy.Uploader do
 
   def complete_multipart_upload(
         adapter,
+        object_desc,
         find_params_or_struct,
-        builder_params,
         update_params,
         parts,
         opts \\ []
       ) do
     Core.complete_multipart_upload(
       adapter.bucket(),
+      object_desc,
       adapter.query(),
-      builder_params,
       find_params_or_struct,
       update_params,
       parts,
@@ -101,22 +101,22 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def create_multipart_upload(adapter, filename, builder_params, create_params, opts \\ []) do
+  def create_multipart_upload(adapter, object_desc, filename, create_params, opts \\ []) do
     Core.create_multipart_upload(
       adapter.bucket(),
+      object_desc,
       adapter.query(),
       filename,
-      builder_params,
       create_params,
       opts
     )
   end
 
-  def complete_upload(adapter, builder_params, find_params_or_struct, update_params, opts \\ []) do
+  def complete_upload(adapter, object_desc, find_params_or_struct, update_params, opts \\ []) do
     Core.complete_upload(
       adapter.bucket(),
+      object_desc,
       adapter.query(),
-      builder_params,
       find_params_or_struct,
       update_params,
       opts
@@ -138,12 +138,12 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def create_upload(adapter, filename, builder_params, create_params, opts \\ []) do
+  def create_upload(adapter, object_desc, filename, create_params, opts \\ []) do
     Core.create_upload(
       adapter.bucket(),
+      object_desc,
       adapter.query(),
       filename,
-      builder_params,
       create_params,
       opts
     )
@@ -155,67 +155,52 @@ defmodule Uppy.Uploader do
 
       @bucket opts[:bucket]
       @query opts[:query]
-      @default_opts opts[:options]
+      @options opts[:options]
+
+      @object_desc opts[:object_description] || %{}
 
       def bucket, do: @bucket
 
       def query, do: @query
 
-      def all(params, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+      def options, do: @options
 
-        Uppy.UploaderTemplate.all(
-          __MODULE__,
-          params,
-          opts
-        )
+      def object_description, do: @object_desc
+
+      def all(params, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
+
+        Uppy.Uploader.all(__MODULE__, params, opts)
       end
 
       def create(params, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.create(
-          __MODULE__,
-          params,
-          opts
-        )
+        Uppy.Uploader.create(__MODULE__, params, opts)
       end
 
       def find(params, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.find(
-          __MODULE__,
-          params,
-          opts
-        )
+        Uppy.Uploader.find(__MODULE__, params, opts)
       end
 
       def update(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.update(
-          __MODULE__,
-          find_params_or_struct,
-          update_params,
-          opts
-        )
+        Uppy.Uploader.update(__MODULE__, find_params_or_struct, update_params, opts)
       end
 
       def delete(id_or_struct, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.delete(
-          __MODULE__,
-          id_or_struct,
-          opts
-        )
+        Uppy.Uploader.delete(__MODULE__, id_or_struct, opts)
       end
 
       def move_to_destination(destination_object, find_params_or_struct, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.move_to_destination(
+        Uppy.Uploader.move_to_destination(
           __MODULE__,
           destination_object,
           find_params_or_struct,
@@ -224,28 +209,30 @@ defmodule Uppy.Uploader do
       end
 
       def complete_multipart_upload(
+            object_desc,
             find_params_or_struct,
             update_params,
             parts,
-            builder_params \\ %{},
             opts \\ []
           ) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.complete_multipart_upload(
+        object_desc = Map.merge(object_desc, @object_desc)
+
+        Uppy.Uploader.complete_multipart_upload(
           __MODULE__,
+          object_desc,
           find_params_or_struct,
           update_params,
           parts,
-          builder_params,
           opts
         )
       end
 
       def abort_multipart_upload(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.abort_multipart_upload(
+        Uppy.Uploader.abort_multipart_upload(
           __MODULE__,
           find_params_or_struct,
           update_params,
@@ -253,34 +240,38 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def create_multipart_upload(filename, create_params, builder_params \\ %{}, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+      def create_multipart_upload(filename, create_params, object_desc \\ %{}, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.create_multipart_upload(
+        object_desc = Map.merge(object_desc, @object_desc)
+
+        Uppy.Uploader.create_multipart_upload(
           __MODULE__,
+          object_desc,
           filename,
           create_params,
-          builder_params,
           opts
         )
       end
 
-      def complete_upload(find_params_or_struct, update_params, builder_params \\ %{}, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+      def complete_upload(object_desc, find_params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.complete_upload(
+        object_desc = Map.merge(object_desc, @object_desc)
+
+        Uppy.Uploader.complete_upload(
           __MODULE__,
+          object_desc,
           find_params_or_struct,
           update_params,
-          builder_params,
           opts
         )
       end
 
       def abort_upload(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.abort_upload(
+        Uppy.Uploader.abort_upload(
           __MODULE__,
           find_params_or_struct,
           update_params,
@@ -288,32 +279,19 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def create_upload(filename, create_params, builder_params \\ %{}, opts \\ []) do
-        opts = Keyword.merge(@default_opts, opts)
+      def create_upload(object_desc, filename, create_params, opts \\ []) do
+        opts = Keyword.merge(@options, opts)
 
-        Uppy.UploaderTemplate.create_upload(
+        object_desc = Map.merge(object_desc, @object_desc)
+
+        Uppy.Uploader.create_upload(
           __MODULE__,
+          object_desc,
           filename,
           create_params,
-          builder_params,
           opts
         )
       end
-
-      defoverridable create_upload: 3,
-                     create_upload: 2,
-                     abort_upload: 3,
-                     abort_upload: 2,
-                     complete_upload: 3,
-                     complete_upload: 2,
-                     create_multipart_upload: 3,
-                     create_multipart_upload: 2,
-                     abort_multipart_upload: 3,
-                     abort_multipart_upload: 2,
-                     complete_multipart_upload: 4,
-                     complete_multipart_upload: 3,
-                     move_to_destination: 3,
-                     move_to_destination: 2
     end
   end
 end

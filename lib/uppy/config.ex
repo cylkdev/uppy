@@ -23,7 +23,7 @@ defmodule Uppy.Config do
   @doc false
   @spec db_action_adapter :: module() | nil
   def db_action_adapter do
-    Application.get_env(@app, :db_action_adapter) || EctoShorts.Actions
+    Application.get_env(@app, :db_action_adapter) || Uppy.CommonRepoAction
   end
 
   @doc false
@@ -36,6 +36,7 @@ defmodule Uppy.Config do
   @spec storage_adapter :: module() | nil
   def storage_adapter, do: Application.get_env(@app, :storage_adapter) || Uppy.Storages.S3
 
+  def repo, do: Application.get_env(@app, :repo) || Uppy.Repo
   def oban_name, do: Application.get_env(@app, :oban_name) || Uppy.Oban
 
   def pipeline_resolver, do: Application.get_env(@app, :pipeline_resolver)
