@@ -51,10 +51,11 @@ defmodule Uppy.Core do
       end
 
     with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
-      {:ok, %{
-        resolution: %{resolution | state: :resolved},
-        done: done
-      }}
+      {:ok,
+       %{
+         resolution: %{resolution | state: :resolved},
+         done: done
+       }}
     end
   end
 

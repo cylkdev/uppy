@@ -131,12 +131,27 @@ defmodule Uppy.Storage do
   @typedoc "A string."
   @type url :: binary()
 
-  @type list_objects_response :: %{
+  @type list_object_content :: %{
           e_tag: e_tag(),
           key: key(),
           last_modified: last_modified(),
-          size: size()
+          owner: binary() | nil,
+          size: size(),
+          storage_class: binary()
         }
+
+  @type list_objects_response :: %{
+    name: binary(),
+    prefix: binary(),
+    contents: list(list_object_content()),
+    marker: binary(),
+    max_keys: integer(),
+    is_truncated: true | false,
+    common_prefixes: list(),
+    next_marker: binary(),
+    key_count: integer(),
+    next_continuation_token: binary()
+  }
 
   @type get_object_response :: term()
 

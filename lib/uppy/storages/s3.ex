@@ -76,10 +76,15 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
         iex> Uppy.Storages.S3.list_objects("your_bucket", "your/prefix")
     """
-    def list_objects(bucket, prefix \\ "", opts \\ []) do
+    def list_objects(bucket, prefix \\ nil, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
 
-      opts = if prefix in [nil, ""], do: opts, else: Keyword.put(opts, :prefix, prefix)
+      opts =
+        if is_binary(prefix) do
+          Keyword.put_new(opts, :prefix, prefix)
+        else
+          opts
+        end
 
       bucket
       |> ExAws.S3.list_objects_v2(opts)
@@ -298,16 +303,21 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
       |> handle_response()
     end
 
-    defp deserialize_response({:ok, %{body: %{contents: contents}}}) do
-      {:ok,
-       Enum.map(contents, fn content ->
-         %{
-           content
-           | e_tag: remove_quotations(content.e_tag),
-             size: String.to_integer(content.size),
-             last_modified: content.last_modified |> DateTime.from_iso8601() |> elem(1)
-         }
-       end)}
+    defp deserialize_response({:ok, %{body: %{contents: contents} = body}}) do
+      {:ok, %{
+        body |
+        key_count: String.to_integer(body.key_count),
+        max_keys: String.to_integer(body.max_keys),
+        is_truncated: body.is_truncated in ["true", true],
+        contents: Enum.map(contents, fn item ->
+          %{
+            item |
+            e_tag: remove_quotations(item.e_tag),
+            size: String.to_integer(item.size),
+            last_modified: item.last_modified |> DateTime.from_iso8601() |> elem(1)
+          }
+        end)
+      }}
     end
 
     defp deserialize_response({:ok, %{body: %{parts: parts}}}) do
