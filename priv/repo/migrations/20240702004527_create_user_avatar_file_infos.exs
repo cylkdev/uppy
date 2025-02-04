@@ -5,14 +5,14 @@ defmodule Uppy.Repo.Migrations.CreateUserAvatarFileInfos do
     create table(:user_avatar_file_infos) do
       add :assoc_id, references(:user_avatars, on_update: :update_all)
 
-      add :state, :text, null: false
-      add :filename, :text, null: false
-      add :key, :text, null: false
-      add :unique_identifier, :text
-      add :upload_id, :text
-      add :content_length, :integer
-      add :content_type, :text
-      add :e_tag, :text
+      add :state, :string, null: false
+      add :unique_identifier, :string
+      add :filename, :string, null: false
+      add :key, :string, null: false
+      add :upload_id, :string
+      add :content_length, :bigint
+      add :content_type, :string
+      add :e_tag, :string
       add :last_modified, :naive_datetime
 
       timestamps()

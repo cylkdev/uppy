@@ -7,7 +7,7 @@ ExUnit.start()
 Uppy.Repo.start_link()
 
 Oban.start_link(
-  name: Uppy.Oban,
+  name: :uppy_oban,
   repo: Uppy.Repo,
   queues: [
     abort_expired_multipart_upload: 5,

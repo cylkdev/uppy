@@ -84,16 +84,18 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %{input: input, done: done} = result
+      assert %{resolution: resolution, done: done} = result
 
       assert [Uppy.Phases.MoveToDestination] = done
 
       assert %{
                state: :resolved,
                bucket: @bucket,
-               destination_object: "permanent/destination_image.jpeg",
                query: {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
-               schema_data: %{
+               arguments: %{
+                 destination_object: "permanent/destination_image.jpeg"
+               },
+               value: %{
                  state: :ready,
                  content_length: 11,
                  content_type: nil,
@@ -103,7 +105,7 @@ defmodule Uppy.CoreTest do
                  last_modified: %DateTime{},
                  upload_id: nil
                }
-             } = input
+             } = resolution
     end
   end
 
@@ -200,14 +202,14 @@ defmodule Uppy.CoreTest do
                )
 
       assert %{
-               signed_part_upload: signed_part_upload,
+               signed_part: signed_part,
                schema_data: schema_data
              } = result
 
       assert %{
                url: "http://url/temp/image.jpeg",
                expires_at: ~U[2024-07-24 01:00:00Z]
-             } = signed_part_upload
+             } = signed_part
 
       assert %{
                content_length: nil,
@@ -522,7 +524,7 @@ defmodule Uppy.CoreTest do
                )
 
       assert %{
-               signed_upload: %{
+               signed_url: %{
                  url: "http://url/temp/-user/timestamp-image.jpeg",
                  expires_at: %DateTime{}
                },

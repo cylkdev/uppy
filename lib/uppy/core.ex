@@ -23,39 +23,44 @@ defmodule Uppy.Core do
   @one_day :timer.hours(24)
 
   def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
-    input =
-      Uppy.Core.PipelineInput.new!(%{
+    resolution =
+      Uppy.Resolution.new!(%{
         bucket: bucket,
         query: query,
-        schema_data: schema_data,
-        destination_object: dest_object
+        value: schema_data,
+        arguments: %{
+          destination_object: dest_object
+        }
       })
 
-    with {:ok, input, done} <-
-           Pipeline.run(input, get_phases(bucket, query, schema_data, dest_object, opts)) do
-      {:ok, %{input: input, done: done}}
+    phases =
+      case Config.pipeline_module() do
+        nil ->
+          Uppy.Core.Pipelines.for_move_to_destination(opts)
+
+        pipeline_module ->
+          pipeline_module.move_to_destination(
+            %{
+              bucket: bucket,
+              destination_object: dest_object,
+              query: query,
+              schema_data: schema_data
+            },
+            opts
+          )
+      end
+
+    with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
+      {:ok, %{
+        resolution: %{resolution | state: :resolved},
+        done: done
+      }}
     end
   end
 
   def move_to_destination(bucket, query, find_params, dest_object, opts) do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       move_to_destination(bucket, query, schema_data, dest_object, opts)
-    end
-  end
-
-  defp get_phases(bucket, query, schema_data, dest_object, opts) do
-    case Config.pipeline_resolver() do
-      nil ->
-        [{Uppy.Phases.MoveToDestination, opts}]
-
-      pipeline_resolver ->
-        pipeline_resolver.phases(%{
-          event: "uppy.move_to_destination",
-          bucket: bucket,
-          destination_object: dest_object,
-          query: query,
-          schema_data: schema_data
-        })
     end
   end
 
@@ -92,7 +97,7 @@ defmodule Uppy.Core do
   end
 
   def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
-    with {:ok, signed_part_upload} <-
+    with {:ok, signed_part} <-
            Storage.sign_part(
              bucket,
              schema_data.key,
@@ -102,7 +107,7 @@ defmodule Uppy.Core do
            ) do
       {:ok,
        %{
-         signed_part_upload: signed_part_upload,
+         signed_part: signed_part,
          schema_data: schema_data
        }}
     end
@@ -150,7 +155,7 @@ defmodule Uppy.Core do
     schedule_in_or_at = opts[:schedule][:move_to_destination] || @one_day
 
     with {:ok, metadata} <- do_complete_mpu(bucket, schema_data, parts, opts) do
-      if Keyword.get(opts, :scheduler_enabled, true) do
+      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
         op = fn ->
           with {:ok, schema_data} <-
                  DBAction.update(
@@ -296,7 +301,7 @@ defmodule Uppy.Core do
     with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
       create_params = Map.put(create_params, :upload_id, multipart_upload.upload_id)
 
-      if Keyword.get(opts, :scheduler_enabled, true) do
+      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
         op = fn ->
           with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
                {:ok, job} <-
@@ -353,7 +358,7 @@ defmodule Uppy.Core do
     schedule_in_or_at = opts[:schedule][:move_to_destination]
 
     with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      if Keyword.get(opts, :scheduler_enabled, true) do
+      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
         op = fn ->
           with {:ok, schema_data} <-
                  DBAction.update(
@@ -469,8 +474,8 @@ defmodule Uppy.Core do
 
     schedule_in_or_at = opts[:schedule][:abort_expired_upload] || @one_day
 
-    with {:ok, signed_upload} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
-      if Keyword.get(opts, :scheduler_enabled, true) do
+    with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
+      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
         op = fn ->
           with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
                {:ok, job} <-
@@ -483,7 +488,7 @@ defmodule Uppy.Core do
                  ) do
             {:ok,
              %{
-               signed_upload: signed_upload,
+               signed_url: signed_url,
                schema_data: schema_data,
                jobs: %{abort_upload: job}
              }}
@@ -495,7 +500,7 @@ defmodule Uppy.Core do
         with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
           {:ok,
            %{
-             signed_upload: signed_upload,
+             signed_url: signed_url,
              schema_data: schema_data
            }}
         end

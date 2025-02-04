@@ -25,11 +25,11 @@ defmodule Uppy.DBAction do
             ) :: list(schema_data())
 
   @callback update_all(
-    query :: query(),
-    params :: map(),
-    updates :: list(),
-    opts :: opts()
-  ) ::  {non_neg_integer(), nil | list()}
+              query :: query(),
+              params :: map(),
+              updates :: list(),
+              opts :: opts()
+            ) :: {non_neg_integer(), nil | list()}
 
   @doc """
   Calculate the given aggregate over the given field.

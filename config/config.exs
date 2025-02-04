@@ -5,17 +5,28 @@ config :uppy,
   error_adapter: ErrorMessage,
   http_adapter: Uppy.HTTP.Finch,
   json_adapter: Jason,
+  pipeline_module: nil,
+  enable_scheduler: true,
   scheduler_adapter: Uppy.Schedulers.ObanScheduler,
   storage_adapter: Uppy.Storages.S3,
-  pipeline_resolver: nil
+  oban_name: :uppy_oban,
+  repo: Uppy.Repo
 
-config :uppy, :repo, Uppy.Repo
-config :uppy, :oban_name, Uppy.Oban
+config :uppy, Oban,
+  name: :uppy_oban,
+  notifier: Oban.Notifiers.PG,
+  repo: Uppy.Repo,
+  queues: [
+    abort_expired_multipart_upload: 5,
+    abort_expired_upload: 5,
+    move_to_destination: 5
+  ]
 
 config :uppy, ecto_repos: [Uppy.Repo]
 
 if Mix.env() === :test do
   config :uppy, :sql_sandbox, true
+
   config :uppy, Uppy.Repo,
     username: "postgres",
     database: "uppy_test",

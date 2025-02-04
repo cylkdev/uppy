@@ -4,7 +4,7 @@ defmodule Uppy.Scheduler do
   @callback queue_move_to_destination(
               bucket :: binary(),
               query :: term(),
-              id :: term(),
+              id :: integer() | binary(),
               dest_object :: binary(),
               schedule_in_or_at :: non_neg_integer() | DateTime.t(),
               opts :: keyword()
@@ -13,7 +13,7 @@ defmodule Uppy.Scheduler do
   @callback queue_abort_expired_multipart_upload(
               bucket :: binary(),
               query :: term(),
-              id :: term(),
+              id :: integer() | binary(),
               schedule_in_or_at :: non_neg_integer() | DateTime.t(),
               opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
@@ -21,7 +21,7 @@ defmodule Uppy.Scheduler do
   @callback queue_abort_expired_upload(
               bucket :: binary(),
               query :: term(),
-              id :: term(),
+              id :: integer() | binary(),
               schedule_in_or_at :: non_neg_integer() | DateTime.t(),
               opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}

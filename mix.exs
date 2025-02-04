@@ -26,7 +26,6 @@ defmodule Uppy.MixProject do
         "coveralls.post": :test
       ],
       dialyzer: [
-        plt_add_apps: [],
         list_unused_filters: true,
         plt_local_path: "dialyzer",
         plt_core_path: "dialyzer",

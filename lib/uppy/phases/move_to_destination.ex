@@ -10,12 +10,13 @@ defmodule Uppy.Phases.MoveToDestination do
           state: :unresolved,
           bucket: bucket,
           query: query,
-          schema_data: schema_data,
-          destination_object: dest_object
+          value: schema_data,
+          arguments: args
         } = input,
         opts
       ) do
     src_object = schema_data.key
+    dest_object = args.destination_object
 
     with {:ok, metadata} <- Storage.head_object(bucket, src_object, opts),
          {:ok, _} <-
@@ -40,12 +41,7 @@ defmodule Uppy.Phases.MoveToDestination do
              opts
            ),
          {:ok, _} <- Storage.delete_object(bucket, src_object, opts) do
-      {:ok,
-       %{
-         input
-         | state: :resolved,
-           schema_data: schema_data
-       }}
+      {:ok, %{input | value: schema_data}}
     end
   end
 
