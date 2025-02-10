@@ -45,27 +45,31 @@ defmodule Uppy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.14.6", only: :test, runtime: false},
-      {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.1", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.1", only: :test, runtime: false},
+      {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:sandbox_registry, "~> 0.1", only: :test, optional: true},
-      {:faker, "~> 0.18", only: :test, optional: true},
-      {:finch, "~> 0.17.0", optional: true},
-      {:proper_case, "~> 1.3", optional: true},
-      {:tzdata, "~> 1.1"},
-      {:oban, "~> 2.17", optional: true},
-      {:error_message, "~> 0.3.0", optional: true},
-      {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
-      {:ecto, "~> 3.11"},
-      {:ecto_sql, "~> 3.11", optional: true},
+
+      {:error_message, "~> 0.3", optional: true},
+
+      {:ecto, "~> 3.0"},
+      {:ecto_sql, "~> 3.0", optional: true},
       {:postgrex, ">= 0.0.0", optional: true},
-      {:ex_aws, "~> 2.1", optional: true},
+      {:oban, "~> 2.0", optional: true},
+
+      {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
+
+      {:faker, "~> 0.1", only: :test, optional: true},
+      {:finch, "~> 0.1", optional: true},
+
+      {:proper_case, "~> 1.0", optional: true},
+      {:tzdata, "~> 1.0"},
+
+      {:ex_aws, "~> 2.0", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
-      {:sweet_xml, "~> 0.6", optional: true},
-      {:ex_image_info, "~> 0.2.4"},
-      {:file_type, "~> 0.1.0"}
+      {:sweet_xml, "~> 0.1", optional: true}
     ]
   end
 
