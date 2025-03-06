@@ -1,4 +1,4 @@
-defmodule Uppy.Schemas.FileInfoAbstract do
+defmodule Uppy.Support.Schemas.FileInfoAbstract do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset

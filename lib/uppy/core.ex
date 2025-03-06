@@ -5,8 +5,8 @@ defmodule Uppy.Core do
   alias Uppy.{
     Config,
     DBAction,
+    PathBuilder,
     Pipeline,
-    Scheduler,
     Storage
   }
 
@@ -14,20 +14,15 @@ defmodule Uppy.Core do
   @completed :completed
   @pending :pending
 
-  @uploads "uploads"
-  @user "user"
-
-  @default_permanent_prefix ""
-  @temp_prefix "temp/"
-
-  @one_day :timer.hours(24)
-
-  def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
+  @doc """
+  TODO...
+  """
+  def move_to_destination(bucket, query, %_{} = struct, dest_object, opts) do
     resolution =
       Uppy.Resolution.new!(%{
         bucket: bucket,
         query: query,
-        value: schema_data,
+        value: struct,
         arguments: %{
           destination_object: dest_object
         }
@@ -44,7 +39,7 @@ defmodule Uppy.Core do
               bucket: bucket,
               destination_object: dest_object,
               query: query,
-              schema_data: schema_data
+              data: struct
             },
             opts
           )
@@ -60,28 +55,31 @@ defmodule Uppy.Core do
   end
 
   def move_to_destination(bucket, query, find_params, dest_object, opts) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      move_to_destination(bucket, query, schema_data, dest_object, opts)
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+      move_to_destination(bucket, query, struct, dest_object, opts)
     end
   end
 
+  @doc """
+  TODO...
+  """
   def find_parts(
         bucket,
         _query,
-        %_{} = schema_data,
+        %_{} = struct,
         opts
       ) do
     with {:ok, parts} <-
            Storage.list_parts(
              bucket,
-             schema_data.key,
-             schema_data.upload_id,
+             struct.key,
+             struct.upload_id,
              opts
            ) do
       {:ok,
        %{
          parts: parts,
-         schema_data: schema_data
+         data: struct
        }}
     end
   end
@@ -92,24 +90,27 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      find_parts(bucket, query, schema_data, opts)
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+      find_parts(bucket, query, struct, opts)
     end
   end
 
-  def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
+  @doc """
+  TODO...
+  """
+  def sign_part(bucket, _query, %_{} = struct, part_number, opts) do
     with {:ok, signed_part} <-
            Storage.sign_part(
              bucket,
-             schema_data.key,
-             schema_data.upload_id,
+             struct.key,
+             struct.upload_id,
              part_number,
              opts
            ) do
       {:ok,
        %{
          signed_part: signed_part,
-         schema_data: schema_data
+         data: struct
        }}
     end
   end
@@ -120,93 +121,51 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      sign_part(bucket, query, schema_data, part_number, opts)
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+      sign_part(bucket, query, struct, part_number, opts)
     end
   end
 
+  @doc """
+  TODO...
+  """
   def complete_multipart_upload(
         bucket,
-        object_desc,
         query,
-        %_{} = schema_data,
+        %_{} = struct,
         update_params,
         parts,
         opts
       ) do
-    unique_identifier = Map.get(update_params, :unique_identifier, generate_unique_identifier())
+    unique_identifier = update_params[:unique_identifier]
 
-    basename =
-      if unique_identifier in [nil, ""] do
-        schema_data.filename
-      else
-        "#{unique_identifier}-#{schema_data.filename}"
-      end
+    {basename, dest_object} =
+      PathBuilder.build_permanent_object_path(struct, unique_identifier, opts)
 
-    dest_object =
-      basename
-      |> build_permanent_object_key(schema_data, object_desc, opts)
-      |> URI.encode()
-
-    update_params =
-      update_params
-      |> Map.put_new(:state, @completed)
-      |> Map.put(:unique_identifier, unique_identifier)
-
-    schedule_in_or_at = opts[:schedule][:move_to_destination] || @one_day
-
-    with {:ok, metadata} <- do_complete_mpu(bucket, schema_data, parts, opts) do
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <-
-                 DBAction.update(
-                   query,
-                   schema_data,
-                   Map.put(update_params, :e_tag, metadata.e_tag),
-                   opts
-                 ),
-               {:ok, job} <-
-                 Scheduler.queue_move_to_destination(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   dest_object,
-                   schedule_in_or_at,
-                   opts
-                 ) do
-            {:ok,
-             %{
-               metadata: metadata,
-               schema_data: schema_data,
-               destination_object: dest_object,
-               jobs: %{move_to_destination: job}
-             }}
-          end
-        end
-
-        DBAction.transaction(op, opts)
-      else
-        with {:ok, schema_data} <-
-               DBAction.update(
-                 query,
-                 schema_data,
-                 Map.put(update_params, :e_tag, metadata.e_tag),
-                 opts
-               ) do
-          {:ok,
-           %{
-             metadata: metadata,
-             schema_data: schema_data,
-             destination_object: dest_object
-           }}
-        end
-      end
+    with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, struct, parts, opts),
+         {:ok, struct} <-
+           DBAction.update(
+             query,
+             struct,
+             Map.merge(update_params, %{
+               state: @completed,
+               unique_identifier: unique_identifier,
+               e_tag: metadata.e_tag
+             }),
+             opts
+           ) do
+      {:ok,
+       %{
+         metadata: metadata,
+         data: struct,
+         basename: basename,
+         destination_object: dest_object
+       }}
     end
   end
 
   def complete_multipart_upload(
         bucket,
-        object_desc,
         query,
         find_params,
         update_params,
@@ -218,12 +177,11 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
-        object_desc,
         query,
-        schema_data,
+        struct,
         update_params,
         parts,
         opts
@@ -231,35 +189,24 @@ defmodule Uppy.Core do
     end
   end
 
-  defp do_complete_mpu(bucket, schema_data, parts, opts) do
-    case Storage.complete_multipart_upload(
-           bucket,
-           schema_data.key,
-           schema_data.upload_id,
-           parts,
-           opts
-         ) do
-      {:ok, _} -> Storage.head_object(bucket, schema_data.key, opts)
-      {:error, %{code: :not_found}} -> Storage.head_object(bucket, schema_data.key, opts)
-      {:error, _} = error -> error
-    end
-  end
-
-  def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+  @doc """
+  TODO...
+  """
+  def abort_multipart_upload(bucket, query, %_{} = struct, update_params, opts) do
     update_params = Map.put_new(update_params, :state, @aborted)
 
     with {:ok, metadata} <-
            Storage.abort_multipart_upload(
              bucket,
-             schema_data.key,
-             schema_data.upload_id,
+             struct.key,
+             struct.upload_id,
              opts
            ),
-         {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
+         {:ok, struct} <- DBAction.update(query, struct, update_params, opts) do
       {:ok,
        %{
          metadata: metadata,
-         schema_data: schema_data
+         data: struct
        }}
     end
   end
@@ -270,169 +217,98 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_multipart_upload(bucket, query, schema_data, update_params, opts)
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+      abort_multipart_upload(bucket, query, struct, update_params, opts)
     end
   end
 
-  def create_multipart_upload(bucket, object_desc, query, filename, create_params, opts) do
-    timestamp = opts[:timestamp] || String.reverse("#{:os.system_time()}")
+  @doc """
+  TODO...
+  """
+  def create_multipart_upload(bucket, query, filename, create_params, opts) do
+    {basename, key} = PathBuilder.build_temporary_object_path(filename, opts)
 
-    basename =
-      if timestamp in [nil, ""] do
-        filename
-      else
-        "#{timestamp}-#{filename}"
-      end
-
-    key =
-      basename
-      |> build_temporary_object_key(object_desc, opts)
-      |> URI.encode()
-
-    create_params =
-      Map.merge(create_params, %{
-        state: @pending,
-        filename: filename,
-        key: key
-      })
-
-    schedule_in_or_at = opts[:schedule][:abort_expired_multipart_upload] || @one_day
-
-    with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
-      create_params = Map.put(create_params, :upload_id, multipart_upload.upload_id)
-
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
-               {:ok, job} <-
-                 Scheduler.queue_abort_expired_multipart_upload(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   schedule_in_or_at,
-                   opts
-                 ) do
-            {:ok,
-             %{
-               multipart_upload: multipart_upload,
-               schema_data: schema_data,
-               jobs: %{abort_upload: job}
-             }}
-          end
-        end
-
-        DBAction.transaction(op, opts)
-      else
-        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
-          {:ok,
-           %{
-             multipart_upload: multipart_upload,
-             schema_data: schema_data
-           }}
-        end
-      end
+    with {:ok, mpu} <- Storage.create_multipart_upload(bucket, key, opts),
+         {:ok, struct} <-
+           DBAction.create(
+             query,
+             Map.merge(create_params, %{
+               state: @pending,
+               filename: filename,
+               key: key,
+               upload_id: mpu.upload_id
+             }),
+             opts
+           ) do
+      {:ok,
+       %{
+         basename: basename,
+         data: struct,
+         multipart_upload: mpu
+       }}
     end
   end
 
-  def complete_upload(bucket, object_desc, query, %_{} = schema_data, update_params, opts) do
-    unique_identifier = Map.get(update_params, :unique_identifier, generate_unique_identifier())
+  @doc """
+  TODO...
+  """
+  def complete_upload(bucket, query, %_{} = struct, update_params, opts) do
+    unique_identifier = update_params[:unique_identifier]
 
-    basename =
-      if unique_identifier in [nil, ""] do
-        schema_data.filename
-      else
-        "#{unique_identifier}-#{schema_data.filename}"
-      end
+    {basename, dest_object} =
+      PathBuilder.build_permanent_object_path(struct, unique_identifier, opts)
 
-    dest_object =
-      basename
-      |> build_permanent_object_key(schema_data, object_desc, opts)
-      |> URI.encode()
-
-    update_params =
-      Map.merge(update_params, %{
-        state: @completed,
-        unique_identifier: unique_identifier
-      })
-
-    schedule_in_or_at = opts[:schedule][:move_to_destination]
-
-    with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <-
-                 DBAction.update(
-                   query,
-                   schema_data,
-                   Map.put(update_params, :e_tag, metadata.e_tag),
-                   opts
-                 ),
-               {:ok, job} <-
-                 Scheduler.queue_move_to_destination(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   dest_object,
-                   schedule_in_or_at,
-                   opts
-                 ) do
-            {:ok,
-             %{
-               metadata: metadata,
-               schema_data: schema_data,
-               destination_object: dest_object,
-               jobs: %{move_to_destination: job}
-             }}
-          end
-        end
-
-        DBAction.transaction(op, opts)
-      else
-        with {:ok, schema_data} <-
-               DBAction.update(
-                 query,
-                 schema_data,
-                 Map.put(update_params, :e_tag, metadata.e_tag),
-                 opts
-               ) do
-          {:ok,
-           %{
-             metadata: metadata,
-             schema_data: schema_data,
-             destination_object: dest_object
-           }}
-        end
-      end
+    with {:ok, metadata} <- Storage.head_object(bucket, struct.key, opts),
+         {:ok, struct} <-
+           DBAction.update(
+             query,
+             struct,
+             Map.merge(update_params, %{
+               state: @completed,
+               unique_identifier: unique_identifier,
+               e_tag: metadata.e_tag
+             }),
+             opts
+           ) do
+      {:ok,
+       %{
+         metadata: metadata,
+         data: struct,
+         basename: basename,
+         destination_object: dest_object
+       }}
     end
   end
 
-  def complete_upload(bucket, object_desc, query, find_params, update_params, opts) do
+  def complete_upload(bucket, query, find_params, update_params, opts) do
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, object_desc, query, schema_data, update_params, opts)
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+      complete_upload(bucket, query, struct, update_params, opts)
     end
   end
 
-  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
+  @doc """
+  TODO...
+  """
+  def abort_upload(bucket, query, %_{} = struct, update_params, opts) do
     update_params = Map.put_new(update_params, :state, @aborted)
 
-    case Storage.head_object(bucket, schema_data.key, opts) do
+    case Storage.head_object(bucket, struct.key, opts) do
       {:ok, metadata} ->
         {:error,
          ErrorMessage.forbidden("object exists", %{
            bucket: bucket,
-           key: schema_data.key,
+           key: struct.key,
            metadata: metadata
          })}
 
       {:error, %{code: :not_found}} ->
-        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-          {:ok, %{schema_data: schema_data}}
+        with {:ok, struct} <- DBAction.update(query, struct, update_params, opts) do
+          {:ok, %{data: struct}}
         end
 
       e ->
@@ -446,133 +322,34 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_upload(bucket, query, schema_data, update_params, opts)
+    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+      abort_upload(bucket, query, struct, update_params, opts)
     end
   end
 
-  def create_upload(bucket, object_desc, query, filename, create_params, opts) do
-    timestamp = opts[:timestamp] || String.reverse("#{:os.system_time()}")
+  @doc """
+  TODO...
+  """
+  def create_upload(bucket, query, filename, create_params, opts \\ []) do
+    {basename, key} = PathBuilder.build_temporary_object_path(filename, opts)
 
-    basename =
-      if timestamp in [nil, ""] do
-        filename
-      else
-        "#{timestamp}-#{filename}"
-      end
-
-    key =
-      basename
-      |> build_temporary_object_key(object_desc, opts)
-      |> URI.encode()
-
-    create_params =
-      Map.merge(create_params, %{
-        state: @pending,
-        filename: filename,
-        key: key
-      })
-
-    schedule_in_or_at = opts[:schedule][:abort_expired_upload] || @one_day
-
-    with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
-               {:ok, job} <-
-                 Scheduler.queue_abort_expired_upload(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   schedule_in_or_at,
-                   opts
-                 ) do
-            {:ok,
-             %{
-               signed_url: signed_url,
-               schema_data: schema_data,
-               jobs: %{abort_upload: job}
-             }}
-          end
-        end
-
-        DBAction.transaction(op, opts)
-      else
-        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
-          {:ok,
-           %{
-             signed_url: signed_url,
-             schema_data: schema_data
-           }}
-        end
-      end
-    end
-  end
-
-  defp build_permanent_object_key(basename, %module{} = schema_data, object_desc, opts) do
-    case opts[:permanent_object_key] do
-      fun when is_function(fun, 3) ->
-        fun.(basename, schema_data, opts)
-
-      adapter when is_atom(adapter) and not is_nil(adapter) ->
-        adapter.build_permanent_object_key(basename, object_desc, opts)
-
-      _ ->
-        prefix = object_desc[:permanent_object_prefix] || @default_permanent_prefix
-
-        partition_id =
-          case object_desc[:permanent_object_partition_id] do
-            nil ->
-              nil
-
-            partition_id ->
-              if Keyword.get(opts, :reverse_partition_id?, true) do
-                partition_id |> to_string() |> String.reverse()
-              else
-                partition_id
-              end
-          end
-
-        partition_name = object_desc[:permanent_object_partition_name] || @uploads
-
-        resource_name = module |> Module.split() |> List.last() |> Macro.underscore()
-
-        Path.join([
-          prefix,
-          Enum.join([partition_id, partition_name], "-"),
-          resource_name,
-          basename
-        ])
-    end
-  end
-
-  defp build_temporary_object_key(basename, object_desc, opts) do
-    case opts[:temporary_object_key] do
-      fun when is_function(fun, 2) ->
-        fun.(basename, opts)
-
-      adapter when is_atom(adapter) and not is_nil(adapter) ->
-        adapter.build_temporary_object_key(adapter, basename, opts)
-
-      _ ->
-        prefix = object_desc[:temporary_object_prefix] || @temp_prefix
-
-        partition_id =
-          case object_desc[:temporary_object_partition_id] do
-            nil ->
-              nil
-
-            partition_id ->
-              if Keyword.get(opts, :reverse_partition_id?, true) do
-                partition_id |> to_string() |> String.reverse()
-              else
-                partition_id
-              end
-          end
-
-        partition_name = object_desc[:temporary_object_partition_name] || @user
-
-        Path.join([prefix, Enum.join([partition_id, partition_name], "-"), basename])
+    with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts),
+         {:ok, struct} <-
+           DBAction.create(
+             query,
+             Map.merge(create_params, %{
+               state: @pending,
+               filename: filename,
+               key: key
+             }),
+             opts
+           ) do
+      {:ok,
+       %{
+         basename: basename,
+         data: struct,
+         signed_url: signed_url
+       }}
     end
   end
 
@@ -581,8 +358,596 @@ defmodule Uppy.Core do
       raise "Expected the option `:http_method` to be :put or :post, got: #{inspect(val)}"
     end
   end
-
-  defp generate_unique_identifier do
-    4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
-  end
 end
+
+# defmodule Uppy.Core do
+#   @moduledoc """
+#   """
+
+#   alias Uppy.{
+#     Config,
+#     DBAction,
+#     Pipeline,
+#     Scheduler,
+#     Storage
+#   }
+
+#   @aborted :aborted
+#   @completed :completed
+#   @pending :pending
+
+#   @uploads "uploads"
+#   @user "user"
+
+#   @default_permanent_prefix ""
+#   @temp_prefix "temp/"
+
+#   def move_to_destination(bucket, query, %_{} = struct, dest_object, opts) do
+#     resolution =
+#       Uppy.Resolution.new!(%{
+#         bucket: bucket,
+#         query: query,
+#         value: struct,
+#         arguments: %{
+#           destination_object: dest_object
+#         }
+#       })
+
+#     phases =
+#       case Config.pipeline_module() do
+#         nil ->
+#           Uppy.Core.Pipelines.for_move_to_destination(opts)
+
+#         pipeline_module ->
+#           pipeline_module.move_to_destination(
+#             %{
+#               bucket: bucket,
+#               destination_object: dest_object,
+#               query: query,
+#               data: struct
+#             },
+#             opts
+#           )
+#       end
+
+#     with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
+#       {:ok,
+#        %{
+#          resolution: %{resolution | state: :resolved},
+#          done: done
+#        }}
+#     end
+#   end
+
+#   def move_to_destination(bucket, query, find_params, dest_object, opts) do
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       move_to_destination(bucket, query, struct, dest_object, opts)
+#     end
+#   end
+
+#   def find_parts(
+#         bucket,
+#         _query,
+#         %_{} = struct,
+#         opts
+#       ) do
+#     with {:ok, parts} <-
+#            Storage.list_parts(
+#              bucket,
+#              struct.key,
+#              struct.upload_id,
+#              opts
+#            ) do
+#       {:ok,
+#        %{
+#          parts: parts,
+#          data: struct
+#        }}
+#     end
+#   end
+
+#   def find_parts(bucket, query, find_params, opts) do
+#     find_params =
+#       find_params
+#       |> Map.put_new(:state, @pending)
+#       |> Map.put_new(:upload_id, %{!=: nil})
+
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       find_parts(bucket, query, struct, opts)
+#     end
+#   end
+
+#   def sign_part(bucket, _query, %_{} = struct, part_number, opts) do
+#     with {:ok, signed_part} <-
+#            Storage.sign_part(
+#              bucket,
+#              struct.key,
+#              struct.upload_id,
+#              part_number,
+#              opts
+#            ) do
+#       {:ok,
+#        %{
+#          signed_part: signed_part,
+#          data: struct
+#        }}
+#     end
+#   end
+
+#   def sign_part(bucket, query, find_params, part_number, opts) do
+#     find_params =
+#       find_params
+#       |> Map.put_new(:state, @pending)
+#       |> Map.put_new(:upload_id, %{!=: nil})
+
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       sign_part(bucket, query, struct, part_number, opts)
+#     end
+#   end
+
+#   def complete_multipart_upload(
+#         bucket,
+#         object_key,
+#         query,
+#         %_{} = struct,
+#         update_params,
+#         parts,
+#         opts
+#       ) do
+#     unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
+
+#     basename =
+#       if unique_identifier in [nil, ""] do
+#         struct.filename
+#       else
+#         "#{unique_identifier}-#{struct.filename}"
+#       end
+
+#     dest_object =
+#       basename
+#       |> build_build_permanent_object_path(struct, object_key, opts)
+#       |> URI.encode()
+
+#     update_params =
+#       update_params
+#       |> Map.put_new(:state, @completed)
+#       |> Map.put(:unique_identifier, unique_identifier)
+
+#     with {:ok, metadata} <- complete_storage_mpu(bucket, struct, parts, opts) do
+#       if scheduler_enabled?(opts) do
+#         op = fn ->
+#           with {:ok, struct} <-
+#                  DBAction.update(
+#                    query,
+#                    struct,
+#                    Map.put(update_params, :e_tag, metadata.e_tag),
+#                    opts
+#                  ),
+#                {:ok, job} <-
+#                  Scheduler.enqueue_move_to_destination(
+#                    bucket,
+#                    query,
+#                    struct.id,
+#                    dest_object,
+#                    opts
+#                  ) do
+#             {:ok,
+#              %{
+#                metadata: metadata,
+#                data: struct,
+#                destination_object: dest_object,
+#                jobs: %{move_to_destination: job}
+#              }}
+#           end
+#         end
+
+#         DBAction.transaction(op, opts)
+#       else
+#         with {:ok, struct} <-
+#                DBAction.update(
+#                  query,
+#                  struct,
+#                  Map.put(update_params, :e_tag, metadata.e_tag),
+#                  opts
+#                ) do
+#           {:ok,
+#            %{
+#              metadata: metadata,
+#              data: struct,
+#              destination_object: dest_object
+#            }}
+#         end
+#       end
+#     end
+#   end
+
+#   def complete_multipart_upload(
+#         bucket,
+#         object_key,
+#         query,
+#         find_params,
+#         update_params,
+#         parts,
+#         opts
+#       ) do
+#     find_params =
+#       find_params
+#       |> Map.put_new(:state, @pending)
+#       |> Map.put_new(:upload_id, %{!=: nil})
+
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       complete_multipart_upload(
+#         bucket,
+#         object_key,
+#         query,
+#         struct,
+#         update_params,
+#         parts,
+#         opts
+#       )
+#     end
+#   end
+
+#   defp complete_storage_mpu(bucket, struct, parts, opts) do
+#     case Storage.complete_multipart_upload(
+#            bucket,
+#            struct.key,
+#            struct.upload_id,
+#            parts,
+#            opts
+#          ) do
+#       {:ok, _} -> Storage.head_object(bucket, struct.key, opts)
+#       {:error, %{code: :not_found}} -> Storage.head_object(bucket, struct.key, opts)
+#       {:error, _} = error -> error
+#     end
+#   end
+
+#   def abort_multipart_upload(bucket, query, %_{} = struct, update_params, opts) do
+#     update_params = Map.put_new(update_params, :state, @aborted)
+
+#     with {:ok, metadata} <-
+#            Storage.abort_multipart_upload(
+#              bucket,
+#              struct.key,
+#              struct.upload_id,
+#              opts
+#            ),
+#          {:ok, struct} <- DBAction.update(query, struct, update_params, opts) do
+#       {:ok,
+#        %{
+#          metadata: metadata,
+#          data: struct
+#        }}
+#     end
+#   end
+
+#   def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
+#     find_params =
+#       find_params
+#       |> Map.put_new(:state, @pending)
+#       |> Map.put_new(:upload_id, %{!=: nil})
+
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       abort_multipart_upload(bucket, query, struct, update_params, opts)
+#     end
+#   end
+
+#   def create_multipart_upload(bucket, object_key, query, filename, create_params, opts) do
+#     basename_prefix = opts[:path_builder][:basename_prefix] || String.reverse("#{:os.system_time()}")
+
+#     basename =
+#       if basename_prefix in [nil, ""] do
+#         filename
+#       else
+#         "#{basename_prefix}-#{filename}"
+#       end
+
+#     key =
+#       basename
+#       |> build_temporary_object_path(object_key, opts)
+#       |> URI.encode()
+
+#     create_params =
+#       Map.merge(create_params, %{
+#         state: @pending,
+#         filename: filename,
+#         key: key
+#       })
+
+#     with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
+#       create_params = Map.put(create_params, :upload_id, multipart_upload.upload_id)
+
+#       if scheduler_enabled?(opts) do
+#         op = fn ->
+#           with {:ok, struct} <- DBAction.create(query, create_params, opts),
+#                {:ok, job} <-
+#                  Scheduler.enqueue_abort_expired_multipart_upload(
+#                    bucket,
+#                    query,
+#                    struct.id,
+#                    opts
+#                  ) do
+#             {:ok,
+#              %{
+#                multipart_upload: multipart_upload,
+#                data: struct,
+#                jobs: %{abort_expired_multipart_upload: job}
+#              }}
+#           end
+#         end
+
+#         DBAction.transaction(op, opts)
+#       else
+#         with {:ok, struct} <- DBAction.create(query, create_params, opts) do
+#           {:ok,
+#            %{
+#              multipart_upload: multipart_upload,
+#              data: struct
+#            }}
+#         end
+#       end
+#     end
+#   end
+
+#   def complete_upload(bucket, object_key, query, %_{} = struct, update_params, opts) do
+#     unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
+
+#     basename =
+#       if unique_identifier in [nil, ""] do
+#         struct.filename
+#       else
+#         "#{unique_identifier}-#{struct.filename}"
+#       end
+
+#     dest_object =
+#       basename
+#       |> build_build_permanent_object_path(struct, object_key, opts)
+#       |> URI.encode()
+
+#     update_params =
+#       Map.merge(update_params, %{
+#         state: @completed,
+#         unique_identifier: unique_identifier
+#       })
+
+#     with {:ok, metadata} <- Storage.head_object(bucket, struct.key, opts) do
+#       if scheduler_enabled?(opts) do
+#         op = fn ->
+#           with {:ok, struct} <-
+#                  DBAction.update(
+#                    query,
+#                    struct,
+#                    Map.put(update_params, :e_tag, metadata.e_tag),
+#                    opts
+#                  ),
+#                {:ok, job} <-
+#                  Scheduler.enqueue_move_to_destination(
+#                    bucket,
+#                    query,
+#                    struct.id,
+#                    dest_object,
+#                    opts
+#                  ) do
+#             {:ok,
+#              %{
+#                metadata: metadata,
+#                data: struct,
+#                destination_object: dest_object,
+#                jobs: %{move_to_destination: job}
+#              }}
+#           end
+#         end
+
+#         DBAction.transaction(op, opts)
+#       else
+#         with {:ok, struct} <-
+#                DBAction.update(
+#                  query,
+#                  struct,
+#                  Map.put(update_params, :e_tag, metadata.e_tag),
+#                  opts
+#                ) do
+#           {:ok,
+#            %{
+#              metadata: metadata,
+#              data: struct,
+#              destination_object: dest_object
+#            }}
+#         end
+#       end
+#     end
+#   end
+
+#   def complete_upload(bucket, object_key, query, find_params, update_params, opts) do
+#     find_params =
+#       find_params
+#       |> Map.put_new(:state, @pending)
+#       |> Map.put_new(:upload_id, %{==: nil})
+
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       complete_upload(bucket, object_key, query, struct, update_params, opts)
+#     end
+#   end
+
+#   def abort_upload(bucket, query, %_{} = struct, update_params, opts) do
+#     update_params = Map.put_new(update_params, :state, @aborted)
+
+#     case Storage.head_object(bucket, struct.key, opts) do
+#       {:ok, metadata} ->
+#         {:error,
+#          ErrorMessage.forbidden("object exists", %{
+#            bucket: bucket,
+#            key: struct.key,
+#            metadata: metadata
+#          })}
+
+#       {:error, %{code: :not_found}} ->
+#         with {:ok, struct} <- DBAction.update(query, struct, update_params, opts) do
+#           {:ok, %{data: struct}}
+#         end
+
+#       e ->
+#         e
+#     end
+#   end
+
+#   def abort_upload(bucket, query, find_params, update_params, opts) do
+#     find_params =
+#       find_params
+#       |> Map.put_new(:state, @pending)
+#       |> Map.put_new(:upload_id, %{==: nil})
+
+#     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+#       abort_upload(bucket, query, struct, update_params, opts)
+#     end
+#   end
+
+#   @doc """
+#   Creates a pre-signed url for `filename`, a record, and
+#   schedules a job to abort the upload if not completed in
+#   the given time.
+
+#   This function resolves as follows:
+
+#     - Generates a temporary object key to determine the
+#       location of the file.
+
+#     - Generates a pre-signed url which allows the client
+#       to upload a file to the pre-defined location.
+
+#     - Creates a record with the temporary object key.
+
+#   ### Examples
+
+#       iex> Uppy.Core.create_upload("bucket", %{}, {"user_avatar_file_infos", FileInfoAbstract}, "image.jpeg", %{}, basename_prefix: "timestamp")
+#   """
+#   def create_upload(bucket, object_key, query, filename, create_params, opts \\ []) do
+#     basename_prefix = opts[:path_builder][:basename_prefix] || String.reverse("#{:os.system_time()}")
+
+#     basename =
+#       if basename_prefix in [nil, ""] do
+#         filename
+#       else
+#         "#{basename_prefix}-#{filename}"
+#       end
+
+#     key =
+#       basename
+#       |> build_temporary_object_path(object_key, opts)
+#       |> URI.encode()
+
+#     create_params =
+#       Map.merge(create_params, %{
+#         state: @pending,
+#         filename: filename,
+#         key: key
+#       })
+
+#     with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
+#       if scheduler_enabled?(opts) do
+#         op = fn ->
+#           with {:ok, struct} <- DBAction.create(query, create_params, opts),
+#                {:ok, job} <-
+#                  Scheduler.enqueue_abort_expired_upload(
+#                    bucket,
+#                    query,
+#                    struct.id,
+#                    opts
+#                  ) do
+#             {:ok,
+#              %{
+#                signed_url: signed_url,
+#                data: struct,
+#                jobs: %{abort_expired_upload: job}
+#              }}
+#           end
+#         end
+
+#         DBAction.transaction(op, opts)
+#       else
+#         with {:ok, struct} <- DBAction.create(query, create_params, opts) do
+#           {:ok,
+#            %{
+#              signed_url: signed_url,
+#              data: struct
+#            }}
+#         end
+#       end
+#     end
+#   end
+
+#   defp scheduler_enabled?(opts) do
+#     opts[:scheduler_enabled] || Uppy.Config.scheduler_enabled() || true
+#   end
+
+#   defp build_build_permanent_object_path(basename, %module{} = struct, object_key, opts) do
+#     case opts[:build_permanent_object_path] do
+#       fun when is_function(fun, 2) ->
+#         fun.(basename, struct)
+
+#       _ ->
+#         prefix = object_key[:permanent_object_prefix] || @default_permanent_prefix
+
+#         partition_id =
+#           case object_key[:permanent_object_partition_id] do
+#             nil ->
+#               nil
+
+#             partition_id ->
+#               if object_key[:reverse_partition_id] === true do
+#                 partition_id |> to_string() |> String.reverse()
+#               else
+#                 partition_id
+#               end
+#           end
+
+#         partition_name = object_key[:permanent_object_partition_name] || @uploads
+
+#         resource_name = module |> Module.split() |> List.last() |> Macro.underscore()
+
+#         Path.join([
+#           prefix,
+#           Enum.join([partition_id, partition_name], "-"),
+#           resource_name,
+#           basename
+#         ])
+#     end
+#   end
+
+#   defp build_temporary_object_path(basename, object_key, opts) do
+#     case opts[:temporary_object_key] do
+#       fun when is_function(fun, 1) ->
+#         fun.(basename)
+
+#       _ ->
+#         prefix = object_key[:temporary_object_prefix] || @temp_prefix
+
+#         partition_id =
+#           case object_key[:temporary_object_partition_id] do
+#             nil ->
+#               nil
+
+#             partition_id ->
+#               if object_key[:reverse_partition_id] === true do
+#                 partition_id |> to_string() |> String.reverse()
+#               else
+#                 partition_id
+#               end
+#           end
+
+#         partition_name = object_key[:temporary_object_partition_name] || @user
+
+#         Path.join([prefix, Enum.join([partition_id, partition_name], "-"), basename])
+#     end
+#   end
+
+#   defp http_method(opts) do
+#     with val when val not in [:put, :post] <- Keyword.get(opts, :http_method, :put) do
+#       raise "Expected the option `:http_method` to be :put or :post, got: #{inspect(val)}"
+#     end
+#   end
+
+#   defp generate_unique_identifier do
+#     4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
+#   end
+# end

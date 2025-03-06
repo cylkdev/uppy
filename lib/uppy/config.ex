@@ -2,6 +2,8 @@ defmodule Uppy.Config do
   @moduledoc false
   @app :uppy
 
+  def app, do: @app
+
   @spec error_adapter :: module() | nil
   def error_adapter do
     Application.get_env(@app, :error_adapter) || ErrorMessage
@@ -19,27 +21,21 @@ defmodule Uppy.Config do
 
   @spec db_action_adapter :: module() | nil
   def db_action_adapter do
-    Application.get_env(@app, :db_action_adapter) || Uppy.CommonRepoAction
+    Application.get_env(@app, :db_action_adapter) || Uppy.CommonRepoActions
   end
 
-  @spec enable_scheduler :: true | false
-  def enable_scheduler do
-    Application.get_env(@app, :enable_scheduler) || true
+  @spec scheduler_enabled :: true | false
+  def scheduler_enabled do
+    Application.get_env(@app, :scheduler_enabled) || true
   end
 
-  @spec scheduler_adapter :: module() | nil
+  @spec scheduler_adapter :: module()
   def scheduler_adapter do
     Application.get_env(@app, :scheduler_adapter) || Uppy.Schedulers.ObanScheduler
   end
 
-  @spec storage_adapter :: module() | nil
+  @spec storage_adapter :: module()
   def storage_adapter, do: Application.get_env(@app, :storage_adapter) || Uppy.Storages.S3
-
-  @spec repo :: atom() | nil
-  def repo, do: Application.get_env(@app, :repo) || Uppy.Repo
-
-  @spec oban_name :: atom() | nil
-  def oban_name, do: Application.get_env(@app, :oban_name) || :uppy_oban
 
   @spec pipeline_module :: atom() | nil
   def pipeline_module, do: Application.get_env(@app, :pipeline_module)

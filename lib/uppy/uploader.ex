@@ -1,85 +1,45 @@
 defmodule Uppy.Uploader do
-  alias Uppy.{
-    Core,
-    DBAction
-  }
+  @moduledoc false
 
-  def all(adapter, params, opts \\ []) do
-    DBAction.all(adapter.query(), params, opts)
-  end
+  alias Uppy.Core
 
-  def create(adapter, params, opts \\ []) do
-    DBAction.create(adapter.query(), params, opts)
-  end
+  def bucket(adapter), do: adapter.bucket()
 
-  def find(adapter, params, opts \\ []) do
-    DBAction.find(adapter.query(), params, opts)
-  end
+  def query(adapter), do: adapter.query()
 
-  def update(adapter, find_params_or_struct, update_params, opts \\ []) do
-    DBAction.update(adapter.query(), find_params_or_struct, update_params, opts)
-  end
+  def path_definition(adapter), do: adapter.path_definition()
 
-  def delete(adapter, id_or_struct, opts \\ []) do
-    DBAction.delete(adapter.query(), id_or_struct, opts)
-  end
+  def options(adapter), do: adapter.options()
 
-  def move_to_destination(
-        adapter,
-        destination_object,
-        find_params_or_struct,
-        opts \\ []
-      ) do
+  def move_to_destination(adapter, dest_object, params_or_struct, opts \\ []) do
     Core.move_to_destination(
       adapter.bucket(),
-      destination_object,
+      dest_object,
       adapter.query(),
-      find_params_or_struct,
+      params_or_struct,
       opts
     )
   end
 
-  def find_parts(
-        adapter,
-        find_params_or_struct,
-        opts \\ []
-      ) do
-    Core.find_parts(
-      adapter.bucket(),
-      adapter.query(),
-      find_params_or_struct,
-      opts
-    )
+  def find_parts(adapter, params_or_struct, opts \\ []) do
+    Core.find_parts(adapter.bucket(), adapter.query(), params_or_struct, opts)
   end
 
-  def sign_part(
-        adapter,
-        find_params_or_struct,
-        part_number,
-        opts \\ []
-      ) do
-    Core.sign_part(
-      adapter.bucket(),
-      adapter.query(),
-      find_params_or_struct,
-      part_number,
-      opts
-    )
+  def sign_part(adapter, params_or_struct, part_number, opts \\ []) do
+    Core.sign_part(adapter.bucket(), adapter.query(), params_or_struct, part_number, opts)
   end
 
   def complete_multipart_upload(
         adapter,
-        object_desc,
-        find_params_or_struct,
+        params_or_struct,
         update_params,
         parts,
         opts \\ []
       ) do
     Core.complete_multipart_upload(
       adapter.bucket(),
-      object_desc,
       adapter.query(),
-      find_params_or_struct,
+      params_or_struct,
       update_params,
       parts,
       opts
@@ -88,23 +48,22 @@ defmodule Uppy.Uploader do
 
   def abort_multipart_upload(
         adapter,
-        find_params_or_struct,
+        params_or_struct,
         update_params,
         opts \\ []
       ) do
     Core.abort_multipart_upload(
       adapter.bucket(),
       adapter.query(),
-      find_params_or_struct,
+      params_or_struct,
       update_params,
       opts
     )
   end
 
-  def create_multipart_upload(adapter, object_desc, filename, create_params, opts \\ []) do
+  def create_multipart_upload(adapter, filename, create_params, opts \\ []) do
     Core.create_multipart_upload(
       adapter.bucket(),
-      object_desc,
       adapter.query(),
       filename,
       create_params,
@@ -112,12 +71,11 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def complete_upload(adapter, object_desc, find_params_or_struct, update_params, opts \\ []) do
+  def complete_upload(adapter, params_or_struct, update_params, opts \\ []) do
     Core.complete_upload(
       adapter.bucket(),
-      object_desc,
       adapter.query(),
-      find_params_or_struct,
+      params_or_struct,
       update_params,
       opts
     )
@@ -125,23 +83,22 @@ defmodule Uppy.Uploader do
 
   def abort_upload(
         adapter,
-        find_params_or_struct,
+        params_or_struct,
         update_params,
         opts \\ []
       ) do
     Core.abort_upload(
       adapter.bucket(),
       adapter.query(),
-      find_params_or_struct,
+      params_or_struct,
       update_params,
       opts
     )
   end
 
-  def create_upload(adapter, object_desc, filename, create_params, opts \\ []) do
+  def create_upload(adapter, filename, create_params, opts \\ []) do
     Core.create_upload(
       adapter.bucket(),
-      object_desc,
       adapter.query(),
       filename,
       create_params,
@@ -153,145 +110,124 @@ defmodule Uppy.Uploader do
     quote do
       opts = unquote(opts)
 
-      @bucket opts[:bucket]
-      @query opts[:query]
-      @options opts[:options]
+      alias Uppy.Uploader
 
-      @object_desc opts[:object_description] || %{}
+      @bucket opts[:bucket]
+
+      @query opts[:query]
+
+      @default_opts opts[:options] || []
 
       def bucket, do: @bucket
 
       def query, do: @query
 
-      def options, do: @options
+      def options, do: @default_opts
 
-      def object_description, do: @object_desc
+      def move_to_destination(dest_object, params_or_struct, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-      def all(params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.all(__MODULE__, params, opts)
-      end
-
-      def create(params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.create(__MODULE__, params, opts)
-      end
-
-      def find(params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.find(__MODULE__, params, opts)
-      end
-
-      def update(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.update(__MODULE__, find_params_or_struct, update_params, opts)
-      end
-
-      def delete(id_or_struct, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.delete(__MODULE__, id_or_struct, opts)
-      end
-
-      def move_to_destination(destination_object, find_params_or_struct, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.move_to_destination(
+        Uploader.move_to_destination(
           __MODULE__,
-          destination_object,
-          find_params_or_struct,
+          dest_object,
+          params_or_struct,
           opts
         )
       end
 
+      def find_parts(params_or_struct, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uploader.find_parts(__MODULE__, params_or_struct, opts)
+      end
+
+      def sign_part(params_or_struct, part_number, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
+
+        Uploader.sign_part(__MODULE__, params_or_struct, part_number, opts)
+      end
+
       def complete_multipart_upload(
-            object_desc,
-            find_params_or_struct,
+            params_or_struct,
             update_params,
             parts,
             opts \\ []
           ) do
-        opts = Keyword.merge(@options, opts)
+        opts = Keyword.merge(@default_opts, opts)
 
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.complete_multipart_upload(
+        Uploader.complete_multipart_upload(
           __MODULE__,
-          object_desc,
-          find_params_or_struct,
+          params_or_struct,
           update_params,
           parts,
           opts
         )
       end
 
-      def abort_multipart_upload(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
+      def abort_multipart_upload(params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-        Uppy.Uploader.abort_multipart_upload(
+        Uploader.abort_multipart_upload(
           __MODULE__,
-          find_params_or_struct,
+          params_or_struct,
           update_params,
           opts
         )
       end
 
-      def create_multipart_upload(filename, create_params, object_desc \\ %{}, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
+      def create_multipart_upload(filename, create_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.create_multipart_upload(
+        Uploader.create_multipart_upload(
           __MODULE__,
-          object_desc,
           filename,
           create_params,
           opts
         )
       end
 
-      def complete_upload(object_desc, find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
+      def complete_upload(params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.complete_upload(
+        Uploader.complete_upload(
           __MODULE__,
-          object_desc,
-          find_params_or_struct,
+          params_or_struct,
           update_params,
           opts
         )
       end
 
-      def abort_upload(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
+      def abort_upload(params_or_struct, update_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-        Uppy.Uploader.abort_upload(
+        Uploader.abort_upload(
           __MODULE__,
-          find_params_or_struct,
+          params_or_struct,
           update_params,
           opts
         )
       end
 
-      def create_upload(object_desc, filename, create_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
+      def create_upload(filename, create_params, opts \\ []) do
+        opts = Keyword.merge(@default_opts, opts)
 
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.create_upload(
+        Uploader.create_upload(
           __MODULE__,
-          object_desc,
           filename,
           create_params,
           opts
         )
       end
+
+      defoverridable create_upload: 4,
+                     abort_upload: 3,
+                     complete_upload: 4,
+                     create_multipart_upload: 4,
+                     abort_multipart_upload: 3,
+                     complete_multipart_upload: 5,
+                     sign_part: 3,
+                     find_parts: 2,
+                     move_to_destination: 3
     end
   end
 end

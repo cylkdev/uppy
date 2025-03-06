@@ -17,15 +17,12 @@ permissions:
 jobs:
   build:
     name: Build and test
-
     runs-on: ubuntu-latest
-
     services:
       # Label used to access the service container
       postgres:
         # Docker Hub image
         image: postgres
-        
         # Provide the password for postgres
         env:
           POSTGRES_PASSWORD: postgres
@@ -40,6 +37,15 @@ jobs:
         ports:
           # Maps tcp port 5432 on service container to the host
           - 5432:5432
+      
+      # httpbin:
+      #   image: kennethreitz/httpbin
+      #   ports:
+      #     - 80:80
+
+      # localstack:
+      #   image: localstack/localstack:s3-latest
+      #   ports: 4566:4566
 
     steps:
       - uses: actions/checkout@v3

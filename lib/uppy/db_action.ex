@@ -13,16 +13,7 @@ defmodule Uppy.DBAction do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @default_db_action_adapter EctoShorts.Actions
-
-  @doc """
-  Returns a list of database records.
-  """
-  @callback preload(
-              struct_or_structs :: schema_data() | list(schema_data()),
-              preloads :: term(),
-              opts :: opts()
-            ) :: list(schema_data())
+  @default_db_action_adapter Uppy.CommonRepoActions
 
   @callback update_all(
               query :: query(),
@@ -121,10 +112,6 @@ defmodule Uppy.DBAction do
     adapter!(opts).aggregate(query, params, aggregate, field, opts)
   end
 
-  def preload(struct_or_structs, preloads, opts) do
-    adapter!(opts).preload(struct_or_structs, preloads, opts)
-  end
-
   def all(query, opts) do
     adapter!(opts).all(query, opts)
   end
@@ -162,9 +149,6 @@ defmodule Uppy.DBAction do
   end
 
   defp adapter!(opts) do
-    with nil <- opts[:db_action_adapter],
-         nil <- Config.db_action_adapter() do
-      @default_db_action_adapter
-    end
+    opts[:db_action_adapter] || Config.db_action_adapter() || @default_db_action_adapter
   end
 end

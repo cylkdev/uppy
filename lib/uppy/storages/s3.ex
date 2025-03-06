@@ -30,13 +30,23 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     alias Uppy.Error
     alias Uppy.Storages.S3.Parser
 
+    @type bucket :: Uppy.Storage.bucket()
+    @type http_method :: Uppy.Storage.http_method()
+    @type object :: Uppy.Storage.object()
+    @type key :: Uppy.Storage.key()
+    @type url :: Uppy.Storage.url()
+    @type upload_id :: Uppy.Storage.upload_id()
+    @type part_number :: Uppy.Storage.part_number()
+
+    @type opts :: Uppy.Storage.opts()
+
+    @type head_object_payload :: Uppy.Storage.head_object_payload()
+    @type pre_sign_payload :: Uppy.Storage.pre_sign_payload()
+    @type sign_part_payload :: Uppy.Storage.sign_part_payload()
+
     @behaviour Uppy.Storage
 
-    @config Application.compile_env(:uppy, __MODULE__, [])
-
     @one_minute_seconds 60
-
-    @s3_accelerate @config[:s3_accelerate] === true
 
     @default_opts [
       region: "us-west-1",
@@ -117,7 +127,16 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
         iex> Uppy.Storages.S3.head_object("your_bucket", "example_image.jpeg")
     """
-    def head_object(bucket, object, opts) do
+    @spec head_object(
+            bucket :: bucket(),
+            object :: object()
+          ) :: {:ok, head_object_payload()} | {:error, term()}
+    @spec head_object(
+            bucket :: bucket(),
+            object :: object(),
+            opts :: keyword()
+          ) :: {:ok, head_object_payload()} | {:error, term()}
+    def head_object(bucket, object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
 
       bucket
@@ -134,6 +153,19 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
         iex> Uppy.Storages.S3.sign_part("your_bucket", "example_image.jpeg", "upload_id", 1)
     """
+    @spec sign_part(
+            bucket :: bucket(),
+            object :: object(),
+            upload_id :: upload_id(),
+            part_number :: part_number()
+          ) :: {:ok, sign_part_payload()} | {:error, term()}
+    @spec sign_part(
+            bucket :: bucket(),
+            object :: object(),
+            upload_id :: upload_id(),
+            part_number :: part_number(),
+            opts :: keyword()
+          ) :: {:ok, sign_part_payload()} | {:error, term()}
     def sign_part(bucket, object, upload_id, part_number, opts \\ []) do
       query_params = %{"uploadId" => upload_id, "partNumber" => part_number}
 
@@ -158,16 +190,35 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     @doc """
     Implementation for `c:Uppy.Storage.pre_sign/4`.
 
+    Returns a map with the following keys:
+
+      * `:key` - The object string.
+      * `:url` - The S3 pre-signed url string.
+      * `:expires_at` - A DateTime struct that indicates when the url expires.
+
     ### Examples
 
-        iex> Uppy.Storages.S3.presigned_url("your_bucket", :put, "example_image.jpeg")
+        iex> Uppy.Storages.S3.pre_sign("your_bucket", :put, "example_image.jpeg")
     """
-    def pre_sign(bucket, http_method, object, opts) do
+    @spec pre_sign(
+            bucket :: bucket(),
+            http_method :: http_method(),
+            object :: object()
+          ) :: {:ok, pre_sign_payload()} | {:error, term()}
+    @spec pre_sign(
+            bucket :: bucket(),
+            http_method :: http_method(),
+            object :: object(),
+            opts :: keyword()
+          ) :: {:ok, pre_sign_payload()} | {:error, term()}
+    def pre_sign(bucket, http_method, object, opts \\ []) do
       opts = Keyword.merge(@default_opts, opts)
 
       opts =
         if http_method in [:post, :put] do
-          Keyword.put_new(opts, :s3_accelerate, @s3_accelerate)
+          s3_accelerate? = (opts[:s3_accelerate] || config()[:s3_accelerate]) === true
+
+          Keyword.put_new(opts, :s3_accelerate, s3_accelerate?)
         else
           opts
         end
@@ -258,10 +309,17 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     def complete_multipart_upload(bucket, object, upload_id, parts, opts) do
       opts = Keyword.merge(@default_opts, opts)
 
-      bucket
-      |> ExAws.S3.complete_multipart_upload(object, upload_id, parts)
-      |> ExAws.request(opts)
-      |> deserialize_response()
+      res =
+        bucket
+        |> ExAws.S3.complete_multipart_upload(object, upload_id, parts)
+        |> ExAws.request(opts)
+        |> deserialize_response()
+
+      case res do
+        {:ok, _} -> head_object(bucket, object, opts)
+        {:error, %{code: :not_found}} -> head_object(bucket, object, opts)
+        {:error, _} = e -> e
+      end
     end
 
     @impl true
@@ -304,20 +362,22 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     defp deserialize_response({:ok, %{body: %{contents: contents} = body}}) do
-      {:ok, %{
-        body |
-        key_count: String.to_integer(body.key_count),
-        max_keys: String.to_integer(body.max_keys),
-        is_truncated: body.is_truncated in ["true", true],
-        contents: Enum.map(contents, fn item ->
-          %{
-            item |
-            e_tag: remove_quotations(item.e_tag),
-            size: String.to_integer(item.size),
-            last_modified: item.last_modified |> DateTime.from_iso8601() |> elem(1)
-          }
-        end)
-      }}
+      {:ok,
+       %{
+         body
+         | key_count: String.to_integer(body.key_count),
+           max_keys: String.to_integer(body.max_keys),
+           is_truncated: body.is_truncated in ["true", true],
+           contents:
+             Enum.map(contents, fn item ->
+               %{
+                 item
+                 | e_tag: remove_quotations(item.e_tag),
+                   size: String.to_integer(item.size),
+                   last_modified: item.last_modified |> DateTime.from_iso8601() |> elem(1)
+               }
+             end)
+       }}
     end
 
     defp deserialize_response({:ok, %{body: %{parts: parts}}}) do
@@ -375,6 +435,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp remove_quotations(string) do
       String.replace(string, "\"", "")
+    end
+
+    defp config do
+      Application.get_env(Uppy.Config.app(), __MODULE__, [])
     end
   end
 end
