@@ -1,4 +1,4 @@
-defmodule Uppy.PathBuilders.StoragePathBuilder do
+defmodule Uppy.StoragePathBuilder do
   @moduledoc false
 
   @behaviour Uppy.PathBuilder
@@ -17,18 +17,16 @@ defmodule Uppy.PathBuilders.StoragePathBuilder do
 
   @empty_string ""
 
-  def build_permanent_object_path(%_{filename: filename} = struct, unique_identifier, opts) do
+  def build_object_path(_action, %_{filename: filename} = struct, unique_identifier, opts) do
+    opts = opts[:permanent_object] || []
+
     path_prefix = opts[:prefix] || @empty_string
 
     partition_name = opts[:partition_name] || @organization
 
-    reverse_partition_id? = Keyword.get(opts, :reverse_partition_id, false)
-
-    partition_id = opts[:partition_id]
-
     callback_fun = opts[:callback]
 
-    resource_name = underscore_last_module_alias(struct.__struct__)
+    resource_name = opts[:resource_name] || underscore_last_module_alias(struct.__struct__)
 
     unique_identifier =
       if Keyword.get(opts, :unique_identifier_enabled, true) do
@@ -48,6 +46,10 @@ defmodule Uppy.PathBuilders.StoragePathBuilder do
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
     else
+      reverse_partition_id? = Keyword.get(opts, :reverse_partition_id, false)
+
+      partition_id = opts[:partition_id]
+
       partition_id =
         if reverse_partition_id? and not is_nil(partition_id) do
           if reverse_partition_id? do
@@ -69,12 +71,10 @@ defmodule Uppy.PathBuilders.StoragePathBuilder do
     end
   end
 
-  def build_temporary_object_path(filename, opts) do
+  def build_object_path(_action, filename, opts) do
+    opts = opts[:temporary_object] || []
+
     path_prefix = opts[:prefix] || @temp
-
-    reverse_partition_id? = Keyword.get(opts, :reverse_partition_id, false)
-
-    partition_id = opts[:partition_id]
 
     partition_name = opts[:partition_name] || @user
 
@@ -101,6 +101,10 @@ defmodule Uppy.PathBuilders.StoragePathBuilder do
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
     else
+      reverse_partition_id? = Keyword.get(opts, :reverse_partition_id, false)
+
+      partition_id = opts[:partition_id]
+
       partition_id =
         if reverse_partition_id? and not is_nil(partition_id) do
           if reverse_partition_id? do

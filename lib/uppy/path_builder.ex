@@ -1,31 +1,27 @@
 defmodule Uppy.PathBuilder do
   @moduledoc false
 
-  @type basename :: binary()
-  @type filename :: binary()
-  @type path :: binary()
-  @type unique_identifier :: binary()
-  @type opts :: keyword()
-
-  @callback build_permanent_object_path(
+  @callback build_object_path(
+              action :: atom(),
               struct :: struct(),
               unique_identifier :: binary(),
-              opts :: opts()
-            ) :: {basename :: basename(), path :: path()}
+              params :: map()
+            ) :: {basename :: binary(), path :: binary()}
 
-  @callback build_temporary_object_path(
-              filename :: filename(),
-              opts :: opts()
-            ) :: {basename :: basename(), path :: path()}
+  @callback build_object_path(
+              action :: atom(),
+              filename :: binary(),
+              params :: map()
+            ) :: {basename :: binary(), path :: binary()}
 
-  @default_path_builder_adapter Uppy.PathBuilders.StoragePathBuilder
+  @default_path_builder_adapter Uppy.StoragePathBuilder
 
-  def build_permanent_object_path(struct, unique_identifier, opts) do
-    adapter(opts).build_permanent_object_path(struct, unique_identifier, opts)
+  def build_object_path(action, struct, unique_identifier, params, opts) do
+    adapter(opts).build_object_path(action, struct, unique_identifier, params)
   end
 
-  def build_temporary_object_path(filename, opts) do
-    adapter(opts).build_temporary_object_path(filename, opts)
+  def build_object_path(action, filename, params, opts) do
+    adapter(opts).build_object_path(action, filename, params)
   end
 
   defp adapter(opts) do

@@ -1,4 +1,4 @@
-defmodule Uppy.CommonRepoActions do
+defmodule Uppy.DBActions.SimpleRepo do
   @moduledoc false
 
   @behaviour Uppy.DBAction

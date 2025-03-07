@@ -1,14 +1,19 @@
 import Config
 
 config :uppy,
-  db_action_adapter: Uppy.CommonRepoActions,
+  bucket: "your-bucket",
   error_adapter: ErrorMessage,
-  http_adapter: Uppy.HTTP.Finch,
-  json_adapter: Jason,
-  pipeline_module: nil,
-  scheduler_enabled: true,
-  scheduler_adapter: Uppy.Schedulers.ObanScheduler,
-  storage_adapter: Uppy.Storages.S3
+  json_adapter: Jason
+
+# config :uppy,
+#   db_action_adapter: Uppy.DBActions.SimpleRepo,
+#   error_adapter: ErrorMessage,
+#   http_adapter: Uppy.HTTP.Finch,
+#   json_adapter: Jason,
+#   pipeline_module: nil,
+#   scheduler_enabled: true,
+#   scheduler_adapter: Uppy.Uploader.Engines.ObanScheduler,
+#   storage_adapter: Uppy.Storages.S3
 
 config :uppy, ecto_repos: [Uppy.Support.Repo]
 

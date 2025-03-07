@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Schedulers.ObanScheduler.MoveToDestinationWorker do
+  defmodule Uppy.Uploader.Engines.ObanEngine.MoveToDestinationWorker do
     @max_attempts 4
 
     use Oban.Worker,
@@ -10,16 +10,16 @@ if Code.ensure_loaded?(Oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.ObanScheduler.WorkerAPI
+    alias Uppy.Uploader.Engines.ObanEngine.WorkerAPI
 
     @event WorkerAPI.events().move_to_destination
 
     def perform(%{args: %{"event" => @event}} = job) do
-      WorkerAPI.perform(job, max_attempts: @max_attempts)
+      WorkerAPI.perform(__MODULE__, job, max_attempts: @max_attempts)
     end
 
     def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
-      WorkerAPI.enqueue_move_to_destination(bucket, query, id, dest_object, opts)
+      WorkerAPI.enqueue_move_to_destination(__MODULE__, bucket, query, id, dest_object, opts)
     end
   end
 end

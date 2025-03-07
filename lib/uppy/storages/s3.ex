@@ -216,9 +216,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
       opts =
         if http_method in [:post, :put] do
-          s3_accelerate? = (opts[:s3_accelerate] || config()[:s3_accelerate]) === true
-
-          Keyword.put_new(opts, :s3_accelerate, s3_accelerate?)
+          Keyword.put(opts, :s3_accelerate, s3_accelerate?(opts))
         else
           opts
         end
@@ -237,6 +235,10 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
            expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second)
          }}
       end
+    end
+
+    defp s3_accelerate?(opts) do
+      (opts[:s3_accelerate] || Uppy.Config.from_app_env(__MODULE__)[:s3_accelerate]) === true
     end
 
     @impl true
@@ -435,10 +437,6 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
     defp remove_quotations(string) do
       String.replace(string, "\"", "")
-    end
-
-    defp config do
-      Application.get_env(Uppy.Config.app(), __MODULE__, [])
     end
   end
 end

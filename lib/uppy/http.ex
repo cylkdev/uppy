@@ -1,43 +1,15 @@
 defmodule Uppy.HTTP do
   @moduledoc """
-  This module dispatches HTTP requests to the http adapter.
+  # Uppy.HTTP
 
-  ## Retries
-
-  This module provides a mechanism out-of-the-box for retrying failed requests.
-  An exponential backoff equation is used to calculate the time between attempts.
-
-  The default equation used for exponential backoff is:
-
-  `t𝑛 = t0 * 2𝑛 * (1 + rand())`
-
-  where:
-
-    * `t𝑛` - is the time to wait before the `𝑛` n-th retry attempt.
-
-    * `t0` - is the initial delay.
-
-    * `𝑛` - is the number of retries that have been attempted.
-
-    * `rand()` - is a random number between 0 and 1. The randomness is added to
-      mitigate synchronized retries.
-
-  The behaviour of the exponential backoff can be configured via the following opts:
-
-    * `:exponential_backoff_function` - A 2-arity function that is passed the number
-      of `attempts` and `opts` as the arguments. This function must return a
-      positive integer for the amount of time to sleep. If this option is used
-      `:max`, `:delay`, and `:jitter` will have no effect.
-
-    * `:exponential_backoff_max` - The maximum amount of time to sleep.
-
-    * `:exponential_backoff_delay` - The initial delay to wait when calculating the
-      backoff.
-
-    * `:exponential_backoff_jitter` - A random number between 0 and 1.
+  `Uppy.HTTP` defines the behavior for HTTP adapters, providing a
+  standardized interface for making HTTP requests. It specifies
+  the required callback functions that any HTTP adapter must
+  implement and their behaviour. By adhering to this behavior,
+  custom adapters can seamlessly integrate with the system,
+  enabling flexibility in choosing or swapping out underlying
+  HTTP implementations.
   """
-  alias Uppy.Config
-
   @type url :: binary()
   @type headers :: list(binary())
   @type body :: any()
@@ -97,7 +69,7 @@ defmodule Uppy.HTTP do
   """
   @spec head(url(), headers(), opts()) :: t_res()
   def head(url, headers, opts) do
-    adapter!(opts).head(url, headers, opts)
+    adapter(opts).head(url, headers, opts)
   end
 
   @doc """
@@ -109,7 +81,7 @@ defmodule Uppy.HTTP do
   """
   @spec get(url(), headers(), opts()) :: t_res()
   def get(url, headers, opts) do
-    adapter!(opts).get(url, headers, opts)
+    adapter(opts).get(url, headers, opts)
   end
 
   @doc """
@@ -121,7 +93,7 @@ defmodule Uppy.HTTP do
   """
   @spec delete(url(), headers(), opts()) :: t_res()
   def delete(url, headers, opts) do
-    adapter!(opts).delete(url, headers, opts)
+    adapter(opts).delete(url, headers, opts)
   end
 
   @doc """
@@ -133,7 +105,7 @@ defmodule Uppy.HTTP do
   """
   @spec post(url(), body(), headers(), opts()) :: t_res()
   def post(url, body, headers, opts) do
-    adapter!(opts).post(url, body, headers, opts)
+    adapter(opts).post(url, body, headers, opts)
   end
 
   @doc """
@@ -145,7 +117,7 @@ defmodule Uppy.HTTP do
   """
   @spec patch(url(), body(), headers(), opts()) :: t_res()
   def patch(url, body, headers, opts) do
-    adapter!(opts).patch(url, body, headers, opts)
+    adapter(opts).patch(url, body, headers, opts)
   end
 
   @doc """
@@ -157,10 +129,10 @@ defmodule Uppy.HTTP do
   """
   @spec put(url(), body(), headers(), opts()) :: t_res()
   def put(url, body, headers, opts) do
-    adapter!(opts).put(url, body, headers, opts)
+    adapter(opts).put(url, body, headers, opts)
   end
 
-  defp adapter!(opts) do
-    opts[:http_adapter] || Config.http_adapter() || @default_adapter
+  defp adapter(opts) do
+    opts[:http_adapter] || @default_adapter
   end
 end

@@ -58,7 +58,6 @@ defmodule Uppy.Storage do
   Uppy.Support.StorageSandbox.start_link()
   ```
   """
-  alias Uppy.Config
 
   @type error_message :: ErrorMessage.t() | term()
 
@@ -536,7 +535,7 @@ defmodule Uppy.Storage do
       sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts)
     else
       bucket
-      |> adapter!(opts).object_chunk_stream(object, chunk_size, opts)
+      |> adapter(opts).object_chunk_stream(object, chunk_size, opts)
       |> handle_response()
     end
   end
@@ -550,7 +549,7 @@ defmodule Uppy.Storage do
       sandbox_get_chunk_response(bucket, object, start_byte, end_byte, opts)
     else
       bucket
-      |> adapter!(opts).get_chunk(object, start_byte, end_byte, opts)
+      |> adapter(opts).get_chunk(object, start_byte, end_byte, opts)
       |> handle_response()
     end
   end
@@ -581,7 +580,7 @@ defmodule Uppy.Storage do
       sandbox_list_objects_response(bucket, prefix, opts)
     else
       bucket
-      |> adapter!(opts).list_objects(prefix, opts)
+      |> adapter(opts).list_objects(prefix, opts)
       |> handle_response()
     end
   end
@@ -615,7 +614,7 @@ defmodule Uppy.Storage do
       sandbox_get_object_response(bucket, object, opts)
     else
       bucket
-      |> adapter!(opts).get_object(object, opts)
+      |> adapter(opts).get_object(object, opts)
       |> handle_response()
     end
   end
@@ -649,7 +648,7 @@ defmodule Uppy.Storage do
       sandbox_head_object_response(bucket, object, opts)
     else
       bucket
-      |> adapter!(opts).head_object(object, opts)
+      |> adapter(opts).head_object(object, opts)
       |> handle_response()
     end
   end
@@ -685,7 +684,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_put_object_response(bucket, object, body, opts)
       else
-        adapter!(opts).put_object(bucket, object, body, opts)
+        adapter(opts).put_object(bucket, object, body, opts)
       end
 
     handle_response(response)
@@ -736,7 +735,7 @@ defmodule Uppy.Storage do
           opts
         )
       else
-        adapter!(opts).put_object_copy(
+        adapter(opts).put_object_copy(
           destination_bucket,
           destination_object,
           source_bucket,
@@ -765,7 +764,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_delete_object_response(bucket, object, opts)
       else
-        adapter!(opts).delete_object(bucket, object, opts)
+        adapter(opts).delete_object(bucket, object, opts)
       end
 
     handle_response(response)
@@ -810,7 +809,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_sign_part_response(bucket, object, upload_id, part_number, opts)
       else
-        adapter!(opts).sign_part(bucket, object, upload_id, part_number, opts)
+        adapter(opts).sign_part(bucket, object, upload_id, part_number, opts)
       end
 
     handle_response(response)
@@ -847,7 +846,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_pre_sign_response(bucket, http_method, object, opts)
       else
-        adapter!(opts).pre_sign(bucket, http_method, object, opts)
+        adapter(opts).pre_sign(bucket, http_method, object, opts)
       end
 
     handle_response(response)
@@ -877,7 +876,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_list_multipart_uploads_response(bucket, opts)
       else
-        adapter!(opts).list_multipart_uploads(bucket, opts)
+        adapter(opts).list_multipart_uploads(bucket, opts)
       end
 
     handle_response(response)
@@ -912,7 +911,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_create_multipart_upload_response(bucket, object, opts)
       else
-        adapter!(opts).create_multipart_upload(bucket, object, opts)
+        adapter(opts).create_multipart_upload(bucket, object, opts)
       end
 
     handle_response(response)
@@ -949,7 +948,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_list_parts_response(bucket, object, upload_id, opts)
       else
-        adapter!(opts).list_parts(bucket, object, upload_id, opts)
+        adapter(opts).list_parts(bucket, object, upload_id, opts)
       end
 
     handle_response(response)
@@ -986,7 +985,7 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts)
       else
-        adapter!(opts).abort_multipart_upload(bucket, object, upload_id, opts)
+        adapter(opts).abort_multipart_upload(bucket, object, upload_id, opts)
       end
 
     handle_response(response)
@@ -1025,14 +1024,14 @@ defmodule Uppy.Storage do
       if sandbox? && !sandbox_disabled?() do
         sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts)
       else
-        adapter!(opts).complete_multipart_upload(bucket, object, upload_id, parts, opts)
+        adapter(opts).complete_multipart_upload(bucket, object, upload_id, parts, opts)
       end
 
     handle_response(response)
   end
 
-  defp adapter!(opts) do
-    opts[:storage_adapter] || Config.storage_adapter() || @default_adapter
+  defp adapter(opts) do
+    opts[:storage_adapter] || @default_adapter
   end
 
   defp handle_response({:ok, _} = ok), do: ok

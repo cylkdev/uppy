@@ -1,4 +1,4 @@
-defmodule Uppy.Scheduler do
+defmodule Uppy.Uploader.Engine do
   @moduledoc false
 
   @type query :: term()
@@ -7,7 +7,7 @@ defmodule Uppy.Scheduler do
   @type object :: binary()
   @type options :: keyword()
 
-  @default_adapter Uppy.Schedulers.ObanScheduler
+  @default_adapter Uppy.Uploader.Engines.ObanEngine
 
   @callback enqueue_move_to_destination(
               bucket :: bucket(),
@@ -36,7 +36,7 @@ defmodule Uppy.Scheduler do
   specified amount of time.
   """
   def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
-    adapter!(opts).enqueue_move_to_destination(bucket, query, id, dest_object, opts)
+    adapter(opts).enqueue_move_to_destination(bucket, query, id, dest_object, opts)
   end
 
   @doc """
@@ -44,7 +44,7 @@ defmodule Uppy.Scheduler do
   specified amount of time.
   """
   def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
-    adapter!(opts).enqueue_abort_expired_multipart_upload(bucket, query, id, opts)
+    adapter(opts).enqueue_abort_expired_multipart_upload(bucket, query, id, opts)
   end
 
   @doc """
@@ -52,10 +52,10 @@ defmodule Uppy.Scheduler do
   specified amount of time.
   """
   def enqueue_abort_expired_upload(bucket, query, id, opts) do
-    adapter!(opts).enqueue_abort_expired_upload(bucket, query, id, opts)
+    adapter(opts).enqueue_abort_expired_upload(bucket, query, id, opts)
   end
 
-  defp adapter!(opts) do
-    opts[:scheduler_adapter] || @default_adapter
+  defp adapter(opts) do
+    opts[:engine_adapter] || @default_adapter
   end
 end

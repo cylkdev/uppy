@@ -3,7 +3,6 @@ defmodule Uppy.Core do
   """
 
   alias Uppy.{
-    Config,
     DBAction,
     PathBuilder,
     Pipeline,
@@ -29,12 +28,13 @@ defmodule Uppy.Core do
       })
 
     phases =
-      case Config.pipeline_module() do
+      case opts[:pipeline] do
         nil ->
-          Uppy.Core.Pipelines.for_move_to_destination(opts)
+          Uppy.Pipelines.pipeline_for(:move_to_destination, opts)
 
-        pipeline_module ->
-          pipeline_module.move_to_destination(
+        module ->
+          module.pipeline_for(
+            :move_to_destination,
             %{
               bucket: bucket,
               destination_object: dest_object,
@@ -135,12 +135,19 @@ defmodule Uppy.Core do
         %_{} = struct,
         update_params,
         parts,
+        builder_params,
         opts
       ) do
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
-      PathBuilder.build_permanent_object_path(struct, unique_identifier, opts)
+      PathBuilder.build_object_path(
+        :complete_multipart_upload,
+        struct,
+        unique_identifier,
+        builder_params,
+        opts
+      )
 
     with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, struct, parts, opts),
          {:ok, struct} <-
@@ -170,6 +177,7 @@ defmodule Uppy.Core do
         find_params,
         update_params,
         parts,
+        builder_params,
         opts
       ) do
     find_params =
@@ -184,6 +192,7 @@ defmodule Uppy.Core do
         struct,
         update_params,
         parts,
+        builder_params,
         opts
       )
     end
@@ -225,8 +234,14 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def create_multipart_upload(bucket, query, filename, create_params, opts) do
-    {basename, key} = PathBuilder.build_temporary_object_path(filename, opts)
+  def create_multipart_upload(bucket, query, filename, create_params, builder_params, opts) do
+    {basename, key} =
+      PathBuilder.build_object_path(
+        :create_multipart_upload,
+        filename,
+        builder_params,
+        opts
+      )
 
     with {:ok, mpu} <- Storage.create_multipart_upload(bucket, key, opts),
          {:ok, struct} <-
@@ -252,11 +267,17 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def complete_upload(bucket, query, %_{} = struct, update_params, opts) do
+  def complete_upload(bucket, query, %_{} = struct, update_params, builder_params, opts) do
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
-      PathBuilder.build_permanent_object_path(struct, unique_identifier, opts)
+      PathBuilder.build_object_path(
+        :complete_upload,
+        struct,
+        unique_identifier,
+        builder_params,
+        opts
+      )
 
     with {:ok, metadata} <- Storage.head_object(bucket, struct.key, opts),
          {:ok, struct} <-
@@ -280,14 +301,14 @@ defmodule Uppy.Core do
     end
   end
 
-  def complete_upload(bucket, query, find_params, update_params, opts) do
+  def complete_upload(bucket, query, find_params, update_params, builder_params, opts) do
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
     with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, query, struct, update_params, opts)
+      complete_upload(bucket, query, struct, update_params, builder_params, opts)
     end
   end
 
@@ -330,8 +351,14 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def create_upload(bucket, query, filename, create_params, opts \\ []) do
-    {basename, key} = PathBuilder.build_temporary_object_path(filename, opts)
+  def create_upload(bucket, query, filename, create_params, builder_params, opts) do
+    {basename, key} =
+      PathBuilder.build_object_path(
+        :create_upload,
+        filename,
+        builder_params,
+        opts
+      )
 
     with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts),
          {:ok, struct} <-
@@ -396,7 +423,7 @@ end
 #     phases =
 #       case Config.pipeline_module() do
 #         nil ->
-#           Uppy.Core.Pipelines.for_move_to_destination(opts)
+#           Uppy.Core.Pipelines.post_processing(opts)
 
 #         pipeline_module ->
 #           pipeline_module.move_to_destination(

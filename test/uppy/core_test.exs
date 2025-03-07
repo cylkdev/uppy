@@ -922,7 +922,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Schedulers.ObanScheduler.MoveToDestinationWorker"
+#                worker: "Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -931,7 +931,7 @@ end
 #               %{
 #                 done: [Uppy.Phases.MoveToDestination],
 #                 resolution: resolution
-#               }} = perform_job(Uppy.Schedulers.ObanScheduler.MoveToDestinationWorker, args)
+#               }} = perform_job(Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker, args)
 
 #       assert %{
 #                state: :completed,
@@ -1067,7 +1067,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Schedulers.ObanScheduler.AbortExpiredMultipartUploadWorker"
+#                worker: "Uppy.Uploader.Engines.ObanScheduler.ExpiredMultipartUploadWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -1094,7 +1094,7 @@ end
 #                 metadata: metadata,
 #                 data: struct
 #               }} =
-#                perform_job(Uppy.Schedulers.ObanScheduler.AbortExpiredMultipartUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.ObanScheduler.ExpiredMultipartUploadWorker, args)
 
 #       assert %{
 #                body: "",
@@ -1221,7 +1221,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Schedulers.ObanScheduler.MoveToDestinationWorker"
+#                worker: "Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -1230,7 +1230,7 @@ end
 #               %{
 #                 done: [Uppy.Phases.MoveToDestination],
 #                 resolution: resolution
-#               }} = perform_job(Uppy.Schedulers.ObanScheduler.MoveToDestinationWorker, args)
+#               }} = perform_job(Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker, args)
 
 #       assert %{
 #                state: :completed,
@@ -1357,13 +1357,13 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Schedulers.ObanScheduler.AbortExpiredUploadWorker"
+#                worker: "Uppy.Uploader.Engines.ObanScheduler.ExpiredUploadWorker"
 #              } = job
 
 #       assert job_id === struct.id
 
 #       assert {:ok, %{data: struct}} =
-#                perform_job(Uppy.Schedulers.ObanScheduler.AbortExpiredUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.ObanScheduler.ExpiredUploadWorker, args)
 
 #       assert %{state: :expired, filename: "image.jpeg"} = struct
 #     end

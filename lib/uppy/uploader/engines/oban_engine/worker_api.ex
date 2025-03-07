@@ -1,37 +1,24 @@
-defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
+defmodule Uppy.Uploader.Engines.ObanEngine.WorkerAPI do
   @moduledoc false
 
-  alias Uppy.{
-    Core,
-    Schedulers.ObanScheduler
-  }
-
-  @event_move_to_destination "uppy.move_to_destination"
-  @worker_move_to_destination ObanScheduler.MoveToDestinationWorker
+  alias Uppy.Core
 
   @event_abort_expired_multipart_upload "uppy.abort_expired_multipart_upload"
-  @worker_abort_expired_multipart_upload ObanScheduler.AbortExpiredMultipartUploadWorker
-
   @event_abort_expired_upload "uppy.abort_expired_upload"
-  @worker_abort_expired_upload ObanScheduler.AbortExpiredUploadWorker
+  @event_move_to_destination "uppy.move_to_destination"
 
-  @events %{
-    move_to_destination: @event_move_to_destination,
+  @event_map %{
     abort_expired_multipart_upload: @event_abort_expired_multipart_upload,
-    abort_expired_upload: @event_abort_expired_upload
+    abort_expired_upload: @event_abort_expired_upload,
+    move_to_destination: @event_move_to_destination
   }
 
-  # ---
+  @default_oban_adapter Uppy.Uploader.Engines.ObanEngine
 
-  @default_oban_adapter Uppy.Schedulers.Oban
-
+  @max_attempts 4
   @one_day :timer.hours(24)
 
-  @default_worker_opts [
-    max_attempts: 3
-  ]
-
-  @oban_job_opts ~w(
+  @oban_job_fields ~w(
     max_attempts
     meta
     priority
@@ -43,27 +30,10 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
     unique
   )a
 
-  def events, do: @events
-
-  def query_from_args(%{"source" => source, "query" => query}) do
-    {source, Uppy.Utils.string_to_existing_module(query)}
-  end
-
-  def query_from_args(%{"query" => query}) do
-    Uppy.Utils.string_to_existing_module(query)
-  end
-
-  def query_to_args({source, query}) do
-    %{source: source, query: to_string(query)}
-  end
-
-  def query_to_args(query) do
-    %{query: to_string(query)}
-  end
-
-  def perform(job, opts)
+  def events, do: @event_map
 
   def perform(
+        worker,
         %{
           attempt: attempt,
           args:
@@ -76,11 +46,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
         },
         opts
       ) do
-    opts = Keyword.merge(@default_worker_opts, opts)
-
-    max_attempts = Keyword.fetch!(opts, :max_attempts)
-
-    if attempt < max_attempts do
+    if attempt < max_attempts(opts) do
       Core.move_to_destination(
         bucket,
         query_from_args(args),
@@ -90,6 +56,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       )
     else
       enqueue_move_to_destination(
+        worker,
         bucket,
         query_from_args(args),
         id,
@@ -100,6 +67,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
   end
 
   def perform(
+        worker,
         %{
           attempt: attempt,
           args:
@@ -111,11 +79,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
         },
         opts
       ) do
-    opts = Keyword.merge(@default_worker_opts, opts)
-
-    max_attempts = Keyword.fetch!(opts, :max_attempts)
-
-    if attempt < max_attempts do
+    if attempt < max_attempts(opts) do
       Core.abort_multipart_upload(
         bucket,
         query_from_args(args),
@@ -125,6 +89,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       )
     else
       enqueue_abort_expired_multipart_upload(
+        worker,
         bucket,
         query_from_args(args),
         id,
@@ -134,6 +99,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
   end
 
   def perform(
+        worker,
         %{
           attempt: attempt,
           args:
@@ -145,11 +111,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
         },
         opts
       ) do
-    opts = Keyword.merge(@default_worker_opts, opts)
-
-    max_attempts = Keyword.fetch!(opts, :max_attempts)
-
-    if attempt < max_attempts do
+    if attempt < max_attempts(opts) do
       Core.abort_upload(
         bucket,
         query_from_args(args),
@@ -159,6 +121,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       )
     else
       enqueue_abort_expired_upload(
+        worker,
         bucket,
         query_from_args(args),
         id,
@@ -167,9 +130,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
     end
   end
 
-  def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
-    worker = opts[:worker_adapter] || @worker_move_to_destination
-
+  def enqueue_move_to_destination(worker, bucket, query, id, dest_object, opts) do
     opts =
       opts
       |> Keyword.delete(:schedule)
@@ -183,13 +144,11 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       destination_object: dest_object,
       id: id
     })
-    |> worker.new(Keyword.take(opts, @oban_job_opts))
+    |> worker.new(Keyword.take(opts, @oban_job_fields))
     |> oban_adapter(opts).insert(opts)
   end
 
-  def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
-    worker = opts[:worker_adapter] || @worker_abort_expired_multipart_upload
-
+  def enqueue_abort_expired_multipart_upload(worker, bucket, query, id, opts) do
     opts =
       opts
       |> Keyword.delete(:schedule)
@@ -202,13 +161,11 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       bucket: bucket,
       id: id
     })
-    |> worker.new(Keyword.take(opts, @oban_job_opts))
+    |> worker.new(Keyword.take(opts, @oban_job_fields))
     |> oban_adapter(opts).insert(opts)
   end
 
-  def enqueue_abort_expired_upload(bucket, query, id, opts) do
-    worker = opts[:worker_adapter] || @worker_abort_expired_upload
-
+  def enqueue_abort_expired_upload(worker, bucket, query, id, opts) do
     opts =
       opts
       |> Keyword.delete(:schedule)
@@ -221,7 +178,7 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       bucket: bucket,
       id: id
     })
-    |> worker.new(Keyword.take(opts, @oban_job_opts))
+    |> worker.new(Keyword.take(opts, @oban_job_fields))
     |> oban_adapter(opts).insert(opts)
   end
 
@@ -244,6 +201,26 @@ defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
       _ ->
         opts
     end
+  end
+
+  defp max_attempts(opts) do
+    opts[:max_attempts] || @max_attempts
+  end
+
+  defp query_from_args(%{"source" => source, "query" => query}) do
+    {source, Uppy.Utils.string_to_existing_module(query)}
+  end
+
+  defp query_from_args(%{"query" => query}) do
+    Uppy.Utils.string_to_existing_module(query)
+  end
+
+  defp query_to_args({source, query}) do
+    %{source: source, query: to_string(query)}
+  end
+
+  defp query_to_args(query) do
+    %{query: to_string(query)}
   end
 
   defp oban_adapter(opts) do

@@ -2,7 +2,6 @@ defmodule Uppy.DBAction do
   @moduledoc """
   ...
   """
-  alias Uppy.Config
 
   @type adapter :: module()
   @type opts :: keyword()
@@ -13,7 +12,7 @@ defmodule Uppy.DBAction do
 
   @type t_res(t) :: {:ok, t} | {:error, term()}
 
-  @default_db_action_adapter Uppy.CommonRepoActions
+  @default_db_action_adapter Uppy.DBActions.SimpleRepo
 
   @callback update_all(
               query :: query(),
@@ -105,50 +104,50 @@ defmodule Uppy.DBAction do
   @callback transaction(func :: function(), opts :: opts()) :: t_res(term())
 
   def update_all(query, params, updates, opts) do
-    adapter!(opts).update_all(query, params, updates, opts)
+    adapter(opts).update_all(query, params, updates, opts)
   end
 
   def aggregate(query, params, aggregate, field, opts) do
-    adapter!(opts).aggregate(query, params, aggregate, field, opts)
+    adapter(opts).aggregate(query, params, aggregate, field, opts)
   end
 
   def all(query, opts) do
-    adapter!(opts).all(query, opts)
+    adapter(opts).all(query, opts)
   end
 
   def all(query, params, opts) do
-    adapter!(opts).all(query, params, opts)
+    adapter(opts).all(query, params, opts)
   end
 
   def create(query, params, opts) do
-    adapter!(opts).create(query, params, opts)
+    adapter(opts).create(query, params, opts)
   end
 
   def find(query, params, opts) do
-    adapter!(opts).find(query, params, opts)
+    adapter(opts).find(query, params, opts)
   end
 
   def update(query, id_or_struct, params, opts) do
-    adapter!(opts).update(query, id_or_struct, params, opts)
+    adapter(opts).update(query, id_or_struct, params, opts)
   end
 
   def delete(struct, opts) do
-    adapter!(opts).delete(struct, opts)
+    adapter(opts).delete(struct, opts)
   end
 
   def delete(query, id, opts) do
-    adapter!(opts).delete(query, id, opts)
+    adapter(opts).delete(query, id, opts)
   end
 
   def transaction(func, opts) do
-    case adapter!(opts).transaction(func, opts) do
+    case adapter(opts).transaction(func, opts) do
       {:ok, {:ok, _} = ok} -> ok
       {:ok, {:error, _} = e} -> e
       res -> res
     end
   end
 
-  defp adapter!(opts) do
-    opts[:db_action_adapter] || Config.db_action_adapter() || @default_db_action_adapter
+  defp adapter(opts) do
+    opts[:db_action_adapter] || @default_db_action_adapter
   end
 end
