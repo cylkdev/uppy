@@ -1,4 +1,4 @@
-defmodule Uppy.Upload.DBActionTemplate do
+defmodule Uppy.Bridge.DBActionTemplate do
   @moduledoc false
 
   alias Uppy.{DBAction, Uploader}
@@ -35,57 +35,36 @@ defmodule Uppy.Upload.DBActionTemplate do
 
   def quoted_ast(_opts \\ []) do
     quote do
-      alias Uppy.Upload.DBActionTemplate
+      alias Uppy.Bridge.DBActionTemplate
 
       def db_all(uploader, params \\ %{}, opts \\ []) do
         opts = Keyword.merge(opts, Keyword.take(@options, [:repo]))
 
-        DBActionTemplate.db_all(
-          uploader,
-          params,
-          opts
-        )
+        DBActionTemplate.db_all(uploader, params, opts)
       end
 
       def db_create(uploader, params, opts \\ []) do
         opts = Keyword.merge(opts, Keyword.take(@options, [:repo]))
 
-        DBActionTemplate.db_create(
-          uploader,
-          params,
-          opts
-        )
+        DBActionTemplate.db_create(uploader, params, opts)
       end
 
       def db_find(uploader, params, opts \\ []) do
         opts = Keyword.merge(opts, Keyword.take(@options, [:repo]))
 
-        DBActionTemplate.db_find(
-          uploader,
-          params,
-          opts
-        )
+        DBActionTemplate.db_find(uploader, params, opts)
       end
 
       def db_update(uploader, params_or_struct, update_params, opts \\ []) do
         opts = Keyword.merge(opts, Keyword.take(@options, [:repo]))
 
-        DBActionTemplate.db_update(
-          uploader,
-          params_or_struct,
-          update_params,
-          opts
-        )
+        DBActionTemplate.db_update(uploader, params_or_struct, update_params, opts)
       end
 
       def db_delete(uploader, id_or_struct, opts \\ []) do
         opts = Keyword.merge(opts, Keyword.take(@options, [:repo]))
 
-        DBActionTemplate.db_delete(
-          uploader,
-          id_or_struct,
-          opts
-        )
+        DBActionTemplate.db_delete(uploader, id_or_struct, opts)
       end
     end
   end

@@ -1,7 +1,7 @@
-defmodule Uppy.PathBuilders.CommonStoragePath do
+defmodule Uppy.StoragePathBuilder.CommonStoragePath do
   @moduledoc false
 
-  @behaviour Uppy.PathBuilder
+  @behaviour Uppy.StoragePathBuilder
 
   @default_encoding :encode32
 
@@ -17,7 +17,7 @@ defmodule Uppy.PathBuilders.CommonStoragePath do
 
   @empty_string ""
 
-  def build_object_path(_action, %_{filename: filename} = struct, unique_identifier, opts) do
+  def build_storage_path(_action, %_{filename: filename} = struct, unique_identifier, opts) do
     opts = opts[:permanent_object] || []
 
     path_prefix = opts[:prefix] || @empty_string
@@ -28,17 +28,9 @@ defmodule Uppy.PathBuilders.CommonStoragePath do
 
     resource_name = opts[:resource_name] || underscore_last_module_alias(struct.__struct__)
 
-    unique_identifier =
-      if Keyword.get(opts, :unique_identifier_enabled, true) do
-        unique_identifier || generate_unique_identifier(opts)
-      end
+    unique_identifier = unique_identifier || generate_unique_identifier(opts)
 
-    basename =
-      if is_nil(unique_identifier) do
-        filename
-      else
-        "#{unique_identifier}-#{filename}"
-      end
+    basename = "#{unique_identifier}-#{filename}"
 
     if is_function(callback_fun, 2) do
       case callback_fun.(struct, basename) do
@@ -71,7 +63,7 @@ defmodule Uppy.PathBuilders.CommonStoragePath do
     end
   end
 
-  def build_object_path(_action, filename, opts) do
+  def build_storage_path(_action, filename, opts) do
     opts = opts[:temporary_object] || []
 
     path_prefix = opts[:prefix] || @temp

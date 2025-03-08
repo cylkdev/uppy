@@ -1,6 +1,23 @@
 defmodule Uppy.Utils do
   @moduledoc false
 
+  def normalize_process_name(term, suffix \\ "") do
+    str = to_string(term)
+
+    if String.contains?(str, ".") do
+      str
+      |> String.replace("Elixir.", "")
+      |> String.split(".", trim: true)
+      |> List.last()
+      |> Macro.underscore()
+      |> String.trim_trailing(suffix)
+    else
+      str
+      |> Macro.underscore()
+      |> String.trim_trailing(suffix)
+    end
+  end
+
   @doc """
   Converts a string to an atom.
 

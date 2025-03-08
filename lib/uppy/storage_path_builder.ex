@@ -1,27 +1,27 @@
-defmodule Uppy.PathBuilder do
+defmodule Uppy.StoragePathBuilder do
   @moduledoc false
 
-  @callback build_object_path(
+  @callback build_storage_path(
               action :: atom(),
               struct :: struct(),
               unique_identifier :: binary(),
               params :: map()
             ) :: {basename :: binary(), path :: binary()}
 
-  @callback build_object_path(
+  @callback build_storage_path(
               action :: atom(),
               filename :: binary(),
               params :: map()
             ) :: {basename :: binary(), path :: binary()}
 
-  @default_path_builder_adapter Uppy.PathBuilders.CommonStoragePath
+  @default_path_builder_adapter Uppy.StoragePathBuilder.CommonStoragePath
 
-  def build_object_path(action, struct, unique_identifier, params, opts) do
-    adapter(opts).build_object_path(action, struct, unique_identifier, params)
+  def build_storage_path(action, struct, unique_identifier, params, opts) do
+    adapter(opts).build_storage_path(action, struct, unique_identifier, params)
   end
 
-  def build_object_path(action, filename, params, opts) do
-    adapter(opts).build_object_path(action, filename, params)
+  def build_storage_path(action, filename, params, opts) do
+    adapter(opts).build_storage_path(action, filename, params)
   end
 
   defp adapter(opts) do

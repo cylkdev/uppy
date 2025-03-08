@@ -4,7 +4,7 @@ defmodule Uppy.Core do
 
   alias Uppy.{
     DBAction,
-    PathBuilder,
+    StoragePathBuilder,
     Pipeline,
     Storage
   }
@@ -141,7 +141,7 @@ defmodule Uppy.Core do
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
-      PathBuilder.build_object_path(
+      StoragePathBuilder.build_storage_path(
         :complete_multipart_upload,
         struct,
         unique_identifier,
@@ -236,7 +236,7 @@ defmodule Uppy.Core do
   """
   def create_multipart_upload(bucket, query, filename, create_params, builder_params, opts) do
     {basename, key} =
-      PathBuilder.build_object_path(
+      StoragePathBuilder.build_storage_path(
         :create_multipart_upload,
         filename,
         builder_params,
@@ -271,7 +271,7 @@ defmodule Uppy.Core do
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
-      PathBuilder.build_object_path(
+      StoragePathBuilder.build_storage_path(
         :complete_upload,
         struct,
         unique_identifier,
@@ -353,7 +353,7 @@ defmodule Uppy.Core do
   """
   def create_upload(bucket, query, filename, create_params, builder_params, opts) do
     {basename, key} =
-      PathBuilder.build_object_path(
+      StoragePathBuilder.build_storage_path(
         :create_upload,
         filename,
         builder_params,
