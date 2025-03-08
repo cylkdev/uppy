@@ -5,29 +5,42 @@ defmodule Uppy.Upload do
     quote do
       opts = unquote(opts)
 
+      name = __MODULE__
+
+      adapter_fields = ~w(http_adapter scheduler_adapter storage_adapter)a
+
+      adapter_opts_fields = ~w(http_options scheduler_options storage_options)a
+
+      supervisor_opts =
+        opts
+        |> Keyword.take(adapter_fields ++ adapter_opts_fields)
+        |> Keyword.put(:name, name)
+
+      repo = opts[:repo]
+
+      options =
+        opts
+        |> Keyword.get(:options, [])
+        |> Keyword.take(adapter_fields)
+        |> then(fn opts -> if is_nil(repo), do: opts, else: Keyword.put(opts, :repo, repo) end)
+
+      # ---
+
       use Supervisor
 
       alias Uppy.{Upload, Uploader}
 
-      @name __MODULE__
+      @name name
 
-      @adapter_fields ~w(http_adapter scheduler_adapter storage_adapter)a
+      @repo repo
 
-      @adapter_opts_fields ~w(http_options scheduler_options storage_options)a
+      @supervisor_opts supervisor_opts
 
-      @supervisor_opts opts
-                       |> Keyword.take(@adapter_fields ++ @adapter_opts_fields)
-                       |> Keyword.put(:name, @name)
+      @options options
 
-      @required_opts Keyword.merge(opts[:options] || [], Keyword.take(opts, @adapter_fields))
+      unquote(Uppy.Upload.DBActionTemplate.quoted_ast(opts))
 
-      @resource_name opts[:resource_name]
-
-      Uppy.Upload.DBActionTemplate.quoted_ast(opts)
-
-      def resource_name, do: @resource_name
-
-      def options, do: @required_opts
+      def options, do: @options
 
       def start_link(opts \\ []) do
         opts
@@ -53,7 +66,7 @@ defmodule Uppy.Upload do
           uploader,
           dest_object,
           params_or_struct,
-          Keyword.merge(opts, @required_opts)
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -61,7 +74,7 @@ defmodule Uppy.Upload do
         Uploader.find_parts(
           uploader,
           params_or_struct,
-          Keyword.merge(opts, @required_opts)
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -70,7 +83,7 @@ defmodule Uppy.Upload do
           uploader,
           params_or_struct,
           part_number,
-          Keyword.merge(opts, @required_opts)
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -87,8 +100,8 @@ defmodule Uppy.Upload do
           params_or_struct,
           update_params,
           parts,
-          maybe_put_resource_name(builder_params, @resource_name),
-          Keyword.merge(opts, @required_opts)
+          builder_params,
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -97,7 +110,7 @@ defmodule Uppy.Upload do
           uploader,
           params_or_struct,
           update_params,
-          Keyword.merge(opts, @required_opts)
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -106,8 +119,8 @@ defmodule Uppy.Upload do
           uploader,
           filename,
           params,
-          maybe_put_resource_name(builder_params, @resource_name),
-          Keyword.merge(opts, @required_opts)
+          builder_params,
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -116,8 +129,8 @@ defmodule Uppy.Upload do
           uploader,
           params_or_struct,
           update_params,
-          maybe_put_resource_name(builder_params, @resource_name),
-          Keyword.merge(opts, @required_opts)
+          builder_params,
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -126,7 +139,7 @@ defmodule Uppy.Upload do
           uploader,
           params_or_struct,
           update_params,
-          Keyword.merge(opts, @required_opts)
+          Keyword.merge(opts, @options)
         )
       end
 
@@ -135,13 +148,10 @@ defmodule Uppy.Upload do
           uploader,
           filename,
           params,
-          maybe_put_resource_name(builder_params, @resource_name),
-          Keyword.merge(opts, @required_opts)
+          builder_params,
+          Keyword.merge(opts, @options)
         )
       end
-
-      defp maybe_put_resource_name(params, nil), do: params
-      defp maybe_put_resource_name(params, val), do: Map.put(params, :resource_name, val)
     end
   end
 end

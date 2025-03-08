@@ -295,7 +295,15 @@ defmodule Uppy.Uploader do
 
       @query :query
 
-      @builder_params :builder_params
+      @resource_name opts[:resource_name]
+
+      @builder_params opts
+                      |> Keyword.get(:builder_params, %{})
+                      |> then(fn params ->
+                        if is_nil(@resource_name),
+                          do: params,
+                          else: Map.put(params, :resource_name, @resource_name)
+                      end)
 
       @options opts[:options]
 
@@ -310,6 +318,8 @@ defmodule Uppy.Uploader do
       def bucket, do: @bucket
 
       def query, do: @query
+
+      def resource_name, do: @resource_name
 
       def builder_params, do: @builder_params
 
@@ -353,7 +363,7 @@ defmodule Uppy.Uploader do
           params_or_struct,
           update_params,
           parts,
-          Keyword.merge(@builder_params, builder_params),
+          Map.merge(@builder_params, builder_params),
           Keyword.merge(@options, opts)
         )
       end
@@ -372,7 +382,7 @@ defmodule Uppy.Uploader do
           __MODULE__,
           filename,
           create_params,
-          Keyword.merge(@builder_params, builder_params),
+          Map.merge(@builder_params, builder_params),
           Keyword.merge(@options, opts)
         )
       end
@@ -382,7 +392,7 @@ defmodule Uppy.Uploader do
           __MODULE__,
           params_or_struct,
           update_params,
-          Keyword.merge(@builder_params, builder_params),
+          Map.merge(@builder_params, builder_params),
           Keyword.merge(@options, opts)
         )
       end
@@ -401,7 +411,7 @@ defmodule Uppy.Uploader do
           __MODULE__,
           filename,
           create_params,
-          Keyword.merge(@builder_params, builder_params),
+          Map.merge(@builder_params, builder_params),
           Keyword.merge(@options, opts)
         )
       end
