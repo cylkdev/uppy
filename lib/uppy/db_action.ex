@@ -148,6 +148,6 @@ defmodule Uppy.DBAction do
   end
 
   defp adapter(opts) do
-    opts[:db_action_adapter] || @default_db_action_adapter
+    opts[:db_action_adapter] || Uppy.Config.db_action_adapter() || @default_db_action_adapter
   end
 end

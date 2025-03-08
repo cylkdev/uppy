@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Uploader.Engines.ObanEngine.MoveToDestinationWorker do
+  defmodule Uppy.Uploader.Schedulers.ObanScheduler.MoveToDestinationWorker do
     @max_attempts 4
 
     use Oban.Worker,
@@ -10,7 +10,7 @@ if Code.ensure_loaded?(Oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Uploader.Engines.ObanEngine.WorkerAPI
+    alias Uppy.Uploader.Schedulers.ObanScheduler.WorkerAPI
 
     @event WorkerAPI.events().move_to_destination
 

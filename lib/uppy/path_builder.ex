@@ -14,7 +14,7 @@ defmodule Uppy.PathBuilder do
               params :: map()
             ) :: {basename :: binary(), path :: binary()}
 
-  @default_path_builder_adapter Uppy.StoragePathBuilder
+  @default_path_builder_adapter Uppy.PathBuilders.CommonStoragePath
 
   def build_object_path(action, struct, unique_identifier, params, opts) do
     adapter(opts).build_object_path(action, struct, unique_identifier, params)

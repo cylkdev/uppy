@@ -1,16 +1,16 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Uploader.Engines.ObanEngine.ExpiredMultipartUploadWorker do
+  defmodule Uppy.Uploader.Schedulers.ObanScheduler.AbortExpiredMultipartUploadWorker do
     @max_attempts 4
 
     use Oban.Worker,
-      queue: :expired_multipart_upload,
+      queue: :abort_expired_multipart_upload,
       max_attempts: @max_attempts,
       unique: [
         period: 300,
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Uploader.Engines.ObanEngine.WorkerAPI
+    alias Uppy.Uploader.Schedulers.ObanScheduler.WorkerAPI
 
     @event WorkerAPI.events().abort_expired_multipart_upload
 

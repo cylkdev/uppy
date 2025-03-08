@@ -1067,7 +1067,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.ObanScheduler.ExpiredMultipartUploadWorker"
+#                worker: "Uppy.Uploader.Engines.ObanScheduler.AbortExpiredMultipartUploadWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -1094,7 +1094,7 @@ end
 #                 metadata: metadata,
 #                 data: struct
 #               }} =
-#                perform_job(Uppy.Uploader.Engines.ObanScheduler.ExpiredMultipartUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.ObanScheduler.AbortExpiredMultipartUploadWorker, args)
 
 #       assert %{
 #                body: "",
@@ -1357,13 +1357,13 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.ObanScheduler.ExpiredUploadWorker"
+#                worker: "Uppy.Uploader.Engines.ObanScheduler.AbortExpiredUploadWorker"
 #              } = job
 
 #       assert job_id === struct.id
 
 #       assert {:ok, %{data: struct}} =
-#                perform_job(Uppy.Uploader.Engines.ObanScheduler.ExpiredUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.ObanScheduler.AbortExpiredUploadWorker, args)
 
 #       assert %{state: :expired, filename: "image.jpeg"} = struct
 #     end

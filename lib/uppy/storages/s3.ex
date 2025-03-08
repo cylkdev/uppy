@@ -238,7 +238,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     defp s3_accelerate?(opts) do
-      (opts[:s3_accelerate] || Uppy.Config.from_app_env(__MODULE__)[:s3_accelerate]) === true
+      (opts[:s3_accelerate] || Uppy.Config.from_app_env(__MODULE__, [])[:s3_accelerate]) === true
     end
 
     @impl true

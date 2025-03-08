@@ -1,4 +1,4 @@
-defmodule Uppy.Uploader.Engine do
+defmodule Uppy.Uploader.Scheduler do
   @moduledoc false
 
   @type query :: term()
@@ -7,7 +7,7 @@ defmodule Uppy.Uploader.Engine do
   @type object :: binary()
   @type options :: keyword()
 
-  @default_adapter Uppy.Uploader.Engines.ObanEngine
+  @default_adapter Uppy.Uploader.Schedulers.ObanScheduler
 
   @callback enqueue_move_to_destination(
               bucket :: bucket(),
@@ -56,6 +56,6 @@ defmodule Uppy.Uploader.Engine do
   end
 
   defp adapter(opts) do
-    opts[:engine_adapter] || @default_adapter
+    opts[:scheduler_adapter] || @default_adapter
   end
 end

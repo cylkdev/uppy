@@ -1,4 +1,4 @@
-defmodule Uppy.StoragePathBuilder do
+defmodule Uppy.PathBuilders.CommonStoragePath do
   @moduledoc false
 
   @behaviour Uppy.PathBuilder
