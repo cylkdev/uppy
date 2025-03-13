@@ -1,20 +1,10 @@
 defmodule Uppy.Utils do
   @moduledoc false
 
-  def normalize_process_name(term, suffix \\ "") do
-    str = to_string(term)
-
-    if String.contains?(str, ".") do
-      str
-      |> String.replace("Elixir.", "")
-      |> String.split(".", trim: true)
-      |> List.last()
-      |> Macro.underscore()
-      |> String.trim_trailing(suffix)
-    else
-      str
-      |> Macro.underscore()
-      |> String.trim_trailing(suffix)
+  def process_alive?(name) do
+    case Process.whereis(name) do
+      nil -> false
+      pid -> Process.alive?(pid)
     end
   end
 

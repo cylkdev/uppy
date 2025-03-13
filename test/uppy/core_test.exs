@@ -15,7 +15,7 @@ defmodule Uppy.CoreTest do
     test "can move existing object to location" do
       struct =
         Fixture.UserAvatarFileInfo.insert!(%{
-          state: :completed,
+          state: :complete,
           filename: "image.jpeg",
           key: "temp/-user/timestamp-image.jpeg"
         })
@@ -256,6 +256,7 @@ defmodule Uppy.CoreTest do
                  %{id: struct_id},
                  %{unique_identifier: "unique_id"},
                  [{1, "e_tag"}],
+                 %{},
                  []
                )
 
@@ -275,7 +276,7 @@ defmodule Uppy.CoreTest do
              } = metadata
 
       assert %{
-               state: :completed,
+               state: :complete,
                content_length: nil,
                content_type: nil,
                e_tag: "e_tag",
@@ -366,7 +367,8 @@ defmodule Uppy.CoreTest do
                  {"user_avatar_file_infos", FileInfoAbstract},
                  "image.jpeg",
                  %{},
-                 basename_prefix: "timestamp"
+                 %{temporary_object: %{basename_prefix: "timestamp"}},
+                 []
                )
 
       assert %{
@@ -423,6 +425,7 @@ defmodule Uppy.CoreTest do
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: struct_id},
                  %{},
+                 %{},
                  []
                )
 
@@ -439,7 +442,7 @@ defmodule Uppy.CoreTest do
              } = metadata
 
       assert %{
-               state: :completed,
+               state: :complete,
                content_length: nil,
                content_type: nil,
                e_tag: "e_tag",
@@ -513,7 +516,8 @@ defmodule Uppy.CoreTest do
                  {"user_avatar_file_infos", FileInfoAbstract},
                  "image.jpeg",
                  %{},
-                 basename_prefix: "timestamp"
+                 %{temporary_object: %{basename_prefix: "timestamp"}},
+                 []
                )
 
       assert %{
@@ -572,7 +576,9 @@ defmodule Uppy.CoreTest do
                  @bucket,
                  {"user_avatar_file_infos", FileInfoAbstract},
                  "image.jpeg",
-                 %{assoc_id: 123_456}
+                 %{assoc_id: 123_456},
+                 %{},
+                 []
                )
     end
   end
@@ -595,7 +601,7 @@ end
 #     test "can move existing object to location" do
 #       struct =
 #         Fixture.UserAvatarFileInfo.insert!(%{
-#           state: :completed,
+#           state: :complete,
 #           filename: "image.jpeg",
 #           key: "temp/-user/timestamp-image.jpeg"
 #         })
@@ -861,7 +867,7 @@ end
 #              } = metadata
 
 #       assert %{
-#                state: :completed,
+#                state: :complete,
 #                content_length: nil,
 #                content_type: nil,
 #                e_tag: "e_tag",
@@ -922,7 +928,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.MoveToDestinationWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -931,10 +937,10 @@ end
 #               %{
 #                 done: [Uppy.Phases.MoveToDestination],
 #                 resolution: resolution
-#               }} = perform_job(Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker, args)
+#               }} = perform_job(Uppy.Uploader.Engines.Oban.MoveToDestinationWorker, args)
 
 #       assert %{
-#                state: :completed,
+#                state: :complete,
 #                filename: "image.jpeg"
 #              } = struct
 
@@ -1067,7 +1073,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.ObanScheduler.AbortExpiredMultipartUploadWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.AbortExpiredMultipartUploadWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -1094,7 +1100,7 @@ end
 #                 metadata: metadata,
 #                 data: struct
 #               }} =
-#                perform_job(Uppy.Uploader.Engines.ObanScheduler.AbortExpiredMultipartUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.Oban.AbortExpiredMultipartUploadWorker, args)
 
 #       assert %{
 #                body: "",
@@ -1162,7 +1168,7 @@ end
 #              } = metadata
 
 #       assert %{
-#                state: :completed,
+#                state: :complete,
 #                content_length: nil,
 #                content_type: nil,
 #                e_tag: "e_tag",
@@ -1221,7 +1227,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.MoveToDestinationWorker"
 #              } = job
 
 #       assert job_id === struct.id
@@ -1230,10 +1236,10 @@ end
 #               %{
 #                 done: [Uppy.Phases.MoveToDestination],
 #                 resolution: resolution
-#               }} = perform_job(Uppy.Uploader.Engines.ObanScheduler.MoveToDestinationWorker, args)
+#               }} = perform_job(Uppy.Uploader.Engines.Oban.MoveToDestinationWorker, args)
 
 #       assert %{
-#                state: :completed,
+#                state: :complete,
 #                filename: "image.jpeg"
 #              } = struct
 
@@ -1357,13 +1363,13 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.ObanScheduler.AbortExpiredUploadWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.AbortExpiredUploadWorker"
 #              } = job
 
 #       assert job_id === struct.id
 
 #       assert {:ok, %{data: struct}} =
-#                perform_job(Uppy.Uploader.Engines.ObanScheduler.AbortExpiredUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.Oban.AbortExpiredUploadWorker, args)
 
 #       assert %{state: :expired, filename: "image.jpeg"} = struct
 #     end

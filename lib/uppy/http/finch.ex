@@ -1,6 +1,6 @@
 if Code.ensure_loaded?(Finch) do
   defmodule Uppy.HTTP.Finch do
-    @default_name :uppy_http_finch
+    @default_name __MODULE__
     @default_pool_config [size: 1]
     @default_opts [
       name: @default_name,

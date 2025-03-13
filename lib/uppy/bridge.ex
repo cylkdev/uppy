@@ -1,26 +1,94 @@
 defmodule Uppy.Bridge do
   @moduledoc """
   Bridges provide a centralized place to manage configuration,
-  adapters, and run-time behaviour for uploaders.
+  adapters, and run-time behaviour for Uploaders.
+
+  ## Getting Started
+
+  Application.ensure_all_started(:postgrex)
+  Application.ensure_all_started(:ecto)
+  Application.ensure_all_started(:oban)
+  Uppy.Support.Repo.start_link()
+
+  ```elixir
+  Uppy.Bridge.start_link(scheduler: [repo: Uppy.Support.Repo])
+  ```
+
+  ```elixir
+  defmodule MyApp.Bridge do
+    use Uppy.Bridge,
+      http_adapter: Uppy.HTTP.Finch,
+      scheduler_adapter: Uppy.Schedulers.Oban,
+      storage_adapter: Uppy.Storages.S3,
+      options: [scheduler: [repo: Uppy.Support.Repo]]
+  end
+  ```
+
+  ```elixir
+  MyApp.Bridge.start_link(scheduler: [repo: Uppy.Support.Repo])
+  ```
   """
 
-  @default_name __MODULE__
+  @default_http_adapter Uppy.HTTP.Finch
+
+  @default_scheduler_adapter Uppy.Schedulers.Oban
+
+  @default_storage_adapter Uppy.Storages.S3
 
   @default_opts [
-    name: @default_name,
-    http_adapter: Uppy.HTTP.Finch,
-    scheduler_adapter: Uppy.Uploader.Schedulers.ObanScheduler
+    name: __MODULE__,
+    http_enabled: true,
+    http_adapter: @default_http_adapter,
+    scheduler_enabled: true,
+    scheduler_adapter: @default_scheduler_adapter,
+    storage_enabled: true,
+    storage_adapter: @default_storage_adapter
   ]
+
+  def http_adapter(bridge), do: bridge.http_adapter()
+
+  @doc """
+  Returns a keyword-list of options for the `bridge` http adapter.
+  """
+  def http(bridge), do: bridge.http()
+
+  @doc """
+  Returns the `bridge` scheduler adapter module.
+  """
+  def scheduler_adapter(bridge), do: bridge.scheduler_adapter()
+
+  @doc """
+  Returns a keyword-list of options for the `bridge` scheduler adapter.
+  """
+  def scheduler(bridge), do: bridge.scheduler()
+
+  @doc """
+  Returns the `bridge` storage adapter module.
+  """
+  def storage_adapter(bridge), do: bridge.storage_adapter()
+
+  @doc """
+  Returns a keyword-list of options for the `bridge` storage adapter.
+  """
+  def storage(bridge), do: bridge.storage()
+
+  def build_options(bridge) do
+    [
+      http_adapter: bridge.http_adapter(),
+      http: bridge.http(),
+      scheduler_adapter: bridge.scheduler_adapter(),
+      scheduler: bridge.scheduler(),
+      storage_adapter: bridge.storage_adapter(),
+      storage: bridge.storage()
+    ]
+  end
 
   def start_link(opts \\ []) do
     opts = Keyword.merge(@default_opts, opts)
 
-    start_opts =
-      opts
-      |> Keyword.put(:name, supervisor_name(opts[:name]))
-      |> Keyword.take([:name, :timeout])
+    sup_opts = Keyword.take(opts, [:name, :timeout])
 
-    Supervisor.start_link(__MODULE__, opts, start_opts)
+    Supervisor.start_link(__MODULE__, opts, sup_opts)
   end
 
   def child_spec(opts) do
@@ -35,78 +103,26 @@ defmodule Uppy.Bridge do
   def init(opts \\ []) do
     opts = Keyword.merge(@default_opts, opts)
 
-    if opts[:bridge_enabled] === false do
-      :ignore
-    else
-      init_opts =
-        opts
-        |> Keyword.take([:max_restarts, :max_seconds, :strategy])
-        |> Keyword.put_new(:strategy, :one_for_one)
+    init_opts =
+      opts
+      |> Keyword.take([:max_restarts, :max_seconds, :strategy])
+      |> Keyword.put_new(:strategy, :one_for_one)
 
-      opts[:name]
-      |> supervisor_children(Keyword.delete(opts, :name))
-      |> Supervisor.init(init_opts)
-    end
+    children =
+      http_child(opts) ++
+        storage_child(opts) ++
+        scheduler_child(opts)
+
+    Supervisor.init(children, init_opts)
   end
 
-  @doc """
-  Returns supervisor child spec list.
-  """
-  def supervisor_children(name, opts \\ []) do
-    sup_name = supervisor_name(name)
-
-    http_child(sup_name, opts) ++
-      storage_child(sup_name, opts) ++
-      scheduler_child(sup_name, opts)
-  end
-
-  @doc """
-  Returns a list of information about the supervisor children.
-  """
-  def which_children(name) do
-    name
-    |> supervisor_name()
-    |> Supervisor.which_children()
-  end
-
-  @doc """
-  Returns `true` if the supervisor process is alive otherwise `false`.
-  """
-  def supervisor_alive?(name) do
-    name
-    |> where_is_supervisor()
-    |> Process.alive?()
-  end
-
-  @doc """
-  Returns the `pid` for the supervisor.
-  """
-  def where_is_supervisor(name) do
-    name
-    |> supervisor_name()
-    |> Process.whereis()
-  end
-
-  defp supervisor_name(name) do
-    :"#{Uppy.Utils.normalize_process_name(name)}_bridge_supervisor"
-  end
-
-  defp http_name(name), do: :"#{name}_http"
-
-  defp storage_name(name), do: :"#{name}_storage"
-
-  defp scheduler_name(name), do: :"#{name}_scheduler"
-
-  defp http_child(name, opts) do
+  defp http_child(opts) do
     if Keyword.has_key?(opts, :http_adapter) and Keyword.get(opts, :http_enabled, true) do
-      adapter = opts[:http_adapter]
+      adapter = opts[:http_adapter] || @default_http_adapter
 
-      if child_spec_function_exported?(adapter) do
-        adapter_opts =
-          opts
-          |> Keyword.get(:http_options, [])
-          |> Keyword.put(:name, http_name(name))
+      adapter_opts = opts[:http] || []
 
+      if child_spec_exported?(adapter) and not process_alive?(adapter, adapter_opts) do
         [{adapter, adapter_opts}]
       else
         []
@@ -116,16 +132,13 @@ defmodule Uppy.Bridge do
     end
   end
 
-  defp storage_child(name, opts) do
+  defp storage_child(opts) do
     if Keyword.has_key?(opts, :storage_adapter) and Keyword.get(opts, :storage_enabled, true) do
-      adapter = opts[:storage_adapter]
+      adapter = opts[:storage_adapter] || @default_storage_adapter
 
-      if child_spec_function_exported?(adapter) do
-        adapter_opts =
-          opts
-          |> Keyword.get(:storage_options, [])
-          |> Keyword.put(:name, storage_name(name))
+      adapter_opts = opts[:storage] || []
 
+      if child_spec_exported?(adapter) and not process_alive?(adapter, adapter_opts) do
         [{adapter, adapter_opts}]
       else
         []
@@ -135,16 +148,13 @@ defmodule Uppy.Bridge do
     end
   end
 
-  defp scheduler_child(name, opts) do
+  defp scheduler_child(opts) do
     if Keyword.has_key?(opts, :scheduler_adapter) and Keyword.get(opts, :scheduler_enabled, true) do
-      adapter = opts[:scheduler_adapter]
+      adapter = opts[:scheduler_adapter] || @default_scheduler_adapter
 
-      adapter_opts =
-        opts
-        |> Keyword.get(:scheduler_options, [])
-        |> Keyword.put(:name, scheduler_name(name))
+      adapter_opts = opts[:scheduler] || []
 
-      if child_spec_function_exported?(adapter) do
+      if child_spec_exported?(adapter) and not process_alive?(adapter, adapter_opts) do
         [{adapter, adapter_opts}]
       else
         []
@@ -154,7 +164,17 @@ defmodule Uppy.Bridge do
     end
   end
 
-  defp child_spec_function_exported?(module) do
+  defp process_alive?(adapter, adapter_opts) do
+    name = adapter_opts[:name] || adapter
+
+    if function_exported?(adapter, :alive?, 1) do
+      adapter.alive?(name)
+    else
+      Uppy.Utils.process_alive?(name)
+    end
+  end
+
+  defp child_spec_exported?(module) do
     Code.ensure_loaded?(module) and function_exported?(module, :child_spec, 1)
   end
 
@@ -162,152 +182,52 @@ defmodule Uppy.Bridge do
     quote do
       opts = unquote(opts)
 
-      name = __MODULE__
+      alias Uppy.Bridge
 
-      adapter_fields = ~w(http_adapter scheduler_adapter storage_adapter)a
+      # http
 
-      adapter_opts_fields = ~w(http_options scheduler_options storage_options)a
+      @http_adapter opts[:http_adapter] || Uppy.HTTP.Finch
 
-      supervisor_opts =
-        opts
-        |> Keyword.take(adapter_fields ++ adapter_opts_fields)
-        |> Keyword.put(:name, name)
+      @http opts[:http] || []
 
-      repo = opts[:repo]
+      # scheduler
 
-      options =
-        opts
-        |> Keyword.get(:options, [])
-        |> Keyword.take(adapter_fields)
-        |> then(fn opts -> if is_nil(repo), do: opts, else: Keyword.put(opts, :repo, repo) end)
+      @scheduler_adapter opts[:scheduler_adapter] || Uppy.Schedulers.Oban
 
-      # ---
+      @scheduler opts[:scheduler] || []
 
-      use Supervisor
+      # storage
 
-      alias Uppy.{Bridge, Uploader}
+      @storage_adapter opts[:storage_adapter] || Uppy.Storages.S3
 
-      @name name
+      @storage opts[:storage] || []
 
-      @repo repo
+      def http_adapter, do: @http_adapter
 
-      @required_supervisor_opts supervisor_opts
+      def http, do: @http
 
-      @required_opts options
+      def scheduler_adapter, do: @scheduler_adapter
 
-      unquote(Uppy.Bridge.DBActionTemplate.quoted_ast(opts))
+      def scheduler, do: @scheduler
 
-      def options, do: @required_opts
+      def storage_adapter, do: @storage_adapter
+
+      def storage, do: @storage
 
       def start_link(opts \\ []) do
-        opts
-        |> Keyword.merge(@required_supervisor_opts)
+        __MODULE__
+        |> Bridge.build_options()
+        |> Keyword.merge(opts)
+        |> Keyword.put(:name, __MODULE__)
         |> Bridge.start_link()
       end
 
-      def child_spec(opts \\ []) do
-        opts
-        |> Keyword.merge(@required_supervisor_opts)
+      def child_spec(opts) do
+        __MODULE__
+        |> Bridge.build_options()
+        |> Keyword.merge(opts)
+        |> Keyword.put(:name, __MODULE__)
         |> Bridge.child_spec()
-      end
-
-      @impl true
-      def init(opts \\ []) do
-        opts
-        |> Keyword.merge(@required_supervisor_opts)
-        |> Bridge.init()
-      end
-
-      def move_to_destination(uploader, dest_object, params_or_struct, opts \\ []) do
-        Uploader.move_to_destination(
-          uploader,
-          dest_object,
-          params_or_struct,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def find_parts(uploader, params_or_struct, opts \\ []) do
-        Uploader.find_parts(
-          uploader,
-          params_or_struct,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def sign_part(uploader, params_or_struct, part_number, opts \\ []) do
-        Uploader.sign_part(
-          uploader,
-          params_or_struct,
-          part_number,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def complete_multipart_upload(
-            uploader,
-            params_or_struct,
-            update_params,
-            parts,
-            builder_params,
-            opts
-          ) do
-        Uploader.complete_multipart_upload(
-          uploader,
-          params_or_struct,
-          update_params,
-          parts,
-          builder_params,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def abort_multipart_upload(uploader, params_or_struct, update_params, opts \\ []) do
-        Uploader.abort_multipart_upload(
-          uploader,
-          params_or_struct,
-          update_params,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def create_multipart_upload(uploader, filename, params, builder_params, opts \\ []) do
-        Uploader.create_multipart_upload(
-          uploader,
-          filename,
-          params,
-          builder_params,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def complete_upload(uploader, params_or_struct, update_params, builder_params, opts \\ []) do
-        Uploader.complete_upload(
-          uploader,
-          params_or_struct,
-          update_params,
-          builder_params,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def abort_upload(uploader, params_or_struct, update_params, opts \\ []) do
-        Uploader.abort_upload(
-          uploader,
-          params_or_struct,
-          update_params,
-          Keyword.merge(opts, @required_opts)
-        )
-      end
-
-      def create_upload(uploader, filename, params, builder_params, opts \\ []) do
-        Uploader.create_upload(
-          uploader,
-          filename,
-          params,
-          builder_params,
-          Keyword.merge(opts, @required_opts)
-        )
       end
     end
   end

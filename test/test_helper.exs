@@ -6,11 +6,7 @@ ExUnit.start()
 
 Uppy.Support.Repo.start_link()
 
-Uppy.start_link(
-  scheduler: [
-    options: [repo: Uppy.Support.Repo]
-  ]
-)
+Uppy.start_link([{Uppy.Bridge, scheduler: [repo: Uppy.Support.Repo]}])
 
 Uppy.Support.StorageSandbox.start_link()
 

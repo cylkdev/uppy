@@ -1,4 +1,4 @@
-defmodule Uppy.Uploader.Scheduler do
+defmodule Uppy.Scheduler do
   @moduledoc false
 
   @type query :: term()
@@ -7,7 +7,7 @@ defmodule Uppy.Uploader.Scheduler do
   @type object :: binary()
   @type options :: keyword()
 
-  @default_adapter Uppy.Uploader.Schedulers.ObanScheduler
+  @default_adapter Uppy.Schedulers.Oban
 
   @callback enqueue_move_to_destination(
               bucket :: bucket(),

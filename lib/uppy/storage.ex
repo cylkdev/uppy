@@ -86,10 +86,10 @@ defmodule Uppy.Storage do
   @type bucket :: binary()
 
   @typedoc "A tuple with the the part number and e_tag of the part that were uploaded."
-  @type completed_part :: {part_number :: part_number(), e_tag :: e_tag()}
+  @type complete_part :: {part_number :: part_number(), e_tag :: e_tag()}
 
-  @typedoc "A list of completed parts."
-  @type completed_parts :: list(completed_part())
+  @typedoc "A list of complete parts."
+  @type complete_parts :: list(complete_part())
 
   @typedoc "The total size of the object in bytes."
   @type content_length :: non_neg_integer()
@@ -402,7 +402,7 @@ defmodule Uppy.Storage do
 
   An in-progress multipart upload is a multipart upload that
   has been initiated by `create_multipart_upload/3`, but has
-  not yet been completed or aborted.
+  not yet been complete or aborted.
 
   Returns `{:ok, map()}` on success.
 
@@ -513,7 +513,7 @@ defmodule Uppy.Storage do
               bucket :: bucket(),
               object :: object(),
               upload_id :: upload_id(),
-              parts :: completed_parts(),
+              parts :: complete_parts(),
               opts :: opts()
             ) :: {:ok, complete_multipart_upload_payload()} | {:error, error_message()}
 
@@ -1006,13 +1006,13 @@ defmodule Uppy.Storage do
           bucket :: bucket(),
           object :: object(),
           upload_id :: upload_id(),
-          parts :: completed_parts()
+          parts :: complete_parts()
         ) :: {:ok, complete_multipart_upload_payload()} | {:error, error_message()}
   @spec complete_multipart_upload(
           bucket :: bucket(),
           object :: object(),
           upload_id :: upload_id(),
-          parts :: completed_parts(),
+          parts :: complete_parts(),
           opts :: opts()
         ) :: {:ok, complete_multipart_upload_payload()} | {:error, error_message()}
   def complete_multipart_upload(bucket, object, upload_id, parts, opts \\ []) do

@@ -17,16 +17,17 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
 
   @empty_string ""
 
-  def build_storage_path(_action, %_{filename: filename} = struct, unique_identifier, opts) do
-    opts = opts[:permanent_object] || []
+  @impl true
+  def build_storage_path(_action, %_{filename: filename} = struct, unique_identifier,  params, opts) do
+    params = params[:permanent_object] || %{}
 
-    path_prefix = opts[:prefix] || @empty_string
+    path_prefix = params[:prefix] || @empty_string
 
-    partition_name = opts[:partition_name] || @organization
+    partition_name = params[:partition_name] || @organization
 
-    callback_fun = opts[:callback]
+    callback_fun = params[:callback]
 
-    resource_name = opts[:resource_name] || underscore_last_module_alias(struct.__struct__)
+    resource_name = params[:resource_name] || underscore_name(struct.__struct__)
 
     unique_identifier = unique_identifier || generate_unique_identifier(opts)
 
@@ -38,9 +39,9 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
     else
-      reverse_partition_id? = Keyword.get(opts, :reverse_partition_id, false)
+      reverse_partition_id? = Map.get(params, :reverse_partition_id, false)
 
-      partition_id = opts[:partition_id]
+      partition_id = params[:partition_id]
 
       partition_id =
         if reverse_partition_id? and not is_nil(partition_id) do
@@ -63,19 +64,20 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
     end
   end
 
-  def build_storage_path(_action, filename, opts) do
-    opts = opts[:temporary_object] || []
+  @impl true
+  def build_storage_path(_action, filename, params, _opts) do
+    params = params[:temporary_object] || %{}
 
-    path_prefix = opts[:prefix] || @temp
+    path_prefix = params[:prefix] || @temp
 
-    partition_name = opts[:partition_name] || @user
+    partition_name = params[:partition_name] || @user
 
-    callback_fun = opts[:callback]
+    callback_fun = params[:callback]
 
-    resource_name = opts[:resource_name] || @empty_string
+    resource_name = params[:resource_name] || @empty_string
 
     basename_prefix =
-      case opts[:basename_prefix] do
+      case params[:basename_prefix] do
         nil -> :os.system_time() |> to_string() |> String.reverse()
         prefix -> prefix
       end
@@ -93,9 +95,9 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
     else
-      reverse_partition_id? = Keyword.get(opts, :reverse_partition_id, false)
+      reverse_partition_id? = Map.get(params, :reverse_partition_id, false)
 
-      partition_id = opts[:partition_id]
+      partition_id = params[:partition_id]
 
       partition_id =
         if reverse_partition_id? and not is_nil(partition_id) do
@@ -121,7 +123,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
   defp generate_unique_identifier(opts) do
     case Keyword.get(opts, :encoding, @default_encoding) do
       encoding when encoding in @encodings ->
-        rand_bytes =
+        bytes =
           opts
           |> Keyword.get(:hash_size, @default_hash_size)
           |> :crypto.strong_rand_bytes()
@@ -131,7 +133,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
           |> Keyword.take([:padding])
           |> Keyword.put_new(:padding, false)
 
-        apply(Base, encoding, [rand_bytes, encoding_opts])
+        apply(Base, encoding, [bytes, encoding_opts])
 
       fun when is_function(fun) ->
         fun.()
@@ -141,7 +143,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
     end
   end
 
-  defp underscore_last_module_alias(module) do
+  defp underscore_name(module) do
     module
     |> Module.split()
     |> List.last()

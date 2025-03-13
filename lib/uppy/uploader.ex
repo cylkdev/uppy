@@ -1,15 +1,7 @@
 defmodule Uppy.Uploader do
   @moduledoc false
 
-  alias Uppy.{
-    Core,
-    DBAction,
-    Uploader.Scheduler
-  }
-
-  def new!(opts) do
-    struct!(__MODULE__, opts)
-  end
+  alias Uppy.Core
 
   def __uploader__(uploader), do: uploader.__uploader__()
 
@@ -17,72 +9,35 @@ defmodule Uppy.Uploader do
 
   def query(uploader), do: uploader.query()
 
-  def builder_params(uploader), do: uploader.builder_params()
-
-  def options(uploader), do: uploader.options()
-
-  def move_to_destination(bucket, query, dest_object, params_or_struct, opts) do
-    Core.move_to_destination(bucket, dest_object, query, params_or_struct, opts)
-  end
+  def path_params(uploader), do: uploader.path_params()
 
   def move_to_destination(uploader, dest_object, params_or_struct, opts) do
-    move_to_destination(uploader.bucket(), uploader.query(), dest_object, params_or_struct, opts)
-  end
-
-  def find_parts(bucket, query, params_or_struct, opts) do
-    Core.find_parts(bucket, query, params_or_struct, opts)
+    Core.move_to_destination(
+      uploader.bucket(),
+      uploader.query(),
+      dest_object,
+      params_or_struct,
+      opts
+    )
   end
 
   def find_parts(uploader, params_or_struct, opts) do
-    find_parts(uploader.bucket(), uploader.query(), params_or_struct, opts)
-  end
-
-  def sign_part(bucket, query, params_or_struct, part_number, opts) do
-    Core.sign_part(bucket, query, params_or_struct, part_number, opts)
+    Core.find_parts(
+      uploader.bucket(),
+      uploader.query(),
+      params_or_struct,
+      opts
+    )
   end
 
   def sign_part(uploader, params_or_struct, part_number, opts) do
-    sign_part(uploader.bucket(), uploader.query(), params_or_struct, part_number, opts)
-  end
-
-  def complete_multipart_upload(
-        bucket,
-        query,
-        params_or_struct,
-        update_params,
-        parts,
-        builder_params,
-        opts
-      ) do
-    fun = fn ->
-      with {:ok, payload} <-
-             Core.complete_multipart_upload(
-               bucket,
-               query,
-               params_or_struct,
-               update_params,
-               parts,
-               builder_params,
-               opts
-             ),
-           {:ok, job} <-
-             Scheduler.enqueue_move_to_destination(
-               bucket,
-               query,
-               payload.data.id,
-               payload.destination_object,
-               opts
-             ) do
-        {:ok,
-         Map.merge(payload, %{
-           jobs: %{
-             move_to_destination: job
-           }
-         })}
-      end
-    end
-
-    maybe_transaction(fun, opts)
+    Core.sign_part(
+      uploader.bucket(),
+      uploader.query(),
+      params_or_struct,
+      part_number,
+      opts
+    )
   end
 
   def complete_multipart_upload(
@@ -90,26 +45,22 @@ defmodule Uppy.Uploader do
         params_or_struct,
         update_params,
         parts,
-        builder_params,
+        path_params,
         opts
       ) do
-    complete_multipart_upload(
+    Core.complete_multipart_upload(
       uploader.bucket(),
       uploader.query(),
       params_or_struct,
       update_params,
       parts,
-      builder_params,
+      maybe_put_resource_name(path_params, uploader),
       opts
     )
   end
 
-  def abort_multipart_upload(bucket, query, params_or_struct, update_params, opts) do
-    Core.abort_multipart_upload(bucket, query, params_or_struct, update_params, opts)
-  end
-
   def abort_multipart_upload(uploader, params_or_struct, update_params, opts) do
-    abort_multipart_upload(
+    Core.abort_multipart_upload(
       uploader.bucket(),
       uploader.query(),
       params_or_struct,
@@ -118,170 +69,47 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def create_multipart_upload(
-        bucket,
-        query,
-        filename,
-        create_params,
-        builder_params,
-        opts
-      ) do
-    fun = fn ->
-      with {:ok, payload} <-
-             Core.create_multipart_upload(
-               bucket,
-               query,
-               filename,
-               create_params,
-               builder_params,
-               opts
-             ),
-           {:ok, job} <-
-             Scheduler.enqueue_abort_expired_multipart_upload(
-               bucket,
-               query,
-               payload.data.id,
-               opts
-             ) do
-        {:ok,
-         Map.merge(payload, %{
-           jobs: %{
-             abort_expired_multipart_upload: job
-           }
-         })}
-      end
-    end
-
-    maybe_transaction(fun, opts)
-  end
-
-  def create_multipart_upload(uploader, filename, create_params, builder_params, opts) do
-    create_multipart_upload(
+  def create_multipart_upload(uploader, filename, create_params, path_params, opts) do
+    Core.create_multipart_upload(
       uploader.bucket(),
       uploader.query(),
       filename,
       create_params,
-      builder_params,
+      maybe_put_resource_name(path_params, uploader),
       opts
     )
   end
 
-  def complete_upload(
-        bucket,
-        query,
-        params_or_struct,
-        update_params,
-        builder_params,
-        opts
-      ) do
-    fun = fn ->
-      with {:ok, payload} <-
-             Core.complete_upload(
-               bucket,
-               query,
-               params_or_struct,
-               update_params,
-               builder_params,
-               opts
-             ),
-           {:ok, job} <-
-             Scheduler.enqueue_move_to_destination(
-               bucket,
-               query,
-               payload.data.id,
-               payload.destination_object,
-               opts
-             ) do
-        {:ok,
-         Map.merge(payload, %{
-           jobs: %{
-             move_to_destination: job
-           }
-         })}
-      end
-    end
-
-    maybe_transaction(fun, opts)
-  end
-
-  def complete_upload(uploader, params_or_struct, update_params, builder_params, opts) do
-    complete_upload(
+  def complete_upload(uploader, params_or_struct, update_params, path_params, opts) do
+    Core.complete_upload(
       uploader.bucket(),
       uploader.query(),
       params_or_struct,
       update_params,
-      builder_params,
-      opts
-    )
-  end
-
-  def abort_upload(bucket, query, params_or_struct, update_params, opts) do
-    Core.abort_upload(
-      bucket,
-      query,
-      params_or_struct,
-      update_params,
+      maybe_put_resource_name(path_params, uploader),
       opts
     )
   end
 
   def abort_upload(uploader, filename, params, opts) do
-    abort_upload(uploader.bucket(), uploader.query(), filename, params, opts)
+    Core.abort_upload(uploader.bucket(), uploader.query(), filename, params, opts)
   end
 
-  def create_upload(
-        bucket,
-        query,
-        filename,
-        create_params,
-        builder_params,
-        opts
-      ) do
-    fun = fn ->
-      with {:ok, payload} <-
-             Core.create_upload(
-               bucket,
-               query,
-               filename,
-               create_params,
-               builder_params,
-               opts
-             ),
-           {:ok, job} <-
-             Scheduler.enqueue_abort_expired_upload(
-               bucket,
-               query,
-               payload.data.id,
-               opts
-             ) do
-        {:ok,
-         Map.merge(payload, %{
-           jobs: %{
-             abort_expired_upload: job
-           }
-         })}
-      end
-    end
-
-    maybe_transaction(fun, opts)
-  end
-
-  def create_upload(uploader, filename, create_params, builder_params, opts) do
-    create_upload(
+  def create_upload(uploader, filename, create_params, path_params, opts) do
+    Core.create_upload(
       uploader.bucket(),
       uploader.query(),
       filename,
       create_params,
-      builder_params,
+      maybe_put_resource_name(path_params, uploader),
       opts
     )
   end
 
-  defp maybe_transaction(fun, opts) do
-    if Keyword.get(opts, :transaction_enabled, true) do
-      DBAction.transaction(fun, opts)
-    else
-      fun.()
+  defp maybe_put_resource_name(path_params, uploader) do
+    case uploader.resource_name() do
+      nil -> path_params
+      resource_name -> Map.put(path_params, :resource_name, resource_name)
     end
   end
 
@@ -297,23 +125,19 @@ defmodule Uppy.Uploader do
 
       @resource_name opts[:resource_name]
 
-      @builder_params opts
-                      |> Keyword.get(:builder_params, %{})
-                      |> then(fn params ->
-                        if is_nil(@resource_name),
-                          do: params,
-                          else: Map.put(params, :resource_name, @resource_name)
-                      end)
+      @path_params opts[:path_params] || %{}
 
-      @options opts[:options]
+      @bridge_adapter opts[:bridge_adapter]
 
-      def __uploader__ do
-        [
-          bucket: @bucket,
-          query: @query,
-          builder_params: @builder_params
-        ]
-      end
+      @__uploader__ %{
+        bucket: @bucket,
+        query: @query,
+        resource_name: @resource_name,
+        path_params: @path_params,
+        bridge_adapter: @bridge_adapter
+      }
+
+      def __uploader__, do: @__uploader__
 
       def bucket, do: @bucket
 
@@ -321,41 +145,30 @@ defmodule Uppy.Uploader do
 
       def resource_name, do: @resource_name
 
-      def builder_params, do: @builder_params
-
-      def options, do: @options
+      def path_params, do: @path_params
 
       def move_to_destination(dest_object, params_or_struct, opts \\ []) do
         Uploader.move_to_destination(
           __MODULE__,
           dest_object,
           params_or_struct,
-          Keyword.merge(@options, opts)
+          opts
         )
       end
 
       def find_parts(params_or_struct, opts \\ []) do
-        Uploader.find_parts(
-          __MODULE__,
-          params_or_struct,
-          Keyword.merge(@options, opts)
-        )
+        Uploader.find_parts(__MODULE__, params_or_struct, opts)
       end
 
       def sign_part(params_or_struct, part_number, opts \\ []) do
-        Uploader.sign_part(
-          __MODULE__,
-          params_or_struct,
-          part_number,
-          Keyword.merge(@options, opts)
-        )
+        Uploader.sign_part(__MODULE__, params_or_struct, part_number, opts)
       end
 
       def complete_multipart_upload(
             params_or_struct,
             update_params,
             parts,
-            builder_params,
+            path_params,
             opts \\ []
           ) do
         Uploader.complete_multipart_upload(
@@ -363,8 +176,8 @@ defmodule Uppy.Uploader do
           params_or_struct,
           update_params,
           parts,
-          Map.merge(@builder_params, builder_params),
-          Keyword.merge(@options, opts)
+          path_params,
+          opts
         )
       end
 
@@ -373,27 +186,27 @@ defmodule Uppy.Uploader do
           __MODULE__,
           params_or_struct,
           update_params,
-          Keyword.merge(@options, opts)
+          opts
         )
       end
 
-      def create_multipart_upload(filename, create_params, builder_params, opts \\ []) do
+      def create_multipart_upload(filename, create_params, path_params, opts \\ []) do
         Uploader.create_multipart_upload(
           __MODULE__,
           filename,
           create_params,
-          Map.merge(@builder_params, builder_params),
-          Keyword.merge(@options, opts)
+          path_params,
+          opts
         )
       end
 
-      def complete_upload(params_or_struct, update_params, builder_params, opts \\ []) do
+      def complete_upload(params_or_struct, update_params, path_params, opts \\ []) do
         Uploader.complete_upload(
           __MODULE__,
           params_or_struct,
           update_params,
-          Map.merge(@builder_params, builder_params),
-          Keyword.merge(@options, opts)
+          path_params,
+          opts
         )
       end
 
@@ -402,17 +215,17 @@ defmodule Uppy.Uploader do
           __MODULE__,
           params_or_struct,
           update_params,
-          Keyword.merge(@options, opts)
+          opts
         )
       end
 
-      def create_upload(filename, create_params, builder_params, opts \\ []) do
+      def create_upload(filename, create_params, path_params, opts \\ []) do
         Uploader.create_upload(
           __MODULE__,
           filename,
           create_params,
-          Map.merge(@builder_params, builder_params),
-          Keyword.merge(@options, opts)
+          path_params,
+          opts
         )
       end
 

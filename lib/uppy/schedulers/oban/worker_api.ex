@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Uploader.Schedulers.ObanScheduler.WorkerAPI do
+  defmodule Uppy.Schedulers.Oban.WorkerAPI do
     @moduledoc false
 
     alias Uppy.Core
@@ -14,11 +14,13 @@ if Code.ensure_loaded?(Oban) do
       move_to_destination: @event_move_to_destination
     }
 
+    @expired :expired
+
     @max_attempts 4
 
     @one_day :timer.hours(24)
 
-    @default_adapter Uppy.Uploader.Schedulers.ObanScheduler
+    @default_adapter Uppy.Schedulers.Oban
 
     @oban_job_fields ~w(
       max_attempts
@@ -86,7 +88,7 @@ if Code.ensure_loaded?(Oban) do
           bucket,
           query_from_args(args),
           %{id: id},
-          %{state: :expired},
+          %{state: @expired},
           opts
         )
       else
@@ -118,7 +120,7 @@ if Code.ensure_loaded?(Oban) do
           bucket,
           query_from_args(args),
           %{id: id},
-          %{state: :expired},
+          %{state: @expired},
           opts
         )
       else

@@ -12,7 +12,7 @@ config :uppy,
 #   json_adapter: Jason,
 #   pipeline_module: nil,
 #   scheduler_enabled: true,
-#   scheduler_adapter: Uppy.Uploader.Engines.ObanScheduler,
+#   scheduler_adapter: Uppy.Uploader.Engines.Oban,
 #   storage_adapter: Uppy.Storages.S3
 
 config :uppy, ecto_repos: [Uppy.Support.Repo]
