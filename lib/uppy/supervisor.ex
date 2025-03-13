@@ -48,7 +48,6 @@ defmodule Uppy.Supervisor do
     |> Keyword.get(:bridges, [])
     |> Enum.map(&normalize_sup_child_spec/1)
     |> Enum.reject(&process_alive?/1)
-    |> IO.inspect()
     |> Supervisor.init(init_opts)
   end
 
