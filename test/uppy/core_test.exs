@@ -15,7 +15,7 @@ defmodule Uppy.CoreTest do
     test "can move existing object to location" do
       struct =
         Fixture.UserAvatarFileInfo.insert!(%{
-          state: :complete,
+          state: :completed,
           filename: "image.jpeg",
           key: "temp/-user/timestamp-image.jpeg"
         })
@@ -276,7 +276,7 @@ defmodule Uppy.CoreTest do
              } = metadata
 
       assert %{
-               state: :complete,
+               state: :completed,
                content_length: nil,
                content_type: nil,
                e_tag: "e_tag",
@@ -442,7 +442,7 @@ defmodule Uppy.CoreTest do
              } = metadata
 
       assert %{
-               state: :complete,
+               state: :completed,
                content_length: nil,
                content_type: nil,
                e_tag: "e_tag",
@@ -601,7 +601,7 @@ end
 #     test "can move existing object to location" do
 #       struct =
 #         Fixture.UserAvatarFileInfo.insert!(%{
-#           state: :complete,
+#           state: :completed,
 #           filename: "image.jpeg",
 #           key: "temp/-user/timestamp-image.jpeg"
 #         })
@@ -867,7 +867,7 @@ end
 #              } = metadata
 
 #       assert %{
-#                state: :complete,
+#                state: :completed,
 #                content_length: nil,
 #                content_type: nil,
 #                e_tag: "e_tag",
@@ -940,7 +940,7 @@ end
 #               }} = perform_job(Uppy.Uploader.Engines.Oban.MoveToDestinationWorker, args)
 
 #       assert %{
-#                state: :complete,
+#                state: :completed,
 #                filename: "image.jpeg"
 #              } = struct
 
@@ -1168,7 +1168,7 @@ end
 #              } = metadata
 
 #       assert %{
-#                state: :complete,
+#                state: :completed,
 #                content_length: nil,
 #                content_type: nil,
 #                e_tag: "e_tag",
@@ -1239,7 +1239,7 @@ end
 #               }} = perform_job(Uppy.Uploader.Engines.Oban.MoveToDestinationWorker, args)
 
 #       assert %{
-#                state: :complete,
+#                state: :completed,
 #                filename: "image.jpeg"
 #              } = struct
 

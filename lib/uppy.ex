@@ -148,7 +148,7 @@ defmodule Uppy do
         path_params,
         opts
       ) do
-        {nil_or_bridge, uploader} = bridge_invoc(uploader)
+    {nil_or_bridge, uploader} = bridge_invoc(uploader)
 
     Uploader.complete_multipart_upload(
       uploader,
@@ -314,17 +314,18 @@ defmodule Uppy do
       opts
       |> Keyword.fetch!(:bridge)
       |> Bridge.build_options()
-      |> Keyword.merge(opts)
+      |> Uppy.Utils.deep_keyword_merge(opts)
     else
       opts
     end
   end
 
   defp put_bridge_opts(opts, nil), do: put_bridge_opts(opts)
+
   defp put_bridge_opts(opts, bridge) do
     bridge
     |> Bridge.build_options()
-    |> Keyword.merge(opts)
+    |> Uppy.Utils.deep_keyword_merge(opts)
   end
 
   defp bridge_invoc({bridge, uploader}), do: {bridge, uploader}

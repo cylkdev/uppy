@@ -1,11 +1,29 @@
 defmodule Uppy.Utils do
   @moduledoc false
 
+  def deep_keyword_merge(kwd1, kwd2) do
+    Keyword.merge(kwd1, kwd2, fn
+      _key, v1, v2 when is_list(v1) ->
+        if Keyword.keyword?(v1) do
+          deep_keyword_merge(v1, v2)
+        else
+          v2
+        end
+
+      _key, _v1, v2 ->
+        v2
+    end)
+  end
+
   def process_alive?(name) do
     case Process.whereis(name) do
       nil -> false
       pid -> Process.alive?(pid)
     end
+  end
+
+  def drop_nil_values(enum) do
+    Enum.reject(enum, fn {_, v} -> is_nil(v) end)
   end
 
   @doc """

@@ -9,6 +9,8 @@ defmodule Uppy.Uploader do
 
   def query(uploader), do: uploader.query()
 
+  def resource_name(uploader), do: uploader.resource_name()
+
   def path_params(uploader), do: uploader.path_params()
 
   def move_to_destination(uploader, dest_object, params_or_struct, opts) do
@@ -48,13 +50,15 @@ defmodule Uppy.Uploader do
         path_params,
         opts
       ) do
+    path_params = uploader |> path_params() |> Map.merge(path_params)
+
     Core.complete_multipart_upload(
       uploader.bucket(),
       uploader.query(),
       params_or_struct,
       update_params,
       parts,
-      maybe_put_resource_name(path_params, uploader),
+      path_params,
       opts
     )
   end
@@ -70,23 +74,27 @@ defmodule Uppy.Uploader do
   end
 
   def create_multipart_upload(uploader, filename, create_params, path_params, opts) do
+    path_params = uploader |> path_params() |> Map.merge(path_params)
+
     Core.create_multipart_upload(
       uploader.bucket(),
       uploader.query(),
       filename,
       create_params,
-      maybe_put_resource_name(path_params, uploader),
+      path_params,
       opts
     )
   end
 
   def complete_upload(uploader, params_or_struct, update_params, path_params, opts) do
+    path_params = uploader |> path_params() |> Map.merge(path_params)
+
     Core.complete_upload(
       uploader.bucket(),
       uploader.query(),
       params_or_struct,
       update_params,
-      maybe_put_resource_name(path_params, uploader),
+      path_params,
       opts
     )
   end
@@ -96,20 +104,22 @@ defmodule Uppy.Uploader do
   end
 
   def create_upload(uploader, filename, create_params, path_params, opts) do
+    path_params = uploader |> path_params() |> Map.merge(path_params)
+
     Core.create_upload(
       uploader.bucket(),
       uploader.query(),
       filename,
       create_params,
-      maybe_put_resource_name(path_params, uploader),
+      path_params,
       opts
     )
   end
 
-  defp maybe_put_resource_name(path_params, uploader) do
-    case uploader.resource_name() do
+  defp put_uploader_path_params(path_params, uploader) do
+    case uploader.path_params() do
       nil -> path_params
-      resource_name -> Map.put(path_params, :resource_name, resource_name)
+      params -> Map.merge(params, path_params)
     end
   end
 
@@ -119,13 +129,19 @@ defmodule Uppy.Uploader do
 
       alias Uppy.Uploader
 
-      @bucket :bucket
+      @bucket opts[:bucket]
 
-      @query :query
+      @query opts[:query]
 
       @resource_name opts[:resource_name]
 
-      @path_params opts[:path_params] || %{}
+      @path_params (if is_nil(@resource_name) do
+                      opts[:path_params] || %{}
+                    else
+                      opts
+                      |> Keyword.get(:path_params, %{})
+                      |> Map.put(:resource_name, @resource_name)
+                    end)
 
       @bridge_adapter opts[:bridge_adapter]
 
@@ -171,6 +187,8 @@ defmodule Uppy.Uploader do
             path_params,
             opts \\ []
           ) do
+        IO.inspect(binding(), label: "caller params")
+
         Uploader.complete_multipart_upload(
           __MODULE__,
           params_or_struct,

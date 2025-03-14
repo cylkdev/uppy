@@ -12,7 +12,7 @@ defmodule Uppy.Core do
 
   @aborted :aborted
 
-  @complete :complete
+  @completed :completed
 
   @pending :pending
 
@@ -163,7 +163,7 @@ defmodule Uppy.Core do
                  query,
                  struct,
                  Map.merge(update_params, %{
-                   state: @complete,
+                   state: @completed,
                    unique_identifier: unique_identifier,
                    e_tag: metadata.e_tag
                  }),
@@ -267,6 +267,8 @@ defmodule Uppy.Core do
   TODO...
   """
   def create_multipart_upload(bucket, query, filename, create_params, path_params, opts) do
+    IO.inspect(binding(), label: "create_multipart_upload")
+
     {basename, key} =
       StoragePathBuilder.build_storage_path(
         :create_multipart_upload,
@@ -341,7 +343,7 @@ defmodule Uppy.Core do
                  query,
                  struct,
                  Map.merge(update_params, %{
-                   state: @complete,
+                   state: @completed,
                    unique_identifier: unique_identifier,
                    e_tag: metadata.e_tag
                  }),

@@ -7,7 +7,7 @@ defmodule Uppy.Support.Schemas.FileInfoAbstract do
 
   @states [
     :aborted,
-    :complete,
+    :completed,
     :expired,
     :pending,
     :processing,

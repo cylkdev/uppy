@@ -73,14 +73,21 @@ defmodule Uppy.Bridge do
   def storage(bridge), do: bridge.storage()
 
   def build_options(bridge) do
-    [
+    Uppy.Utils.drop_nil_values(
       http_adapter: bridge.http_adapter(),
       http: bridge.http(),
       scheduler_adapter: bridge.scheduler_adapter(),
       scheduler: bridge.scheduler(),
       storage_adapter: bridge.storage_adapter(),
       storage: bridge.storage()
-    ]
+    )
+  end
+
+  def build_supervisor_options(opts, bridge) do
+    bridge
+    |> build_options()
+    |> Keyword.merge(opts)
+    |> Keyword.put(:name, bridge)
   end
 
   def start_link(opts \\ []) do
@@ -188,19 +195,19 @@ defmodule Uppy.Bridge do
 
       @http_adapter opts[:http_adapter] || Uppy.HTTP.Finch
 
-      @http opts[:http] || []
+      @http opts[:http]
 
       # scheduler
 
       @scheduler_adapter opts[:scheduler_adapter] || Uppy.Schedulers.Oban
 
-      @scheduler opts[:scheduler] || []
+      @scheduler opts[:scheduler]
 
       # storage
 
       @storage_adapter opts[:storage_adapter] || Uppy.Storages.S3
 
-      @storage opts[:storage] || []
+      @storage opts[:storage]
 
       def http_adapter, do: @http_adapter
 
@@ -215,18 +222,14 @@ defmodule Uppy.Bridge do
       def storage, do: @storage
 
       def start_link(opts \\ []) do
-        __MODULE__
-        |> Bridge.build_options()
-        |> Keyword.merge(opts)
-        |> Keyword.put(:name, __MODULE__)
+        opts
+        |> Bridge.build_supervisor_options(__MODULE__)
         |> Bridge.start_link()
       end
 
       def child_spec(opts) do
-        __MODULE__
-        |> Bridge.build_options()
-        |> Keyword.merge(opts)
-        |> Keyword.put(:name, __MODULE__)
+        opts
+        |> Bridge.build_supervisor_options(__MODULE__)
         |> Bridge.child_spec()
       end
     end

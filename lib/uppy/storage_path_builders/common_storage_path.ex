@@ -18,7 +18,13 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
   @empty_string ""
 
   @impl true
-  def build_storage_path(_action, %_{filename: filename} = struct, unique_identifier,  params, opts) do
+  def build_storage_path(
+        _action,
+        %_{filename: filename} = struct,
+        unique_identifier,
+        params,
+        opts
+      ) do
     params = params[:permanent_object] || %{}
 
     path_prefix = params[:prefix] || @empty_string
@@ -39,7 +45,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
     else
-      reverse_partition_id? = Map.get(params, :reverse_partition_id, false)
+      reverse_partition_id? = params[:reverse_partition_id] || true
 
       partition_id = params[:partition_id]
 
@@ -66,6 +72,8 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
 
   @impl true
   def build_storage_path(_action, filename, params, _opts) do
+    IO.inspect(binding(), label: "CHECK")
+
     params = params[:temporary_object] || %{}
 
     path_prefix = params[:prefix] || @temp
@@ -95,7 +103,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
     else
-      reverse_partition_id? = Map.get(params, :reverse_partition_id, false)
+      reverse_partition_id? = params[:reverse_partition_id] || true
 
       partition_id = params[:partition_id]
 
