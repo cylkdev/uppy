@@ -3,18 +3,25 @@ defmodule Uppy.Core do
   """
 
   alias Uppy.{
+    Bridge,
     DBAction,
-    StoragePathBuilder,
+    PathBuilder,
     Pipeline,
     Scheduler,
     Storage
   }
+
+  @logger_prefix "Uppy.Core"
+
+  # ---
 
   @aborted :aborted
 
   @completed :completed
 
   @pending :pending
+
+  # ---
 
   @scheduler_enabled true
 
@@ -24,6 +31,8 @@ defmodule Uppy.Core do
   TODO...
   """
   def move_to_destination(bucket, query, %_{} = struct, dest_object, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     resolution =
       Uppy.Resolution.new!(%{
         bucket: bucket,
@@ -76,6 +85,8 @@ defmodule Uppy.Core do
         %_{} = struct,
         opts
       ) do
+    opts = maybe_put_bridge_opts(opts)
+
     with {:ok, parts} <-
            Storage.list_parts(
              bucket,
@@ -106,6 +117,8 @@ defmodule Uppy.Core do
   TODO...
   """
   def sign_part(bucket, _query, %_{} = struct, part_number, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     with {:ok, signed_part} <-
            Storage.sign_part(
              bucket,
@@ -123,6 +136,8 @@ defmodule Uppy.Core do
   end
 
   def sign_part(bucket, query, find_params, part_number, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
@@ -145,10 +160,12 @@ defmodule Uppy.Core do
         path_params,
         opts
       ) do
+    opts = maybe_put_bridge_opts(opts)
+
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
-      StoragePathBuilder.build_storage_path(
+      PathBuilder.build_object_path(
         :complete_multipart_upload,
         struct,
         unique_identifier,
@@ -212,6 +229,8 @@ defmodule Uppy.Core do
         path_params,
         opts
       ) do
+    opts = maybe_put_bridge_opts(opts)
+
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
@@ -234,6 +253,8 @@ defmodule Uppy.Core do
   TODO...
   """
   def abort_multipart_upload(bucket, query, %_{} = struct, update_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     update_params = Map.put_new(update_params, :state, @aborted)
 
     with {:ok, metadata} <-
@@ -253,6 +274,8 @@ defmodule Uppy.Core do
   end
 
   def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
@@ -267,10 +290,10 @@ defmodule Uppy.Core do
   TODO...
   """
   def create_multipart_upload(bucket, query, filename, create_params, path_params, opts) do
-    IO.inspect(binding(), label: "create_multipart_upload")
+    opts = maybe_put_bridge_opts(opts)
 
     {basename, key} =
-      StoragePathBuilder.build_storage_path(
+      PathBuilder.build_object_path(
         :create_multipart_upload,
         filename,
         path_params,
@@ -325,10 +348,12 @@ defmodule Uppy.Core do
   TODO...
   """
   def complete_upload(bucket, query, %_{} = struct, update_params, path_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
-      StoragePathBuilder.build_storage_path(
+      PathBuilder.build_object_path(
         :complete_upload,
         struct,
         unique_identifier,
@@ -384,6 +409,8 @@ defmodule Uppy.Core do
   end
 
   def complete_upload(bucket, query, find_params, update_params, path_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
@@ -398,6 +425,8 @@ defmodule Uppy.Core do
   TODO...
   """
   def abort_upload(bucket, query, %_{} = struct, update_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     update_params = Map.put_new(update_params, :state, @aborted)
 
     case Storage.head_object(bucket, struct.key, opts) do
@@ -420,6 +449,8 @@ defmodule Uppy.Core do
   end
 
   def abort_upload(bucket, query, find_params, update_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
@@ -434,8 +465,10 @@ defmodule Uppy.Core do
   TODO...
   """
   def create_upload(bucket, query, filename, create_params, path_params, opts) do
+    opts = maybe_put_bridge_opts(opts)
+
     {basename, key} =
-      StoragePathBuilder.build_storage_path(
+      PathBuilder.build_object_path(
         :create_upload,
         filename,
         path_params,
@@ -484,6 +517,20 @@ defmodule Uppy.Core do
       end
 
       maybe_transaction(fun, opts)
+    end
+  end
+
+  defp maybe_put_bridge_opts(opts) do
+    if Keyword.has_key?(opts, :bridge) do
+      bridge = opts[:bridge]
+
+      Uppy.Utils.Logger.debug(@logger_prefix, "Adding options from bridge #{inspect(bridge)}")
+
+      bridge
+      |> Bridge.options()
+      |> Keyword.merge(opts)
+    else
+      opts
     end
   end
 

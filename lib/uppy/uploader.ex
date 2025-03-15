@@ -1,7 +1,8 @@
 defmodule Uppy.Uploader do
   @moduledoc false
+  alias Uppy.{Bridge, Core}
 
-  alias Uppy.Core
+  @logger_prefix "Uppy.Uploader"
 
   def __uploader__(uploader), do: uploader.__uploader__()
 
@@ -11,7 +12,9 @@ defmodule Uppy.Uploader do
 
   def resource_name(uploader), do: uploader.resource_name()
 
-  def path_params(uploader), do: uploader.path_params()
+  def storage_path(uploader), do: uploader.storage_path()
+
+  def bridge(uploader), do: uploader.bridge()
 
   def move_to_destination(uploader, dest_object, params_or_struct, opts) do
     Core.move_to_destination(
@@ -19,7 +22,7 @@ defmodule Uppy.Uploader do
       uploader.query(),
       dest_object,
       params_or_struct,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
@@ -28,7 +31,7 @@ defmodule Uppy.Uploader do
       uploader.bucket(),
       uploader.query(),
       params_or_struct,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
@@ -38,7 +41,7 @@ defmodule Uppy.Uploader do
       uploader.query(),
       params_or_struct,
       part_number,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
@@ -50,7 +53,7 @@ defmodule Uppy.Uploader do
         path_params,
         opts
       ) do
-    path_params = uploader |> path_params() |> Map.merge(path_params)
+    path_params = uploader |> storage_path() |> Map.merge(path_params)
 
     Core.complete_multipart_upload(
       uploader.bucket(),
@@ -59,7 +62,7 @@ defmodule Uppy.Uploader do
       update_params,
       parts,
       path_params,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
@@ -69,12 +72,12 @@ defmodule Uppy.Uploader do
       uploader.query(),
       params_or_struct,
       update_params,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
   def create_multipart_upload(uploader, filename, create_params, path_params, opts) do
-    path_params = uploader |> path_params() |> Map.merge(path_params)
+    path_params = uploader |> storage_path() |> Map.merge(path_params)
 
     Core.create_multipart_upload(
       uploader.bucket(),
@@ -82,12 +85,12 @@ defmodule Uppy.Uploader do
       filename,
       create_params,
       path_params,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
   def complete_upload(uploader, params_or_struct, update_params, path_params, opts) do
-    path_params = uploader |> path_params() |> Map.merge(path_params)
+    path_params = uploader |> storage_path() |> Map.merge(path_params)
 
     Core.complete_upload(
       uploader.bucket(),
@@ -95,16 +98,22 @@ defmodule Uppy.Uploader do
       params_or_struct,
       update_params,
       path_params,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
   def abort_upload(uploader, filename, params, opts) do
-    Core.abort_upload(uploader.bucket(), uploader.query(), filename, params, opts)
+    Core.abort_upload(
+      uploader.bucket(),
+      uploader.query(),
+      filename,
+      params,
+      maybe_put_bridge_opts(opts, uploader)
+    )
   end
 
   def create_upload(uploader, filename, create_params, path_params, opts) do
-    path_params = uploader |> path_params() |> Map.merge(path_params)
+    path_params = uploader |> storage_path() |> Map.merge(path_params)
 
     Core.create_upload(
       uploader.bucket(),
@@ -112,14 +121,19 @@ defmodule Uppy.Uploader do
       filename,
       create_params,
       path_params,
-      opts
+      maybe_put_bridge_opts(opts, uploader)
     )
   end
 
-  defp put_uploader_path_params(path_params, uploader) do
-    case uploader.path_params() do
-      nil -> path_params
-      params -> Map.merge(params, path_params)
+  defp maybe_put_bridge_opts(opts, uploader) do
+    case uploader.bridge() do
+      nil -> opts
+      bridge ->
+        Uppy.Utils.Logger.debug(@logger_prefix, "Adding options from bridge #{inspect(bridge)}")
+
+        bridge
+        |> Bridge.options()
+        |> Keyword.merge(opts)
     end
   end
 
@@ -127,30 +141,39 @@ defmodule Uppy.Uploader do
     quote do
       opts = unquote(opts)
 
+      bucket = opts[:bucket]
+
+      query = opts[:query]
+
+      resource_name = opts[:resource_name]
+
+      storage_path = opts[:storage_path] || %{}
+
+      storage_path =
+        if is_nil(resource_name),
+          do: storage_path,
+          else: Map.put(storage_path, :resource_name, resource_name)
+
+      bridge = opts[:bridge]
+
       alias Uppy.Uploader
 
-      @bucket opts[:bucket]
+      @bucket bucket
 
-      @query opts[:query]
+      @query query
 
-      @resource_name opts[:resource_name]
+      @resource_name resource_name
 
-      @path_params (if is_nil(@resource_name) do
-                      opts[:path_params] || %{}
-                    else
-                      opts
-                      |> Keyword.get(:path_params, %{})
-                      |> Map.put(:resource_name, @resource_name)
-                    end)
+      @storage_path storage_path
 
-      @bridge_adapter opts[:bridge_adapter]
+      @bridge bridge
 
       @__uploader__ %{
         bucket: @bucket,
         query: @query,
         resource_name: @resource_name,
-        path_params: @path_params,
-        bridge_adapter: @bridge_adapter
+        storage_path: @storage_path,
+        bridge: @bridge
       }
 
       def __uploader__, do: @__uploader__
@@ -161,7 +184,9 @@ defmodule Uppy.Uploader do
 
       def resource_name, do: @resource_name
 
-      def path_params, do: @path_params
+      def storage_path, do: @storage_path
+
+      def bridge, do: @bridge
 
       def move_to_destination(dest_object, params_or_struct, opts \\ []) do
         Uploader.move_to_destination(
@@ -187,8 +212,6 @@ defmodule Uppy.Uploader do
             path_params,
             opts \\ []
           ) do
-        IO.inspect(binding(), label: "caller params")
-
         Uploader.complete_multipart_upload(
           __MODULE__,
           params_or_struct,

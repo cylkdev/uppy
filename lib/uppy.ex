@@ -38,7 +38,7 @@ defmodule Uppy do
   Uppy.start_link([MyApp.Bridge])
   ```
   """
-  alias Uppy.{Bridge, Core, Uploader}
+  alias Uppy.{Core, Uploader}
 
   @doc """
   ...
@@ -60,13 +60,11 @@ defmodule Uppy do
   ...
   """
   def move_to_destination(uploader, dest_object, params_or_struct, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.move_to_destination(
       uploader,
       dest_object,
       params_or_struct,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -74,36 +72,38 @@ defmodule Uppy do
   ...
   """
   def move_to_destination(bucket, query, dest_object, params_or_struct, opts) do
-    Core.move_to_destination(bucket, query, dest_object, params_or_struct, put_bridge_opts(opts))
+    Core.move_to_destination(
+      bucket,
+      query,
+      dest_object,
+      params_or_struct,
+      opts
+    )
   end
 
   @doc """
   ...
   """
   def find_parts(uploader, params_or_struct, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
-    Uploader.find_parts(uploader, params_or_struct, put_bridge_opts(opts, nil_or_bridge))
+    Uploader.find_parts(uploader, params_or_struct, opts)
   end
 
   @doc """
   ...
   """
   def find_parts(bucket, query, params_or_struct, opts) do
-    Core.find_parts(bucket, query, params_or_struct, put_bridge_opts(opts))
+    Core.find_parts(bucket, query, params_or_struct, opts)
   end
 
   @doc """
   ...
   """
   def sign_part(uploader, params_or_struct, part_number, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.sign_part(
       uploader,
       params_or_struct,
       part_number,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -111,7 +111,7 @@ defmodule Uppy do
   ...
   """
   def sign_part(bucket, query, params_or_struct, part_number, opts) do
-    Core.sign_part(bucket, query, params_or_struct, part_number, put_bridge_opts(opts))
+    Core.sign_part(bucket, query, params_or_struct, part_number, opts)
   end
 
   @doc """
@@ -133,7 +133,7 @@ defmodule Uppy do
       update_params,
       parts,
       path_params,
-      put_bridge_opts(opts)
+      opts
     )
   end
 
@@ -148,15 +148,13 @@ defmodule Uppy do
         path_params,
         opts
       ) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.complete_multipart_upload(
       uploader,
       params_or_struct,
       update_params,
       parts,
       path_params,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -164,13 +162,11 @@ defmodule Uppy do
   ...
   """
   def abort_multipart_upload(uploader, params_or_struct, update_params, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.abort_multipart_upload(
       uploader,
       params_or_struct,
       update_params,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -178,21 +174,25 @@ defmodule Uppy do
   ...
   """
   def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
-    Core.abort_multipart_upload(bucket, query, find_params, update_params, put_bridge_opts(opts))
+    Core.abort_multipart_upload(
+      bucket,
+      query,
+      find_params,
+      update_params,
+      opts
+    )
   end
 
   @doc """
   ...
   """
   def create_multipart_upload(uploader, filename, create_params, path_params, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.create_multipart_upload(
       uploader,
       filename,
       create_params,
       path_params,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -213,7 +213,7 @@ defmodule Uppy do
       filename,
       create_params,
       path_params,
-      put_bridge_opts(opts)
+      opts
     )
   end
 
@@ -221,14 +221,12 @@ defmodule Uppy do
   ...
   """
   def complete_upload(uploader, params_or_struct, update_params, path_params, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.complete_upload(
       uploader,
       params_or_struct,
       update_params,
       path_params,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -249,7 +247,7 @@ defmodule Uppy do
       params_or_struct,
       update_params,
       path_params,
-      put_bridge_opts(opts)
+      opts
     )
   end
 
@@ -257,13 +255,11 @@ defmodule Uppy do
   ...
   """
   def abort_upload(uploader, filename, params, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.abort_upload(
       uploader,
       filename,
       params,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -276,7 +272,7 @@ defmodule Uppy do
       query,
       params_or_struct,
       update_params,
-      put_bridge_opts(opts)
+      opts
     )
   end
 
@@ -284,14 +280,12 @@ defmodule Uppy do
   ...
   """
   def create_upload(uploader, filename, create_params, path_params, opts) do
-    {nil_or_bridge, uploader} = bridge_invoc(uploader)
-
     Uploader.create_upload(
       uploader,
       filename,
       create_params,
       path_params,
-      put_bridge_opts(opts, nil_or_bridge)
+      opts
     )
   end
 
@@ -305,29 +299,7 @@ defmodule Uppy do
       filename,
       create_params,
       path_params,
-      put_bridge_opts(opts)
+      opts
     )
   end
-
-  defp put_bridge_opts(opts) do
-    if Keyword.has_key?(opts, :bridge) do
-      opts
-      |> Keyword.fetch!(:bridge)
-      |> Bridge.build_options()
-      |> Uppy.Utils.deep_keyword_merge(opts)
-    else
-      opts
-    end
-  end
-
-  defp put_bridge_opts(opts, nil), do: put_bridge_opts(opts)
-
-  defp put_bridge_opts(opts, bridge) do
-    bridge
-    |> Bridge.build_options()
-    |> Uppy.Utils.deep_keyword_merge(opts)
-  end
-
-  defp bridge_invoc({bridge, uploader}), do: {bridge, uploader}
-  defp bridge_invoc(uploader), do: {nil, uploader}
 end

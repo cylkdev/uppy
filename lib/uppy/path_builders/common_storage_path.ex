@@ -1,7 +1,7 @@
-defmodule Uppy.StoragePathBuilder.CommonStoragePath do
+defmodule Uppy.PathBuilders.CommonStoragePath do
   @moduledoc false
 
-  @behaviour Uppy.StoragePathBuilder
+  @behaviour Uppy.PathBuilder
 
   @default_encoding :encode32
 
@@ -18,7 +18,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
   @empty_string ""
 
   @impl true
-  def build_storage_path(
+  def build_object_path(
         _action,
         %_{filename: filename} = struct,
         unique_identifier,
@@ -71,9 +71,7 @@ defmodule Uppy.StoragePathBuilder.CommonStoragePath do
   end
 
   @impl true
-  def build_storage_path(_action, filename, params, _opts) do
-    IO.inspect(binding(), label: "CHECK")
-
+  def build_object_path(_action, filename, params, _opts) do
     params = params[:temporary_object] || %{}
 
     path_prefix = params[:prefix] || @temp

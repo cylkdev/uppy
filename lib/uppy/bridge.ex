@@ -45,49 +45,54 @@ defmodule Uppy.Bridge do
     storage_adapter: @default_storage_adapter
   ]
 
+  @doc """
+  Returns the http adapter module set on the bridge otherwise `nil` if not set.
+  """
   def http_adapter(bridge), do: bridge.http_adapter()
 
   @doc """
-  Returns a keyword-list of options for the `bridge` http adapter.
+  Returns the keyword-list options for the http adapter set on the `bridge`
+  otherwise `nil` if not set.
   """
   def http(bridge), do: bridge.http()
 
   @doc """
-  Returns the `bridge` scheduler adapter module.
+  Returns the scheduler adapter module set on the bridge otherwise `nil` if not set.
   """
   def scheduler_adapter(bridge), do: bridge.scheduler_adapter()
 
   @doc """
-  Returns a keyword-list of options for the `bridge` scheduler adapter.
+  Returns the keyword-list options for the scheduler adapter set on the `bridge`
+  otherwise `nil` if not set.
   """
   def scheduler(bridge), do: bridge.scheduler()
 
   @doc """
-  Returns the `bridge` storage adapter module.
+  Returns the storage adapter module set on the bridge otherwise `nil` if not set.
   """
   def storage_adapter(bridge), do: bridge.storage_adapter()
 
   @doc """
-  Returns a keyword-list of options for the `bridge` storage adapter.
+  Returns the keyword-list options for the storage adapter set on the `bridge`
+  otherwise `nil` if not set.
   """
   def storage(bridge), do: bridge.storage()
 
-  def build_options(bridge) do
+  @doc """
+  Returns the repo module set on the bridge otherwise `nil` if not set.
+  """
+  def repo(bridge), do: bridge.repo()
+
+  def options(bridge) do
     Uppy.Utils.drop_nil_values(
       http_adapter: bridge.http_adapter(),
       http: bridge.http(),
       scheduler_adapter: bridge.scheduler_adapter(),
       scheduler: bridge.scheduler(),
       storage_adapter: bridge.storage_adapter(),
-      storage: bridge.storage()
+      storage: bridge.storage(),
+      repo: bridge.repo()
     )
-  end
-
-  def build_supervisor_options(opts, bridge) do
-    bridge
-    |> build_options()
-    |> Keyword.merge(opts)
-    |> Keyword.put(:name, bridge)
   end
 
   def start_link(opts \\ []) do
@@ -161,6 +166,13 @@ defmodule Uppy.Bridge do
 
       adapter_opts = opts[:scheduler] || []
 
+      adapter_opts =
+        if Keyword.has_key?(opts, :repo) do
+          Keyword.put_new(adapter_opts, :repo, opts[:repo])
+        else
+          adapter_opts
+        end
+
       if child_spec_exported?(adapter) and not process_alive?(adapter, adapter_opts) do
         [{adapter, adapter_opts}]
       else
@@ -209,6 +221,10 @@ defmodule Uppy.Bridge do
 
       @storage opts[:storage]
 
+      # repo
+
+      @repo opts[:repo]
+
       def http_adapter, do: @http_adapter
 
       def http, do: @http
@@ -221,15 +237,21 @@ defmodule Uppy.Bridge do
 
       def storage, do: @storage
 
+      def repo, do: @repo
+
       def start_link(opts \\ []) do
-        opts
-        |> Bridge.build_supervisor_options(__MODULE__)
+        __MODULE__
+        |> Bridge.options()
+        |> Keyword.merge(opts)
+        |> Keyword.put(:name, __MODULE__)
         |> Bridge.start_link()
       end
 
       def child_spec(opts) do
-        opts
-        |> Bridge.build_supervisor_options(__MODULE__)
+        __MODULE__
+        |> Bridge.options()
+        |> Keyword.merge(opts)
+        |> Keyword.put(:name, __MODULE__)
         |> Bridge.child_spec()
       end
     end
