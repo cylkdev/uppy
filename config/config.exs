@@ -1,19 +1,43 @@
 import Config
 
 config :uppy,
-  bucket: "your-bucket",
   error_adapter: ErrorMessage,
-  json_adapter: Jason
+  json_adapter: Jason,
+  db_action_adapter: Uppy.DBActions.SimpleRepo,
+  http_adapter: Uppy.HTTP.Finch,
+  scheduler_adapter: Uppy.Schedulers.Oban,
+  storage_adapter: Uppy.Storages.S3
 
-# config :uppy,
-#   db_action_adapter: Uppy.DBActions.SimpleRepo,
-#   error_adapter: ErrorMessage,
-#   http_adapter: Uppy.HTTP.Finch,
-#   json_adapter: Jason,
-#   pipeline_module: nil,
-#   scheduler_enabled: true,
-#   scheduler_adapter: Uppy.Uploader.Engines.Oban,
-#   storage_adapter: Uppy.Storages.S3
+if Mix.env() === :test do
+  config :uppy, :s3,
+    scheme: "http://",
+    host: "s3.localhost.localstack.cloud",
+    port: 4566,
+    region: "us-west-1",
+    http_client: Uppy.Storages.S3.HTTP
+else
+  config :uppy, :s3,
+    region: "us-west-1",
+    access_key_id: ["<ACCESS_KEY_ID>"],
+    secret_access_key: ["<SECRET_ACCESS_KEY>"],
+    http_client: Uppy.Storages.S3.HTTP
+end
+
+if Mix.env() === :test do
+  config :uppy, Oban,
+    repo: Uppy.Support.Repo,
+    notifier: Oban.Notifiers.PG,
+    queues: [],
+    testing: :manual
+else
+  config :uppy, Oban,
+    notifier: Oban.Notifiers.PG,
+    queues: [
+      move_to_destination: 5,
+      abort_expired_multipart_upload: 5,
+      abort_expired_upload: 5
+    ]
+end
 
 config :uppy, ecto_repos: [Uppy.Support.Repo]
 

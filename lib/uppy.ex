@@ -25,16 +25,6 @@ defmodule Uppy do
   ```
 
   ```elixir
-  defmodule MyApp.Bridge do
-    use Uppy.Bridge,
-      http_adapter: Uppy.HTTP.Finch,
-      scheduler_adapter: Uppy.Schedulers.Oban,
-      storage_adapter: Uppy.Storages.S3,
-      options: [scheduler: [repo: MyApp.Repo]]
-  end
-  ```
-
-  ```elixir
   Uppy.start_link([MyApp.Bridge])
   ```
   """
@@ -43,8 +33,10 @@ defmodule Uppy do
   @doc """
   ...
   """
-  def start_link(name \\ __MODULE__, bridges, opts \\ []) do
-    Uppy.Supervisor.start_link(name, bridges, opts)
+  def start_link(opts \\ []) do
+    opts
+    |> Keyword.put_new(:name, __MODULE__)
+    |> Uppy.Supervisor.start_link()
   end
 
   @doc """

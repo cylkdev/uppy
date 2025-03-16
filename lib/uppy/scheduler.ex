@@ -1,34 +1,28 @@
 defmodule Uppy.Scheduler do
   @moduledoc false
 
-  @type query :: term()
-  @type id :: integer() | binary()
-  @type bucket :: binary()
-  @type object :: binary()
-  @type options :: keyword()
-
   @default_adapter Uppy.Schedulers.Oban
 
   @callback enqueue_move_to_destination(
-              bucket :: bucket(),
-              query :: query(),
-              id :: id(),
-              dest_object :: object(),
-              opts :: options()
+              bucket :: binary(),
+              query :: term(),
+              id :: integer() | binary(),
+              dest_object :: binary(),
+              opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
 
   @callback enqueue_abort_expired_multipart_upload(
-              bucket :: bucket(),
-              query :: query(),
-              id :: id(),
-              opts :: options()
+              bucket :: binary(),
+              query :: term(),
+              id :: integer() | binary(),
+              opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
 
   @callback enqueue_abort_expired_upload(
-              bucket :: bucket(),
-              query :: query(),
-              id :: id(),
-              opts :: options()
+              bucket :: binary(),
+              query :: term(),
+              id :: integer() | binary(),
+              opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
 
   @doc """
