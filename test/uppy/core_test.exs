@@ -252,11 +252,11 @@ defmodule Uppy.CoreTest do
       assert {:ok, payload} =
                Core.complete_multipart_upload(
                  @bucket,
+                 %{},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: struct_id},
                  %{unique_identifier: "unique_id"},
                  [{1, "e_tag"}],
-                 %{},
                  []
                )
 
@@ -364,10 +364,9 @@ defmodule Uppy.CoreTest do
       assert {:ok, payload} =
                Core.create_multipart_upload(
                  @bucket,
-                 {"user_avatar_file_infos", FileInfoAbstract},
-                 "image.jpeg",
-                 %{},
                  %{temporary_object: %{basename_prefix: "timestamp"}},
+                 {"user_avatar_file_infos", FileInfoAbstract},
+                 %{filename: "image.jpeg"},
                  []
                )
 
@@ -422,9 +421,9 @@ defmodule Uppy.CoreTest do
       assert {:ok, payload} =
                Core.complete_upload(
                  @bucket,
+                 %{},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{id: struct_id},
-                 %{},
                  %{},
                  []
                )
@@ -513,10 +512,9 @@ defmodule Uppy.CoreTest do
       assert {:ok, payload} =
                Core.create_upload(
                  @bucket,
-                 {"user_avatar_file_infos", FileInfoAbstract},
-                 "image.jpeg",
-                 %{},
                  %{temporary_object: %{basename_prefix: "timestamp"}},
+                 {"user_avatar_file_infos", FileInfoAbstract},
+                 %{filename: "image.jpeg"},
                  []
                )
 
@@ -574,10 +572,9 @@ defmodule Uppy.CoreTest do
       assert {:error, %Ecto.Changeset{}} =
                Core.create_upload(
                  @bucket,
-                 {"user_avatar_file_infos", FileInfoAbstract},
-                 "image.jpeg",
-                 %{assoc_id: 123_456},
                  %{},
+                 {"user_avatar_file_infos", FileInfoAbstract},
+                 %{filename: "image.jpeg", assoc_id: 123_456},
                  []
                )
     end

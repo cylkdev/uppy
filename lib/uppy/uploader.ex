@@ -43,21 +43,19 @@ defmodule Uppy.Uploader do
 
   def complete_multipart_upload(
         uploader,
+        path_params,
         params_or_struct,
         update_params,
         parts,
-        path_params,
         opts
       ) do
-    path_params = uploader |> storage_path() |> Map.merge(path_params)
-
     Core.complete_multipart_upload(
       uploader.bucket(),
+      uploader |> storage_path() |> Map.merge(path_params),
       uploader.query(),
       params_or_struct,
       update_params,
       parts,
-      path_params,
       opts
     )
   end
@@ -72,50 +70,48 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def create_multipart_upload(uploader, filename, create_params, path_params, opts) do
+  def create_multipart_upload(uploader, path_params, create_params, opts) do
     Core.create_multipart_upload(
       uploader.bucket(),
-      uploader.query(),
-      filename,
-      create_params,
       uploader |> storage_path() |> Map.merge(path_params),
+      uploader.query(),
+      create_params,
       opts
     )
   end
 
-  def complete_upload(uploader, params_or_struct, update_params, path_params, opts) do
+  def complete_upload(uploader, path_params, params_or_struct, update_params, opts) do
     Core.complete_upload(
       uploader.bucket(),
+      uploader |> storage_path() |> Map.merge(path_params),
       uploader.query(),
       params_or_struct,
       update_params,
-      uploader |> storage_path() |> Map.merge(path_params),
       opts
     )
   end
 
-  def abort_upload(uploader, filename, params, opts) do
+  def abort_upload(uploader, find_params, update_params, opts) do
     Core.abort_upload(
       uploader.bucket(),
       uploader.query(),
-      filename,
-      params,
+      find_params,
+      update_params,
       opts
     )
   end
 
-  def create_upload(uploader, filename, create_params, path_params, opts) do
+  def create_upload(uploader, path_params, create_params, opts) do
     Core.create_upload(
       uploader.bucket(),
-      uploader.query(),
-      filename,
-      create_params,
       uploader |> storage_path() |> Map.merge(path_params),
+      uploader.query(),
+      create_params,
       opts
     )
   end
 
-  defmacro __using__(opts \\ []) do
+  defmacro __using__(opts) do
     quote do
       opts = unquote(opts)
 
@@ -159,7 +155,7 @@ defmodule Uppy.Uploader do
 
       def storage_path, do: @storage_path
 
-      def move_to_destination(dest_object, params_or_struct, opts \\ []) do
+      def move_to_destination(dest_object, params_or_struct, opts) do
         Uploader.move_to_destination(
           __MODULE__,
           dest_object,
@@ -168,32 +164,32 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def find_parts(params_or_struct, opts \\ []) do
+      def find_parts(params_or_struct, opts) do
         Uploader.find_parts(__MODULE__, params_or_struct, opts)
       end
 
-      def sign_part(params_or_struct, part_number, opts \\ []) do
+      def sign_part(params_or_struct, part_number, opts) do
         Uploader.sign_part(__MODULE__, params_or_struct, part_number, opts)
       end
 
       def complete_multipart_upload(
+            path_params,
             params_or_struct,
             update_params,
             parts,
-            path_params,
-            opts \\ []
+            opts
           ) do
         Uploader.complete_multipart_upload(
           __MODULE__,
+          path_params,
           params_or_struct,
           update_params,
           parts,
-          path_params,
           opts
         )
       end
 
-      def abort_multipart_upload(params_or_struct, update_params, opts \\ []) do
+      def abort_multipart_upload(params_or_struct, update_params, opts) do
         Uploader.abort_multipart_upload(
           __MODULE__,
           params_or_struct,
@@ -202,27 +198,26 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def create_multipart_upload(filename, create_params, path_params, opts \\ []) do
+      def create_multipart_upload(path_params, create_params, opts) do
         Uploader.create_multipart_upload(
           __MODULE__,
-          filename,
-          create_params,
           path_params,
+          create_params,
           opts
         )
       end
 
-      def complete_upload(params_or_struct, update_params, path_params, opts \\ []) do
+      def complete_upload(path_params, params_or_struct, update_params, opts) do
         Uploader.complete_upload(
           __MODULE__,
+          path_params,
           params_or_struct,
           update_params,
-          path_params,
           opts
         )
       end
 
-      def abort_upload(params_or_struct, update_params, opts \\ []) do
+      def abort_upload(params_or_struct, update_params, opts) do
         Uploader.abort_upload(
           __MODULE__,
           params_or_struct,
@@ -231,22 +226,21 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def create_upload(filename, create_params, path_params, opts \\ []) do
+      def create_upload(path_params, create_params, opts) do
         Uploader.create_upload(
           __MODULE__,
-          filename,
-          create_params,
           path_params,
+          create_params,
           opts
         )
       end
 
       defoverridable abort_upload: 3,
-                     create_upload: 4,
+                     create_upload: 3,
                      complete_upload: 4,
                      abort_multipart_upload: 3,
-                     create_multipart_upload: 4,
-                     complete_multipart_upload: 4,
+                     create_multipart_upload: 3,
+                     complete_multipart_upload: 5,
                      sign_part: 3,
                      find_parts: 2,
                      move_to_destination: 3

@@ -15,17 +15,16 @@ defmodule Uppy.Core do
   @pending :pending
 
   @scheduler_enabled true
-  @transaction_enabled true
 
   @doc """
   TODO...
   """
-  def move_to_destination(bucket, query, %_{} = struct, dest_object, opts) do
+  def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
     resolution =
       Uppy.Resolution.new!(%{
         bucket: bucket,
         query: query,
-        value: struct,
+        value: schema_data,
         arguments: %{
           destination_object: dest_object
         }
@@ -43,7 +42,7 @@ defmodule Uppy.Core do
               bucket: bucket,
               destination_object: dest_object,
               query: query,
-              data: struct
+              data: schema_data
             },
             opts
           )
@@ -59,31 +58,26 @@ defmodule Uppy.Core do
   end
 
   def move_to_destination(bucket, query, find_params, dest_object, opts) do
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      move_to_destination(bucket, query, struct, dest_object, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      move_to_destination(bucket, query, schema_data, dest_object, opts)
     end
   end
 
   @doc """
   TODO...
   """
-  def find_parts(
-        bucket,
-        _query,
-        %_{} = struct,
-        opts
-      ) do
+  def find_parts(bucket, _query, %_{} = schema_data, opts) do
     with {:ok, parts} <-
            Storage.list_parts(
              bucket,
-             struct.key,
-             struct.upload_id,
+             schema_data.key,
+             schema_data.upload_id,
              opts
            ) do
       {:ok,
        %{
          parts: parts,
-         data: struct
+         data: schema_data
        }}
     end
   end
@@ -94,27 +88,27 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      find_parts(bucket, query, struct, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      find_parts(bucket, query, schema_data, opts)
     end
   end
 
   @doc """
   TODO...
   """
-  def sign_part(bucket, _query, %_{} = struct, part_number, opts) do
+  def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
     with {:ok, signed_part} <-
            Storage.sign_part(
              bucket,
-             struct.key,
-             struct.upload_id,
+             schema_data.key,
+             schema_data.upload_id,
              part_number,
              opts
            ) do
       {:ok,
        %{
          signed_part: signed_part,
-         data: struct
+         data: schema_data
        }}
     end
   end
@@ -125,8 +119,8 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      sign_part(bucket, query, struct, part_number, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      sign_part(bucket, query, schema_data, part_number, opts)
     end
   end
 
@@ -135,11 +129,11 @@ defmodule Uppy.Core do
   """
   def complete_multipart_upload(
         bucket,
+        path_params,
         query,
-        %_{} = struct,
+        %_{} = schema_data,
         update_params,
         parts,
-        path_params,
         opts
       ) do
     unique_identifier = update_params[:unique_identifier]
@@ -147,18 +141,18 @@ defmodule Uppy.Core do
     {basename, dest_object} =
       PathBuilder.build_object_path(
         :complete_multipart_upload,
-        struct,
+        schema_data,
         unique_identifier,
         path_params,
         opts
       )
 
-    with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, struct, parts, opts) do
+    with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, schema_data, parts, opts) do
       fun = fn ->
-        with {:ok, struct} <-
+        with {:ok, schema_data} <-
                DBAction.update(
                  query,
-                 struct,
+                 schema_data,
                  Map.merge(update_params, %{
                    state: @completed,
                    unique_identifier: unique_identifier,
@@ -166,19 +160,19 @@ defmodule Uppy.Core do
                  }),
                  opts
                ) do
-          if scheduler_enabled?(opts) do
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
             with {:ok, job} <-
                    Scheduler.enqueue_move_to_destination(
                      bucket,
                      query,
-                     struct.id,
+                     schema_data.id,
                      dest_object,
                      opts
                    ) do
               {:ok,
                %{
                  metadata: metadata,
-                 data: struct,
+                 data: schema_data,
                  basename: basename,
                  destination_object: dest_object,
                  jobs: %{move_to_destination: job}
@@ -188,7 +182,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                metadata: metadata,
-               data: struct,
+               data: schema_data,
                basename: basename,
                destination_object: dest_object
              }}
@@ -196,17 +190,17 @@ defmodule Uppy.Core do
         end
       end
 
-      maybe_transaction(fun, opts)
+      DBAction.transaction(fun, opts)
     end
   end
 
   def complete_multipart_upload(
         bucket,
+        path_params,
         query,
         find_params,
         update_params,
         parts,
-        path_params,
         opts
       ) do
     find_params =
@@ -214,14 +208,14 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
+        path_params,
         query,
-        struct,
+        schema_data,
         update_params,
         parts,
-        path_params,
         opts
       )
     end
@@ -230,21 +224,21 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def abort_multipart_upload(bucket, query, %_{} = struct, update_params, opts) do
+  def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put_new(update_params, :state, @aborted)
 
     with {:ok, metadata} <-
            Storage.abort_multipart_upload(
              bucket,
-             struct.key,
-             struct.upload_id,
+             schema_data.key,
+             schema_data.upload_id,
              opts
            ),
-         {:ok, struct} <- DBAction.update(query, struct, update_params, opts) do
+         {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
       {:ok,
        %{
          metadata: metadata,
-         data: struct
+         data: schema_data
        }}
     end
   end
@@ -255,8 +249,8 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{!=: nil})
 
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      abort_multipart_upload(bucket, query, struct, update_params, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      abort_multipart_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
@@ -265,45 +259,44 @@ defmodule Uppy.Core do
   """
   def create_multipart_upload(
         bucket,
-        query,
-        filename,
-        create_params,
         path_params,
+        query,
+        create_params,
         opts
       ) do
     {basename, key} =
       PathBuilder.build_object_path(
         :create_multipart_upload,
-        filename,
+        create_params.filename,
         path_params,
         opts
       )
 
     with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
       fun = fn ->
-        with {:ok, struct} <-
+        with {:ok, schema_data} <-
                DBAction.create(
                  query,
                  Map.merge(create_params, %{
                    state: @pending,
-                   filename: filename,
+                   filename: create_params.filename,
                    key: key,
                    upload_id: multipart_upload.upload_id
                  }),
                  opts
                ) do
-          if scheduler_enabled?(opts) do
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
             with {:ok, job} <-
                    Scheduler.enqueue_abort_expired_multipart_upload(
                      bucket,
                      query,
-                     struct.id,
+                     schema_data.id,
                      opts
                    ) do
               {:ok,
                %{
                  basename: basename,
-                 data: struct,
+                 data: schema_data,
                  multipart_upload: multipart_upload,
                  jobs: %{abort_expired_multipart_upload: job}
                }}
@@ -312,38 +305,38 @@ defmodule Uppy.Core do
             {:ok,
              %{
                basename: basename,
-               data: struct,
+               data: schema_data,
                multipart_upload: multipart_upload
              }}
           end
         end
       end
 
-      maybe_transaction(fun, opts)
+      DBAction.transaction(fun, opts)
     end
   end
 
   @doc """
   TODO...
   """
-  def complete_upload(bucket, query, %_{} = struct, update_params, path_params, opts) do
+  def complete_upload(bucket, path_params, query, %_{} = schema_data, update_params, opts) do
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
       PathBuilder.build_object_path(
         :complete_upload,
-        struct,
+        schema_data,
         unique_identifier,
         path_params,
         opts
       )
 
-    with {:ok, metadata} <- Storage.head_object(bucket, struct.key, opts) do
+    with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
       fun = fn ->
-        with {:ok, struct} <-
+        with {:ok, schema_data} <-
                DBAction.update(
                  query,
-                 struct,
+                 schema_data,
                  Map.merge(update_params, %{
                    state: @completed,
                    unique_identifier: unique_identifier,
@@ -351,19 +344,19 @@ defmodule Uppy.Core do
                  }),
                  opts
                ) do
-          if scheduler_enabled?(opts) do
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
             with {:ok, job} <-
                    Scheduler.enqueue_move_to_destination(
                      bucket,
                      query,
-                     struct.id,
+                     schema_data.id,
                      dest_object,
                      opts
                    ) do
               {:ok,
                %{
                  metadata: metadata,
-                 data: struct,
+                 data: schema_data,
                  basename: basename,
                  destination_object: dest_object,
                  jobs: %{move_to_destination: job}
@@ -373,7 +366,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                metadata: metadata,
-               data: struct,
+               data: schema_data,
                basename: basename,
                destination_object: dest_object
              }}
@@ -381,39 +374,39 @@ defmodule Uppy.Core do
         end
       end
 
-      maybe_transaction(fun, opts)
+      DBAction.transaction(fun, opts)
     end
   end
 
-  def complete_upload(bucket, query, find_params, update_params, path_params, opts) do
+  def complete_upload(bucket, path_params, query, find_params, update_params, opts) do
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, query, struct, update_params, path_params, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      complete_upload(bucket, path_params, query, schema_data, update_params, opts)
     end
   end
 
   @doc """
   TODO...
   """
-  def abort_upload(bucket, query, %_{} = struct, update_params, opts) do
+  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put_new(update_params, :state, @aborted)
 
-    case Storage.head_object(bucket, struct.key, opts) do
+    case Storage.head_object(bucket, schema_data.key, opts) do
       {:ok, metadata} ->
         {:error,
          ErrorMessage.forbidden("object exists", %{
            bucket: bucket,
-           key: struct.key,
+           key: schema_data.key,
            metadata: metadata
          })}
 
       {:error, %{code: :not_found}} ->
-        with {:ok, struct} <- DBAction.update(query, struct, update_params, opts) do
-          {:ok, %{data: struct}}
+        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
+          {:ok, %{data: schema_data}}
         end
 
       e ->
@@ -427,65 +420,58 @@ defmodule Uppy.Core do
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
-    with {:ok, struct} <- DBAction.find(query, find_params, opts) do
-      abort_upload(bucket, query, struct, update_params, opts)
+    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+      abort_upload(bucket, query, schema_data, update_params, opts)
     end
   end
 
   @doc """
   TODO...
   """
-  def create_upload(bucket, query, filename, create_params, path_params, opts) do
+  def create_upload(bucket, path_params, query, create_params, opts) do
     {basename, key} =
-      PathBuilder.build_object_path(
-        :create_upload,
-        filename,
-        path_params,
-        opts
-      )
+      PathBuilder.build_object_path(:create_upload, create_params.filename, path_params, opts)
 
     with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
       fun = fn ->
-        with {:ok, struct} <-
+        with {:ok, schema_data} <-
                DBAction.create(
                  query,
                  Map.merge(create_params, %{
                    state: @pending,
-                   filename: filename,
+                   filename: create_params.filename,
                    key: key
                  }),
                  opts
                ) do
-          if scheduler_enabled?(opts) do
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
             with {:ok, job} <-
                    Scheduler.enqueue_abort_expired_upload(
                      bucket,
                      query,
-                     struct.id,
+                     schema_data.id,
                      opts
                    ) do
               {:ok,
                %{
                  basename: basename,
-                 data: struct,
+                 data: schema_data,
                  signed_url: signed_url,
-                 jobs: %{
-                   abort_expired_upload: job
-                 }
+                 jobs: %{abort_expired_upload: job}
                }}
             end
           else
             {:ok,
              %{
                basename: basename,
-               data: struct,
+               data: schema_data,
                signed_url: signed_url
              }}
           end
         end
       end
 
-      maybe_transaction(fun, opts)
+      DBAction.transaction(fun, opts)
     end
   end
 
@@ -493,21 +479,5 @@ defmodule Uppy.Core do
     with val when val not in [:put, :post] <- Keyword.get(opts, :http_method, :put) do
       raise "Expected the option `:http_method` to be :put or :post, got: #{inspect(val)}"
     end
-  end
-
-  defp maybe_transaction(fun, opts) do
-    if scheduler_enabled?(opts) and transaction_enabled?(opts) do
-      DBAction.transaction(fun, opts)
-    else
-      fun.()
-    end
-  end
-
-  defp scheduler_enabled?(opts) do
-    opts[:scheduler_enabled] || @scheduler_enabled
-  end
-
-  defp transaction_enabled?(opts) do
-    opts[:transaction_enabled] || @transaction_enabled
   end
 end
