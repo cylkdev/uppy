@@ -31,12 +31,4 @@ defmodule Uppy.Config do
   def scheduler_adapter do
     Application.get_env(@app, :scheduler_adapter) || Uppy.Schedulers.Oban
   end
-
-  def oban do
-    Application.get_env(@app, Oban) || []
-  end
-
-  def s3 do
-    Application.get_env(@app, :s3) || []
-  end
 end

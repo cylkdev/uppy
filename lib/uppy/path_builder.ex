@@ -5,25 +5,23 @@ defmodule Uppy.PathBuilder do
               action :: atom(),
               struct :: struct(),
               unique_identifier :: binary(),
-              params :: map(),
-              opts :: keyword()
+              params :: map()
             ) :: {basename :: binary(), path :: binary()}
 
   @callback build_object_path(
               action :: atom(),
               filename :: binary(),
-              params :: map(),
-              opts :: keyword()
+              params :: map()
             ) :: {basename :: binary(), path :: binary()}
 
-  @default_adapter Uppy.PathBuilders.CommonStoragePath
+  @default_adapter Uppy.PathBuilders.CommonPathBuilder
 
   def build_object_path(action, struct, unique_identifier, params, opts) do
-    adapter(opts).build_object_path(action, struct, unique_identifier, params, opts)
+    adapter(opts).build_object_path(action, struct, unique_identifier, params)
   end
 
   def build_object_path(action, filename, params, opts) do
-    adapter(opts).build_object_path(action, filename, params, opts)
+    adapter(opts).build_object_path(action, filename, params)
   end
 
   defp adapter(opts) do

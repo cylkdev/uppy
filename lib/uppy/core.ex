@@ -42,7 +42,7 @@ defmodule Uppy.Core do
               bucket: bucket,
               destination_object: dest_object,
               query: query,
-              data: schema_data
+              schema_data: schema_data
             },
             opts
           )
@@ -77,7 +77,7 @@ defmodule Uppy.Core do
       {:ok,
        %{
          parts: parts,
-         data: schema_data
+         schema_data: schema_data
        }}
     end
   end
@@ -108,7 +108,7 @@ defmodule Uppy.Core do
       {:ok,
        %{
          signed_part: signed_part,
-         data: schema_data
+         schema_data: schema_data
        }}
     end
   end
@@ -147,7 +147,7 @@ defmodule Uppy.Core do
         opts
       )
 
-    with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, schema_data, parts, opts) do
+    with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, schema_data.key, schema_data.upload_id, parts, opts) do
       fun = fn ->
         with {:ok, schema_data} <-
                DBAction.update(
@@ -172,7 +172,7 @@ defmodule Uppy.Core do
               {:ok,
                %{
                  metadata: metadata,
-                 data: schema_data,
+                 schema_data: schema_data,
                  basename: basename,
                  destination_object: dest_object,
                  jobs: %{move_to_destination: job}
@@ -182,7 +182,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                metadata: metadata,
-               data: schema_data,
+               schema_data: schema_data,
                basename: basename,
                destination_object: dest_object
              }}
@@ -238,7 +238,7 @@ defmodule Uppy.Core do
       {:ok,
        %{
          metadata: metadata,
-         data: schema_data
+         schema_data: schema_data
        }}
     end
   end
@@ -296,7 +296,7 @@ defmodule Uppy.Core do
               {:ok,
                %{
                  basename: basename,
-                 data: schema_data,
+                 schema_data: schema_data,
                  multipart_upload: multipart_upload,
                  jobs: %{abort_expired_multipart_upload: job}
                }}
@@ -305,7 +305,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                basename: basename,
-               data: schema_data,
+               schema_data: schema_data,
                multipart_upload: multipart_upload
              }}
           end
@@ -356,7 +356,7 @@ defmodule Uppy.Core do
               {:ok,
                %{
                  metadata: metadata,
-                 data: schema_data,
+                 schema_data: schema_data,
                  basename: basename,
                  destination_object: dest_object,
                  jobs: %{move_to_destination: job}
@@ -366,7 +366,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                metadata: metadata,
-               data: schema_data,
+               schema_data: schema_data,
                basename: basename,
                destination_object: dest_object
              }}
@@ -406,7 +406,7 @@ defmodule Uppy.Core do
 
       {:error, %{code: :not_found}} ->
         with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-          {:ok, %{data: schema_data}}
+          {:ok, %{schema_data: schema_data}}
         end
 
       e ->
@@ -455,7 +455,7 @@ defmodule Uppy.Core do
               {:ok,
                %{
                  basename: basename,
-                 data: schema_data,
+                 schema_data: schema_data,
                  signed_url: signed_url,
                  jobs: %{abort_expired_upload: job}
                }}
@@ -464,7 +464,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                basename: basename,
-               data: schema_data,
+               schema_data: schema_data,
                signed_url: signed_url
              }}
           end

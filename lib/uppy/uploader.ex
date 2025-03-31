@@ -2,15 +2,13 @@ defmodule Uppy.Uploader do
   @moduledoc false
   alias Uppy.Core
 
-  def __config__(uploader), do: uploader.__config__()
-
   def bucket(uploader), do: uploader.bucket()
 
   def query(uploader), do: uploader.query()
 
   def resource_name(uploader), do: uploader.resource_name()
 
-  def storage_path(uploader), do: uploader.storage_path()
+  def path(uploader), do: uploader.path()
 
   def move_to_destination(uploader, dest_object, params_or_struct, opts) do
     Core.move_to_destination(
@@ -51,7 +49,7 @@ defmodule Uppy.Uploader do
       ) do
     Core.complete_multipart_upload(
       uploader.bucket(),
-      uploader |> storage_path() |> Map.merge(path_params),
+      build_object_path(uploader, path_params),
       uploader.query(),
       params_or_struct,
       update_params,
@@ -73,7 +71,7 @@ defmodule Uppy.Uploader do
   def create_multipart_upload(uploader, path_params, create_params, opts) do
     Core.create_multipart_upload(
       uploader.bucket(),
-      uploader |> storage_path() |> Map.merge(path_params),
+      build_object_path(uploader, path_params),
       uploader.query(),
       create_params,
       opts
@@ -83,7 +81,7 @@ defmodule Uppy.Uploader do
   def complete_upload(uploader, path_params, params_or_struct, update_params, opts) do
     Core.complete_upload(
       uploader.bucket(),
-      uploader |> storage_path() |> Map.merge(path_params),
+      build_object_path(uploader, path_params),
       uploader.query(),
       params_or_struct,
       update_params,
@@ -104,48 +102,35 @@ defmodule Uppy.Uploader do
   def create_upload(uploader, path_params, create_params, opts) do
     Core.create_upload(
       uploader.bucket(),
-      uploader |> storage_path() |> Map.merge(path_params),
+      build_object_path(uploader, path_params),
       uploader.query(),
       create_params,
       opts
     )
   end
 
+  defp build_object_path(uploader, path_params) do
+    path_params = Map.merge(uploader.path() || %{}, path_params)
+
+    case uploader.resource_name() do
+      nil -> path_params
+      resource_name -> Map.put(path_params, :resource_name, resource_name)
+    end
+  end
+
   defmacro __using__(opts) do
     quote do
       opts = unquote(opts)
 
-      bucket = opts[:bucket]
-
-      query = opts[:query]
-
-      resource_name = opts[:resource_name]
-
-      storage_path = opts[:storage_path] || %{}
-
-      storage_path =
-        if is_nil(resource_name),
-          do: storage_path,
-          else: Map.put(storage_path, :resource_name, resource_name)
-
       alias Uppy.Uploader
 
-      @bucket bucket
+      @bucket opts[:bucket]
 
-      @query query
+      @query opts[:query]
 
-      @resource_name resource_name
+      @resource_name opts[:resource_name]
 
-      @storage_path storage_path
-
-      @__config__ %{
-        bucket: @bucket,
-        query: @query,
-        resource_name: @resource_name,
-        storage_path: @storage_path
-      }
-
-      def __config__, do: @__config__
+      @path opts[:path]
 
       def bucket, do: @bucket
 
@@ -153,7 +138,7 @@ defmodule Uppy.Uploader do
 
       def resource_name, do: @resource_name
 
-      def storage_path, do: @storage_path
+      def path, do: @path
 
       def move_to_destination(dest_object, params_or_struct, opts) do
         Uploader.move_to_destination(
