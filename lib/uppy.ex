@@ -1,33 +1,5 @@
 defmodule Uppy do
-  @moduledoc """
-  Application.ensure_all_started(:postgrex)
-  Application.ensure_all_started(:ecto)
-  Application.ensure_all_started(:oban)
-  Uppy.Support.Repo.start_link()
-
-  ```elixir
-  defmodule MyApp.Uploader do
-    use Uppy.Uploader,
-      resource_name: "user_avatar",
-      bucket: "my-app-bucket",
-      query: {"user_avatar_file_infos", Uppy.Support.Schemas.FileInfoAbstract},
-      path_params: %{
-        permanent_object: %{
-          reverse_partition_id: true,
-          partition_name: "company"
-        },
-        temporary_object: %{
-          partition_name: "user",
-          basename_prefix: "temp"
-        }
-      }
-  end
-  ```
-
-  ```elixir
-  Uppy.start_link([MyApp.Bridge])
-  ```
-  """
+  @moduledoc false
   alias Uppy.{Core, Uploader}
 
   @doc """
