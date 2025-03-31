@@ -925,7 +925,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.Oban.MoveToDestinationWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.Workers.MoveToDestinationWorker"
 #              } = job
 
 #       assert job_id === schema_data.id
@@ -934,7 +934,7 @@ end
 #               %{
 #                 done: [Uppy.Phases.MoveToDestination],
 #                 resolution: resolution
-#               }} = perform_job(Uppy.Uploader.Engines.Oban.MoveToDestinationWorker, args)
+#               }} = perform_job(Uppy.Uploader.Engines.Oban.Workers.MoveToDestinationWorker, args)
 
 #       assert %{
 #                state: :completed,
@@ -1070,7 +1070,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.Oban.AbortExpiredMultipartUploadWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.Workers.AbortExpiredMultipartUploadWorker"
 #              } = job
 
 #       assert job_id === schema_data.id
@@ -1097,7 +1097,7 @@ end
 #                 metadata: metadata,
 #                 schema_data: schema_data
 #               }} =
-#                perform_job(Uppy.Uploader.Engines.Oban.AbortExpiredMultipartUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.Oban.Workers.AbortExpiredMultipartUploadWorker, args)
 
 #       assert %{
 #                body: "",
@@ -1224,7 +1224,7 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.Oban.MoveToDestinationWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.Workers.MoveToDestinationWorker"
 #              } = job
 
 #       assert job_id === schema_data.id
@@ -1233,7 +1233,7 @@ end
 #               %{
 #                 done: [Uppy.Phases.MoveToDestination],
 #                 resolution: resolution
-#               }} = perform_job(Uppy.Uploader.Engines.Oban.MoveToDestinationWorker, args)
+#               }} = perform_job(Uppy.Uploader.Engines.Oban.Workers.MoveToDestinationWorker, args)
 
 #       assert %{
 #                state: :completed,
@@ -1360,13 +1360,13 @@ end
 #                    query: "Elixir.Uppy.Support.Schemas.FileInfoAbstract",
 #                    source: "user_avatar_file_infos"
 #                  } = args,
-#                worker: "Uppy.Uploader.Engines.Oban.AbortExpiredUploadWorker"
+#                worker: "Uppy.Uploader.Engines.Oban.Workers.AbortExpiredUploadWorker"
 #              } = job
 
 #       assert job_id === schema_data.id
 
 #       assert {:ok, %{schema_data: schema_data}} =
-#                perform_job(Uppy.Uploader.Engines.Oban.AbortExpiredUploadWorker, args)
+#                perform_job(Uppy.Uploader.Engines.Oban.Workers.AbortExpiredUploadWorker, args)
 
 #       assert %{state: :expired, filename: "image.jpeg"} = schema_data
 #     end

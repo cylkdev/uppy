@@ -2,6 +2,8 @@ defmodule Uppy.Config do
   @moduledoc false
   @app :uppy
 
+  def module_config(mod), do: Application.get_env(@app, mod)
+
   @spec error_adapter :: module()
   def error_adapter do
     Application.get_env(@app, :error_adapter) || ErrorMessage
@@ -29,6 +31,6 @@ defmodule Uppy.Config do
 
   @spec scheduler_adapter :: module()
   def scheduler_adapter do
-    Application.get_env(@app, :scheduler_adapter) || Uppy.Schedulers.Oban
+    Application.get_env(@app, :scheduler_adapter) || Uppy.Schedulers.ObanScheduler
   end
 end

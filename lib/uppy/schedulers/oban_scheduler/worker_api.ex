@@ -1,11 +1,10 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Schedulers.Oban.WorkerAPI do
+  defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
     @moduledoc false
 
-    alias Uppy.Schedulers.Oban.{
-      AbortExpiredUploadWorker,
-      AbortExpiredMultipartUploadWorker,
-      MoveToDestinationWorker
+    alias Uppy.{
+      Core,
+      Schedulers.ObanScheduler.Router
     }
 
     # ---
@@ -37,7 +36,7 @@ if Code.ensure_loaded?(Oban) do
           opts
         ) do
       if attempt < max_attempts do
-        executor(args).move_to_destination(
+        Core.move_to_destination(
           bucket,
           query_from_args(args),
           %{id: id},
@@ -69,7 +68,7 @@ if Code.ensure_loaded?(Oban) do
           opts
         ) do
       if attempt < max_attempts do
-        executor(args).abort_multipart_upload(
+        Core.abort_multipart_upload(
           bucket,
           query_from_args(args),
           %{id: id},
@@ -100,7 +99,7 @@ if Code.ensure_loaded?(Oban) do
           opts
         ) do
       if attempt < max_attempts do
-        executor(args).abort_upload(
+        Core.abort_upload(
           bucket,
           query_from_args(args),
           %{id: id},
@@ -120,11 +119,7 @@ if Code.ensure_loaded?(Oban) do
     # Scheduler API
 
     def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
-      worker = opts[:move_to_destination][:worker] || MoveToDestinationWorker
-
       schedule = opts[:move_to_destination][:schedule]
-
-      exec = opts[:move_to_destination][:executor]
 
       %{
         event: @event_move_to_destination,
@@ -133,17 +128,12 @@ if Code.ensure_loaded?(Oban) do
         id: id
       }
       |> Map.merge(query_to_args(query))
-      |> maybe_put_executor(exec)
-      |> worker.new(job_opts(opts, schedule))
-      |> Uppy.Schedulers.Oban.insert(opts)
+      |> Router.lookup_worker(:move_to_destination).new(job_opts(opts, schedule))
+      |> Router.lookup_instance(:move_to_destination).insert(opts)
     end
 
     def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
-      worker = opts[:abort_expired_multipart_upload][:worker] || AbortExpiredMultipartUploadWorker
-
       schedule = opts[:abort_expired_multipart_upload][:schedule] || @one_day
-
-      exec = opts[:abort_expired_multipart_upload][:executor]
 
       %{
         event: @event_abort_expired_multipart_upload,
@@ -151,17 +141,12 @@ if Code.ensure_loaded?(Oban) do
         id: id
       }
       |> Map.merge(query_to_args(query))
-      |> maybe_put_executor(exec)
-      |> worker.new(job_opts(opts, schedule))
-      |> Uppy.Schedulers.Oban.insert(opts)
+      |> Router.lookup_worker(:abort_expired_multipart_upload).new(job_opts(opts, schedule))
+      |> Router.lookup_instance(:abort_expired_multipart_upload).insert(opts)
     end
 
     def enqueue_abort_expired_upload(bucket, query, id, opts) do
-      worker = opts[:abort_expired_upload][:worker] || AbortExpiredUploadWorker
-
       schedule = opts[:abort_expired_upload][:schedule] || @one_day
-
-      exec = opts[:abort_expired_upload][:executor]
 
       %{
         event: @event_abort_expired_upload,
@@ -169,24 +154,12 @@ if Code.ensure_loaded?(Oban) do
         id: id
       }
       |> Map.merge(query_to_args(query))
-      |> maybe_put_executor(exec)
-      |> worker.new(job_opts(opts, schedule))
-      |> Uppy.Schedulers.Oban.insert(opts)
+      |> Router.lookup_worker(:abort_expired_upload).new(job_opts(opts, schedule))
+      |> Router.lookup_instance(:abort_expired_upload).insert(opts)
     end
 
     defp job_opts(opts, schedule) do
       opts |> Keyword.get(:job, []) |> put_schedule_opts(schedule)
-    end
-
-    defp executor(%{"executor" => exec}), do: Uppy.Utils.string_to_existing_module(exec)
-    defp executor(_), do: Uppy.Core
-
-    defp maybe_put_executor(params, executor) do
-      if is_nil(executor) do
-        params
-      else
-        Map.put(params, :executor, executor)
-      end
     end
 
     defp query_from_args(%{"source" => source, "query" => query}) do

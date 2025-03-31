@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Schedulers.Oban.AbortExpiredMultipartUploadWorker do
+  defmodule Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredMultipartUploadWorker do
     use Oban.Worker,
       queue: :abort_expired_multipart_upload,
       max_attempts: 4,
@@ -8,7 +8,7 @@ if Code.ensure_loaded?(Oban) do
         states: [:available, :scheduled, :executing]
       ]
 
-    alias Uppy.Schedulers.Oban.WorkerAPI
+    alias Uppy.Schedulers.ObanScheduler.WorkerAPI
 
     def perform(job) do
       WorkerAPI.perform(job)

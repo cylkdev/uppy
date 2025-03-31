@@ -1,7 +1,7 @@
 defmodule Uppy.Scheduler do
   @moduledoc false
 
-  @default_adapter Uppy.Schedulers.Oban
+  @default_adapter Uppy.Schedulers.ObanScheduler
 
   @callback enqueue_move_to_destination(
               bucket :: binary(),

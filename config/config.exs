@@ -1,27 +1,35 @@
 import Config
 
+config :uppy, Uppy.Schedulers.ObanScheduler.Router,
+  instances: %{
+    abort_expired_multipart_upload: Uppy.Schedulers.ObanScheduler.Instance,
+    abort_expired_upload: Uppy.Schedulers.ObanScheduler.Instance,
+    move_to_destination: Uppy.Schedulers.ObanScheduler.Instance
+  },
+  workers: %{
+    abort_expired_multipart_upload: Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredMultipartUploadWorker,
+    abort_expired_upload: Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredUploadWorker,
+    move_to_destination: Uppy.Schedulers.ObanScheduler.Workers.MoveToDestinationWorker
+  }
+
+if Mix.env() === :test do
+  config :uppy, Uppy.Storages.S3,
+    scheme: "http://",
+    host: "s3.localhost.localstack.cloud",
+    port: 4566
+else
+  config :uppy, Uppy.Storages.S3,
+    access_key_id: ["<UPPY_S3_ACCESS_KEY_ID>"],
+    secret_access_key: ["<UPPY_S3_SECRET_ACCESS_KEY>"]
+end
+
 config :uppy,
   error_adapter: ErrorMessage,
   json_adapter: Jason,
   db_action_adapter: Uppy.DBActions.SimpleRepo,
   http_adapter: Uppy.HTTP.Finch,
-  scheduler_adapter: Uppy.Schedulers.Oban,
+  scheduler_adapter: Uppy.Schedulers.ObanScheduler,
   storage_adapter: Uppy.Storages.S3
-
-if Mix.env() === :test do
-  config :uppy, :s3,
-    scheme: "http://",
-    host: "s3.localhost.localstack.cloud",
-    port: 4566,
-    region: "us-west-1",
-    http_client: Uppy.Storages.S3.HTTP
-else
-  config :uppy, :s3,
-    region: "us-west-1",
-    access_key_id: ["<ACCESS_KEY_ID>"],
-    secret_access_key: ["<SECRET_ACCESS_KEY>"],
-    http_client: Uppy.Storages.S3.HTTP
-end
 
 if Mix.env() === :test do
   config :uppy, Oban,

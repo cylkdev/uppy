@@ -1,38 +1,21 @@
 if Code.ensure_loaded?(Oban) do
-  defmodule Uppy.Schedulers.Oban do
+  defmodule Uppy.Schedulers.ObanScheduler do
     @moduledoc false
 
-    alias Uppy.Schedulers.Oban.WorkerAPI
+    alias Uppy.Schedulers.ObanScheduler.{
+      Instance,
+      WorkerAPI
+    }
 
     @behaviour Uppy.Scheduler
 
-    @name Uppy.Oban
-
-    @default_opts [
-      notifier: Oban.Notifiers.PG
-    ]
-
     def start_link(opts \\ []) do
-      @default_opts
-      |> Keyword.merge(opts)
-      |> Keyword.put(:name, @name)
-      |> Oban.start_link()
+      Instance.start_link(opts)
     end
 
     def child_spec(opts) do
-      opts = Keyword.merge(@default_opts, opts)
-
-      %{
-        id: @name,
-        start: {__MODULE__, :start_link, [opts]}
-      }
+      Instance.child_spec(opts)
     end
-
-    def insert(changeset, opts) do
-      Oban.insert(@name, changeset, opts)
-    end
-
-    # Scheduler API
 
     @impl Uppy.Scheduler
     def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do

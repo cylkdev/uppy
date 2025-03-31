@@ -1,33 +1,5 @@
 defmodule Uppy.Supervisor do
-  @moduledoc """
-  Bridges provide a centralized place to manage configuration,
-  adapters, and run-time behaviour for Uploaders.
-
-  ## Getting Started
-
-  Application.ensure_all_started(:postgrex)
-  Application.ensure_all_started(:ecto)
-  Application.ensure_all_started(:oban)
-  Uppy.Support.Repo.start_link()
-
-  ```elixir
-  Uppy.Bridge.start_link(scheduler: [repo: Uppy.Support.Repo])
-  ```
-
-  ```elixir
-  defmodule MyApp.Bridge do
-    use Uppy.Bridge,
-      http_adapter: Uppy.HTTP.Finch,
-      scheduler_adapter: Uppy.Schedulers.Oban,
-      storage_adapter: Uppy.Storages.S3,
-      options: [scheduler: [repo: Uppy.Support.Repo]]
-  end
-  ```
-
-  ```elixir
-  MyApp.Bridge.start_link(scheduler: [repo: Uppy.Support.Repo])
-  ```
-  """
+  @moduledoc false
 
   @default_name __MODULE__
 
@@ -36,7 +8,7 @@ defmodule Uppy.Supervisor do
     http_enabled: true,
     http_adapter: Uppy.HTTP.Finch,
     scheduler_enabled: true,
-    scheduler_adapter: Uppy.Schedulers.Oban,
+    scheduler_adapter: Uppy.Schedulers.ObanScheduler,
     storage_enabled: true,
     storage_adapter: Uppy.Storages.S3
   ]

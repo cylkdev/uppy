@@ -130,7 +130,7 @@ defmodule Uppy.UploaderTest do
       assert job_id === schema_data.id
 
       assert {:ok, %{schema_data: schema_data}} =
-               perform_job(Uppy.Schedulers.Oban.AbortExpiredUploadWorker, args)
+               perform_job(Uppy.Schedulers.ObanScheduler.Workers.AbortExpiredUploadWorker, args)
 
       assert %Uppy.Support.Schemas.FileInfoAbstract{state: :expired, filename: "image.jpeg"} =
                schema_data
@@ -321,7 +321,7 @@ defmodule Uppy.UploaderTest do
               %{
                 done: [Uppy.Phases.MoveToDestination],
                 resolution: resolution
-              }} = perform_job(Uppy.Schedulers.Oban.MoveToDestinationWorker, args)
+              }} = perform_job(Uppy.Schedulers.ObanScheduler.Workers.MoveToDestinationWorker, args)
 
       assert %Uppy.Support.Schemas.FileInfoAbstract{
                state: :completed,
