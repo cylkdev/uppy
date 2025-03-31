@@ -10,14 +10,14 @@ if Code.ensure_loaded?(Oban) do
     ]
 
     def start_link(opts \\ []) do
-      @default_opts
+      default_opts()
       |> Keyword.merge(opts)
       |> Keyword.put(:name, @name)
       |> Oban.start_link()
     end
 
     def child_spec(opts) do
-      opts = Keyword.merge(@default_opts, opts)
+      opts = Keyword.merge(default_opts(), opts)
 
       %{
         id: @name,
@@ -27,6 +27,10 @@ if Code.ensure_loaded?(Oban) do
 
     def insert(changeset, opts) do
       Oban.insert(@name, changeset, opts)
+    end
+
+    defp default_opts do
+      Keyword.merge(@default_opts, Uppy.Config.module_config(__MODULE__) || [])
     end
   end
 end
