@@ -48,14 +48,10 @@ defmodule Uppy.Supervisor do
   end
 
   defp http_child(opts) do
-    if Keyword.has_key?(opts, :http_adapter) and Keyword.get(opts, :http_enabled, true) do
-      adapter = opts[:http_adapter]
-      adapter_opts = opts[:http] || []
-
-      if child_spec_exported?(adapter) do
-        [{adapter, adapter_opts}]
-      else
-        []
+    if Keyword.get(opts, :http_enabled, true) do
+      case opts[:http_adapter] do
+        nil -> []
+        mod -> if child_spec_exported?(mod), do: [{mod, opts[:http] || []}], else: []
       end
     else
       []
@@ -63,14 +59,10 @@ defmodule Uppy.Supervisor do
   end
 
   defp storage_child(opts) do
-    if Keyword.has_key?(opts, :storage_adapter) and Keyword.get(opts, :storage_enabled, true) do
-      adapter = opts[:storage_adapter]
-      adapter_opts = opts[:storage] || []
-
-      if child_spec_exported?(adapter) do
-        [{adapter, adapter_opts}]
-      else
-        []
+    if Keyword.get(opts, :storage_enabled, true) do
+      case opts[:storage_adapter] do
+        nil -> []
+        mod -> if child_spec_exported?(mod), do: [{mod, opts[:storage] || []}], else: []
       end
     else
       []
@@ -78,14 +70,10 @@ defmodule Uppy.Supervisor do
   end
 
   defp scheduler_child(opts) do
-    if Keyword.has_key?(opts, :scheduler_adapter) and Keyword.get(opts, :scheduler_enabled, true) do
-      adapter = opts[:scheduler_adapter]
-      adapter_opts = opts[:scheduler] || []
-
-      if child_spec_exported?(adapter) do
-        [{adapter, adapter_opts}]
-      else
-        []
+    if Keyword.get(opts, :scheduler_enabled, true) do
+      case opts[:scheduler_adapter] do
+        nil -> []
+        mod -> if child_spec_exported?(mod), do: [{mod, opts[:scheduler] || []}], else: []
       end
     else
       []
@@ -97,13 +85,10 @@ defmodule Uppy.Supervisor do
   end
 
   defp default_opts do
-    Keyword.merge(
-      @default_opts,
-      Uppy.Utils.drop_nil_values(
-        http_adapter: Uppy.Config.http_adapter(),
-        scheduler_adapter: Uppy.Config.scheduler_adapter(),
-        storage_adapter: Uppy.Config.storage_adapter()
-      )
+    Keyword.merge(@default_opts,
+      http_adapter: Uppy.Config.http_adapter(),
+      scheduler_adapter: Uppy.Config.scheduler_adapter(),
+      storage_adapter: Uppy.Config.storage_adapter()
     )
   end
 end

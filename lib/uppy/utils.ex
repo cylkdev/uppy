@@ -8,10 +8,6 @@ defmodule Uppy.Utils do
     end
   end
 
-  def drop_nil_values(enum) do
-    Enum.reject(enum, fn {_, v} -> is_nil(v) end)
-  end
-
   @doc """
   Converts a string to an atom.
 
