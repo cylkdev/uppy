@@ -73,7 +73,7 @@ if Code.ensure_loaded?(Oban) do
     end
 
     defp config do
-      Uppy.Config.module_config(__MODULE__) || []
+      Uppy.Config.get_app_config(__MODULE__) || []
     end
   end
 end

@@ -30,7 +30,7 @@ if Code.ensure_loaded?(Oban) do
     end
 
     defp default_opts do
-      Keyword.merge(@default_opts, Uppy.Config.module_config(__MODULE__) || [])
+      Keyword.merge(@default_opts, Uppy.Config.get_app_config(__MODULE__) || [])
     end
   end
 end

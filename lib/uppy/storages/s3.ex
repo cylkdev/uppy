@@ -353,7 +353,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     defp default_opts do
-      Keyword.merge(@default_opts, Uppy.Config.module_config(__MODULE__) || [])
+      Keyword.merge(@default_opts, Uppy.Config.get_app_config(__MODULE__) || [])
     end
 
     defp deserialize_response({:ok, %{body: %{contents: contents} = body}}) do
