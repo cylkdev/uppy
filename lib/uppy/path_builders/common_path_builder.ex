@@ -6,7 +6,6 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
   @default_encoding :encode32
   @encodings ~w(encode16 encode32 encode64)a
   @default_hash_size 4
-  @reverse_partition_id true
 
   @uploads "uploads"
   @organization "organization"
@@ -15,24 +14,18 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
   @empty_string ""
 
   @impl true
-  def build_object_path(
-        _action,
-        %_{filename: filename} = struct,
-        unique_identifier,
-        params
-      ) do
-    resource_name = params[:resource_name] || @uploads
-    reverse_partition_id? = params[:reverse_partition_id] || @reverse_partition_id
-
+  def build_object_path(%{filename: filename} = schema_data, unique_identifier, params) do
+    resource_name = params[:permanent_object][:resource_name] || @uploads
     path_prefix = params[:permanent_object][:prefix] || @empty_string
     partition_name = params[:permanent_object][:partition_name] || @organization
+    reverse_partition_id? = params[:permanent_object][:reverse_partition_id] || true
     partition_id = params[:permanent_object][:partition_id]
     callback_fun = params[:permanent_object][:callback]
 
     basename = "#{unique_identifier || generate_unique_identifier(params)}-#{filename}"
 
     if is_function(callback_fun, 2) do
-      case callback_fun.(struct, basename) do
+      case callback_fun.(schema_data, basename) do
         {basename, path} -> {URI.encode(basename), URI.encode(path)}
         term -> raise "Expected {basename, path}, got: #{inspect(term)}"
       end
@@ -64,18 +57,11 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
   end
 
   @impl true
-  def build_object_path(_action, filename, params) do
-    resource_name =
-      if params[:temporary_object][:resource_name_enabled] do
-        params[:resource_name] || @empty_string
-      else
-        @empty_string
-      end
-
-    reverse_partition_id? = params[:reverse_partition_id] || @reverse_partition_id
-
+  def build_object_path(filename, params) do
+    resource_name = params[:temporary_object][:resource_name] || @empty_string
     path_prefix = params[:temporary_object][:prefix] || @temp
     partition_name = params[:temporary_object][:partition_name] || @user
+    reverse_partition_id? = params[:temporary_object][:reverse_partition_id] || true
     partition_id = params[:temporary_object][:partition_id]
     callback_fun = params[:temporary_object][:callback]
 
@@ -125,11 +111,20 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
     bytes = :crypto.strong_rand_bytes(hash_size)
 
     case encoding do
-      :encode16 -> Base.encode16(bytes, padding: padding)
-      :encode32 -> Base.encode32(bytes, padding: padding)
-      :encode64 -> Base.encode64(bytes, padding: padding)
-      fun when is_function(fun) -> fun.()
-      term -> raise "Expected one of #{inspect(@encodings)}, or a 0-arity function, got: #{inspect(term)}"
+      :encode16 ->
+        Base.encode16(bytes, padding: padding)
+
+      :encode32 ->
+        Base.encode32(bytes, padding: padding)
+
+      :encode64 ->
+        Base.encode64(bytes, padding: padding)
+
+      fun when is_function(fun) ->
+        fun.()
+
+      term ->
+        raise "Expected one of #{inspect(@encodings)}, or a 0-arity function, got: #{inspect(term)}"
     end
   end
 end

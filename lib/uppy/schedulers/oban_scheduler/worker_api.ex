@@ -34,18 +34,19 @@ if Code.ensure_loaded?(Oban) do
     @expired :expired
 
     def perform(
-      %{
-        args: %{
-          "event" => "uppy." <> @move_to_destination,
-          "bucket" => bucket,
-          "id" => id,
-          "destination_object" => dest_object
-        } = args,
-        attempt: attempt,
-        max_attempts: max_attempts
-      },
-      opts
-    ) do
+          %{
+            args:
+              %{
+                "event" => "uppy." <> @move_to_destination,
+                "bucket" => bucket,
+                "id" => id,
+                "destination_object" => dest_object
+              } = args,
+            attempt: attempt,
+            max_attempts: max_attempts
+          },
+          opts
+        ) do
       if attempt < max_attempts do
         Core.move_to_destination(
           bucket,
@@ -66,17 +67,18 @@ if Code.ensure_loaded?(Oban) do
     end
 
     def perform(
-      %{
-        args: %{
-          "event" => "uppy." <> @abort_expired_multipart_upload,
-          "bucket" => bucket,
-          "id" => id
-        } = args,
-        attempt: attempt,
-        max_attempts: max_attempts
-      },
-      opts
-    ) do
+          %{
+            args:
+              %{
+                "event" => "uppy." <> @abort_expired_multipart_upload,
+                "bucket" => bucket,
+                "id" => id
+              } = args,
+            attempt: attempt,
+            max_attempts: max_attempts
+          },
+          opts
+        ) do
       if attempt < max_attempts do
         Core.abort_multipart_upload(
           bucket,
@@ -96,17 +98,18 @@ if Code.ensure_loaded?(Oban) do
     end
 
     def perform(
-      %{
-        args: %{
-          "event" => "uppy." <> @abort_expired_upload,
-          "bucket" => bucket,
-          "id" => id
-        } = args,
-        attempt: attempt,
-        max_attempts: max_attempts
-      },
-      opts
-    ) do
+          %{
+            args:
+              %{
+                "event" => "uppy." <> @abort_expired_upload,
+                "bucket" => bucket,
+                "id" => id
+              } = args,
+            attempt: attempt,
+            max_attempts: max_attempts
+          },
+          opts
+        ) do
       if attempt < max_attempts do
         Core.abort_upload(
           bucket,
@@ -126,63 +129,81 @@ if Code.ensure_loaded?(Oban) do
     end
 
     def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
+      exec_opts =
+        :move_to_destination
+        |> Uppy.Config.get_app_env([])
+        |> Keyword.merge(opts[:move_to_destination] || [])
+
       params =
         query
         |> query_to_args()
         |> Map.merge(%{
-          event: event_name(@move_to_destination),
+          event: "uppy.#{@move_to_destination}",
           id: id,
           bucket: bucket,
-          destination_object: dest_object,
+          destination_object: dest_object
         })
 
-      opts = put_schedule_opts(opts, opts[:move_to_destination][:schedule])
-
       @move_to_destination
-      |> lookup_worker(Workers.MoveToDestinationWorker, opts)
-      |> Instance.insert(params, opts)
+      |> lookup_worker(exec_opts[:worker] || Workers.MoveToDestinationWorker, opts)
+      |> Instance.insert(params, put_schedule_opts(opts, opts[:move_to_destination][:schedule]))
     end
 
     def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
+      exec_opts =
+        :abort_expired_multipart_upload
+        |> Uppy.Config.get_app_env([])
+        |> Keyword.merge(opts[:abort_expired_multipart_upload] || [])
+
       params =
         query
         |> query_to_args()
         |> Map.merge(%{
-          event: event_name(@abort_expired_multipart_upload),
+          event: "uppy.#{@abort_expired_multipart_upload}",
           bucket: bucket,
           id: id
         })
 
-      opts = put_schedule_opts(opts, opts[:abort_expired_multipart_upload][:schedule] || @one_day)
-
       @abort_expired_multipart_upload
-      |> lookup_worker(Workers.AbortExpiredMultipartUploadWorker, opts)
-      |> Instance.insert(params, opts)
+      |> lookup_worker(exec_opts[:worker] || Workers.AbortExpiredMultipartUploadWorker, opts)
+      |> Instance.insert(params, put_schedule_opts(opts, exec_opts[:schedule] || @one_day))
     end
 
     def enqueue_abort_expired_upload(bucket, query, id, opts) do
+      exec_opts =
+        :abort_expired_upload
+        |> Uppy.Config.get_app_env([])
+        |> Keyword.merge(opts[:abort_expired_upload] || [])
+
       params =
         query
         |> query_to_args()
         |> Map.merge(%{
-          event: event_name(@abort_expired_upload),
+          event: "uppy.#{@abort_expired_upload}",
           bucket: bucket,
           id: id
         })
 
-      opts = put_schedule_opts(opts, opts[:abort_expired_upload][:schedule] || @one_day)
-
       @abort_expired_upload
-      |> lookup_worker(Workers.AbortExpiredUploadWorker, opts)
-      |> Instance.insert(params, opts)
+      |> lookup_worker(exec_opts[:worker] || Workers.AbortExpiredUploadWorker, opts)
+      |> Instance.insert(params, put_schedule_opts(opts, exec_opts[:schedule] || @one_day))
     end
 
-    defp event_name(name), do: "uppy.#{name}"
+    defp lookup_worker(queue, default, opts) do
+      with {_, val} <-
+             opts
+             |> Keyword.get(:oban_workers, Uppy.Config.get_app_env(:oban_workers) || [])
+             |> Enum.find(default, fn {k, _} -> to_string(k) === to_string(queue) end) do
+        val
+      end
+    end
 
     defp query_to_args({source, query}), do: %{source: source, query: to_string(query)}
     defp query_to_args(query), do: %{query: to_string(query)}
 
-    defp query_from_args(%{"source" => source, "query" => query}), do: {source, Uppy.Utils.string_to_existing_module(query)}
+    defp query_from_args(%{"source" => source, "query" => query}),
+      do: {source, Uppy.Utils.string_to_existing_module(query)}
+
     defp query_from_args(%{"query" => query}), do: Uppy.Utils.string_to_existing_module(query)
 
     defp put_schedule_opts(opts, schedule) do
@@ -203,15 +224,6 @@ if Code.ensure_loaded?(Oban) do
 
         _ ->
           opts
-      end
-    end
-
-    defp lookup_worker(queue, default, opts) do
-      with {_, val} <-
-        opts
-        |> Keyword.get(:oban_workers, Uppy.Config.get_app_env(:oban_workers) || [])
-        |> Enum.find(default, fn {k, _} -> to_string(k) === to_string(queue) end) do
-        val
       end
     end
   end

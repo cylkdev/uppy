@@ -9,17 +9,31 @@ defmodule Uppy.UploaderTest do
   defmodule MockUploader do
     use Uppy.Uploader,
       bucket: "test-bucket",
-      query: {"user_avatar_file_infos", Uppy.Support.Schemas.FileInfoAbstract},
+      query: {"user_avatar_file_infos", Uppy.Support.Schemas.FileInfoAbstract}
+
+    @default_permanent_object_params %{
       resource_name: "user_avatar",
-      path: %{
-        permanent_object: %{
-          partition_name: "organization"
-        },
-        temporary_object: %{
-          partition_name: "user",
-          basename_prefix: "temp"
-        }
-      }
+      partition_name: "organization"
+    }
+
+    @default_temporary_object_params %{
+      partition_name: "user",
+      basename_prefix: "temp"
+    }
+
+    def build_object_path_params(params) do
+      params
+      |> Map.update(
+        :permanent_object,
+        @default_permanent_object_params,
+        &Map.merge(@default_permanent_object_params, &1)
+      )
+      |> Map.update(
+        :temporary_object,
+        @default_temporary_object_params,
+        &Map.merge(@default_temporary_object_params, &1)
+      )
+    end
   end
 
   describe "bucket/0" do
@@ -35,16 +49,11 @@ defmodule Uppy.UploaderTest do
     end
   end
 
-  describe "resource_name/0" do
-    test "returns expected response" do
-      assert "user_avatar" = Uploader.resource_name(MockUploader)
-    end
-  end
-
   describe "path/0" do
     test "returns expected response" do
       assert %{
                permanent_object: %{
+                 resource_name: "user_avatar",
                  partition_name: "organization"
                },
                temporary_object: %{
@@ -319,7 +328,8 @@ defmodule Uppy.UploaderTest do
               %{
                 done: [Uppy.Phases.MoveToDestination],
                 resolution: resolution
-              }} = perform_job(Uppy.Schedulers.ObanScheduler.Workers.MoveToDestinationWorker, args)
+              }} =
+               perform_job(Uppy.Schedulers.ObanScheduler.Workers.MoveToDestinationWorker, args)
 
       assert %Uppy.Support.Schemas.FileInfoAbstract{
                state: :completed,

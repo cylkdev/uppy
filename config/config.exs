@@ -46,6 +46,7 @@ config :uppy, ecto_repos: [Uppy.Support.Repo]
 
 if Mix.env() === :test do
   config :uppy, :sql_sandbox, true
+
   config :uppy, Uppy.Support.Repo,
     username: "postgres",
     database: "uppy_test",

@@ -83,7 +83,7 @@ defmodule Uppy do
   """
   def complete_multipart_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         find_params,
         update_params,
@@ -92,7 +92,7 @@ defmodule Uppy do
       ) do
     Core.complete_multipart_upload(
       bucket,
-      path_params,
+      builder_args,
       query,
       find_params,
       update_params,
@@ -106,7 +106,7 @@ defmodule Uppy do
   """
   def complete_multipart_upload(
         uploader,
-        path_params,
+        builder_args,
         params_or_struct,
         update_params,
         parts,
@@ -114,7 +114,7 @@ defmodule Uppy do
       ) do
     Uploader.complete_multipart_upload(
       uploader,
-      path_params,
+      builder_args,
       params_or_struct,
       update_params,
       parts,
@@ -150,10 +150,10 @@ defmodule Uppy do
   @doc """
   ...
   """
-  def create_multipart_upload(uploader, path_params, create_params, opts) do
+  def create_multipart_upload(uploader, builder_args, create_params, opts) do
     Uploader.create_multipart_upload(
       uploader,
-      path_params,
+      builder_args,
       create_params,
       opts
     )
@@ -164,7 +164,7 @@ defmodule Uppy do
   """
   def create_multipart_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         create_params,
         opts
@@ -173,7 +173,7 @@ defmodule Uppy do
       bucket,
       query,
       create_params,
-      path_params,
+      builder_args,
       opts
     )
   end
@@ -181,12 +181,12 @@ defmodule Uppy do
   @doc """
   ...
   """
-  def complete_upload(uploader, params_or_struct, update_params, path_params, opts) do
+  def complete_upload(uploader, params_or_struct, update_params, builder_args, opts) do
     Uploader.complete_upload(
       uploader,
       params_or_struct,
       update_params,
-      path_params,
+      builder_args,
       opts
     )
   end
@@ -196,7 +196,7 @@ defmodule Uppy do
   """
   def complete_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         params_or_struct,
         update_params,
@@ -204,7 +204,7 @@ defmodule Uppy do
       ) do
     Core.complete_upload(
       bucket,
-      path_params,
+      builder_args,
       query,
       params_or_struct,
       update_params,
@@ -240,10 +240,10 @@ defmodule Uppy do
   @doc """
   ...
   """
-  def create_upload(uploader, path_params, create_params, opts) do
+  def create_upload(uploader, builder_args, create_params, opts) do
     Uploader.create_upload(
       uploader,
-      path_params,
+      builder_args,
       create_params,
       opts
     )
@@ -252,10 +252,10 @@ defmodule Uppy do
   @doc """
   ...
   """
-  def create_upload(bucket, path_params, query, create_params, opts) do
+  def create_upload(bucket, builder_args, query, create_params, opts) do
     Core.create_upload(
       bucket,
-      path_params,
+      builder_args,
       query,
       create_params,
       opts

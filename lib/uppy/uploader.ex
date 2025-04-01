@@ -2,6 +2,65 @@ defmodule Uppy.Uploader do
   @moduledoc false
   alias Uppy.Core
 
+  @callback bucket :: binary()
+
+  @callback query :: atom() | {binary() | atom()}
+
+  @callback build_object_path_params(params :: map()) :: map()
+
+  @callback move_to_destination(
+              dest_object :: binary(),
+              params_or_struct :: map() | struct(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback find_parts(params_or_struct :: map() | struct(), opts :: keyword()) ::
+              {:ok, term()} | {:error, term()}
+
+  @callback sign_part(
+              params_or_struct :: map() | struct(),
+              part_number :: non_neg_integer(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback complete_multipart_upload(
+              builder_args :: any(),
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              parts :: list({part_number :: non_neg_integer(), e_tag :: binary()}),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback abort_multipart_upload(
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback create_multipart_upload(
+              builder_args :: any(),
+              create_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback complete_upload(
+              builder_args :: any(),
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback abort_upload(
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback create_upload(builder_args :: any(), create_params :: map(), opts :: keyword()) ::
+              {:ok, term()} | {:error, term()}
+
+  @optional_callbacks [build_object_path_params: 1]
+
   @definition [
     bucket: [
       type: :string,
@@ -10,12 +69,6 @@ defmodule Uppy.Uploader do
     query: [
       type: {:or, [:atom, {:tuple, [:string, :atom]}]},
       required: true
-    ],
-    resource_name: [
-      type: :string
-    ],
-    path: [
-      type: {:or, [:map, :keyword_list]}
     ]
   ]
 
@@ -26,10 +79,6 @@ defmodule Uppy.Uploader do
   def bucket(uploader), do: uploader.bucket()
 
   def query(uploader), do: uploader.query()
-
-  def resource_name(uploader), do: uploader.resource_name()
-
-  def path(uploader), do: uploader.path()
 
   def move_to_destination(uploader, dest_object, params_or_struct, opts) do
     Core.move_to_destination(
@@ -62,7 +111,7 @@ defmodule Uppy.Uploader do
 
   def complete_multipart_upload(
         uploader,
-        path_params,
+        builder_args,
         params_or_struct,
         update_params,
         parts,
@@ -70,7 +119,7 @@ defmodule Uppy.Uploader do
       ) do
     Core.complete_multipart_upload(
       uploader.bucket(),
-      build_object_path(uploader, path_params),
+      maybe_build_object_path_params(uploader, builder_args),
       uploader.query(),
       params_or_struct,
       update_params,
@@ -89,20 +138,20 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def create_multipart_upload(uploader, path_params, create_params, opts) do
+  def create_multipart_upload(uploader, builder_args, create_params, opts) do
     Core.create_multipart_upload(
       uploader.bucket(),
-      build_object_path(uploader, path_params),
+      maybe_build_object_path_params(uploader, builder_args),
       uploader.query(),
       create_params,
       opts
     )
   end
 
-  def complete_upload(uploader, path_params, params_or_struct, update_params, opts) do
+  def complete_upload(uploader, builder_args, params_or_struct, update_params, opts) do
     Core.complete_upload(
       uploader.bucket(),
-      build_object_path(uploader, path_params),
+      maybe_build_object_path_params(uploader, builder_args),
       uploader.query(),
       params_or_struct,
       update_params,
@@ -120,22 +169,21 @@ defmodule Uppy.Uploader do
     )
   end
 
-  def create_upload(uploader, path_params, create_params, opts) do
+  def create_upload(uploader, builder_args, create_params, opts) do
     Core.create_upload(
       uploader.bucket(),
-      build_object_path(uploader, path_params),
+      maybe_build_object_path_params(uploader, builder_args),
       uploader.query(),
       create_params,
       opts
     )
   end
 
-  defp build_object_path(uploader, path_params) do
-    path_params = Map.merge(uploader.path() || %{}, path_params)
-
-    case uploader.resource_name() do
-      nil -> path_params
-      resource_name -> Map.put(path_params, :resource_name, resource_name)
+  defp maybe_build_object_path_params(uploader, params) do
+    if function_exported?(uploader, :build_object_path_params, 1) do
+      uploader.build_object_path_params(params)
+    else
+      params
     end
   end
 
@@ -147,22 +195,19 @@ defmodule Uppy.Uploader do
 
       alias Uppy.Uploader
 
+      @behaviour Uppy.Uploader
+
       @bucket opts[:bucket]
 
       @query opts[:query]
 
-      @resource_name opts[:resource_name]
-
-      @path opts[:path]
-
+      @impl true
       def bucket, do: @bucket
 
+      @impl true
       def query, do: @query
 
-      def resource_name, do: @resource_name
-
-      def path, do: @path
-
+      @impl true
       def move_to_destination(dest_object, params_or_struct, opts) do
         Uploader.move_to_destination(
           __MODULE__,
@@ -172,16 +217,19 @@ defmodule Uppy.Uploader do
         )
       end
 
+      @impl true
       def find_parts(params_or_struct, opts) do
         Uploader.find_parts(__MODULE__, params_or_struct, opts)
       end
 
+      @impl true
       def sign_part(params_or_struct, part_number, opts) do
         Uploader.sign_part(__MODULE__, params_or_struct, part_number, opts)
       end
 
+      @impl true
       def complete_multipart_upload(
-            path_params,
+            builder_args,
             params_or_struct,
             update_params,
             parts,
@@ -189,7 +237,7 @@ defmodule Uppy.Uploader do
           ) do
         Uploader.complete_multipart_upload(
           __MODULE__,
-          path_params,
+          builder_args,
           params_or_struct,
           update_params,
           parts,
@@ -197,6 +245,7 @@ defmodule Uppy.Uploader do
         )
       end
 
+      @impl true
       def abort_multipart_upload(params_or_struct, update_params, opts) do
         Uploader.abort_multipart_upload(
           __MODULE__,
@@ -206,25 +255,28 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def create_multipart_upload(path_params, create_params, opts) do
+      @impl true
+      def create_multipart_upload(builder_args, create_params, opts) do
         Uploader.create_multipart_upload(
           __MODULE__,
-          path_params,
+          builder_args,
           create_params,
           opts
         )
       end
 
-      def complete_upload(path_params, params_or_struct, update_params, opts) do
+      @impl true
+      def complete_upload(builder_args, params_or_struct, update_params, opts) do
         Uploader.complete_upload(
           __MODULE__,
-          path_params,
+          builder_args,
           params_or_struct,
           update_params,
           opts
         )
       end
 
+      @impl true
       def abort_upload(params_or_struct, update_params, opts) do
         Uploader.abort_upload(
           __MODULE__,
@@ -234,10 +286,11 @@ defmodule Uppy.Uploader do
         )
       end
 
-      def create_upload(path_params, create_params, opts) do
+      @impl true
+      def create_upload(builder_args, create_params, opts) do
         Uploader.create_upload(
           __MODULE__,
-          path_params,
+          builder_args,
           create_params,
           opts
         )

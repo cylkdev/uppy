@@ -357,18 +357,20 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     defp deserialize_response({:ok, %{body: %{contents: contents} = body}}) do
-      {:ok, Map.merge(body, %{
-        key_count: String.to_integer(body.key_count),
-        max_keys: String.to_integer(body.max_keys),
-        is_truncated: body.is_truncated in ["true", true],
-        contents: Enum.map(contents, fn item ->
-          Map.merge(item, %{
-            e_tag: remove_quotations(item.e_tag),
-            size: String.to_integer(item.size),
-            last_modified: item.last_modified |> DateTime.from_iso8601() |> elem(1)
-          })
-        end)
-     })}
+      {:ok,
+       Map.merge(body, %{
+         key_count: String.to_integer(body.key_count),
+         max_keys: String.to_integer(body.max_keys),
+         is_truncated: body.is_truncated in ["true", true],
+         contents:
+           Enum.map(contents, fn item ->
+             Map.merge(item, %{
+               e_tag: remove_quotations(item.e_tag),
+               size: String.to_integer(item.size),
+               last_modified: item.last_modified |> DateTime.from_iso8601() |> elem(1)
+             })
+           end)
+       })}
     end
 
     defp deserialize_response({:ok, %{body: %{parts: parts}}}) do

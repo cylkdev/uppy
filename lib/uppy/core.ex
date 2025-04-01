@@ -129,7 +129,7 @@ defmodule Uppy.Core do
   """
   def complete_multipart_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         %_{} = schema_data,
         update_params,
@@ -140,14 +140,20 @@ defmodule Uppy.Core do
 
     {basename, dest_object} =
       PathBuilder.build_object_path(
-        :complete_multipart_upload,
         schema_data,
         unique_identifier,
-        path_params,
+        builder_args,
         opts
       )
 
-    with {:ok, metadata} <- Storage.complete_multipart_upload(bucket, schema_data.key, schema_data.upload_id, parts, opts) do
+    with {:ok, metadata} <-
+           Storage.complete_multipart_upload(
+             bucket,
+             schema_data.key,
+             schema_data.upload_id,
+             parts,
+             opts
+           ) do
       fun = fn ->
         with {:ok, schema_data} <-
                DBAction.update(
@@ -196,7 +202,7 @@ defmodule Uppy.Core do
 
   def complete_multipart_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         find_params,
         update_params,
@@ -211,7 +217,7 @@ defmodule Uppy.Core do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         schema_data,
         update_params,
@@ -259,16 +265,15 @@ defmodule Uppy.Core do
   """
   def create_multipart_upload(
         bucket,
-        path_params,
+        builder_args,
         query,
         create_params,
         opts
       ) do
     {basename, key} =
       PathBuilder.build_object_path(
-        :create_multipart_upload,
         create_params.filename,
-        path_params,
+        builder_args,
         opts
       )
 
@@ -319,15 +324,14 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def complete_upload(bucket, path_params, query, %_{} = schema_data, update_params, opts) do
+  def complete_upload(bucket, builder_args, query, %_{} = schema_data, update_params, opts) do
     unique_identifier = update_params[:unique_identifier]
 
     {basename, dest_object} =
       PathBuilder.build_object_path(
-        :complete_upload,
         schema_data,
         unique_identifier,
-        path_params,
+        builder_args,
         opts
       )
 
@@ -378,14 +382,14 @@ defmodule Uppy.Core do
     end
   end
 
-  def complete_upload(bucket, path_params, query, find_params, update_params, opts) do
+  def complete_upload(bucket, builder_args, query, find_params, update_params, opts) do
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, path_params, query, schema_data, update_params, opts)
+      complete_upload(bucket, builder_args, query, schema_data, update_params, opts)
     end
   end
 
@@ -428,9 +432,8 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def create_upload(bucket, path_params, query, create_params, opts) when is_binary(bucket) do
-    {basename, key} =
-      PathBuilder.build_object_path(:create_upload, create_params.filename, path_params, opts)
+  def create_upload(bucket, builder_args, query, create_params, opts) when is_binary(bucket) do
+    {basename, key} = PathBuilder.build_object_path(create_params.filename, builder_args, opts)
 
     with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
       fun = fn ->

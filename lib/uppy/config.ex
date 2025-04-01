@@ -2,7 +2,7 @@ defmodule Uppy.Config do
   @moduledoc false
   @app :uppy
 
-  def get_app_env(key), do: Application.get_env(@app, key)
+  def get_app_env(key, default \\ nil), do: Application.get_env(@app, key) || default
 
   @spec error_adapter :: module()
   def error_adapter do
