@@ -21,18 +21,14 @@ defmodule Uppy.UploaderTest do
       basename_prefix: "temp"
     }
 
-    def build_object_path_params(params) do
-      params
-      |> Map.update(
-        :permanent_object,
-        @default_permanent_object_params,
-        &Map.merge(@default_permanent_object_params, &1)
-      )
-      |> Map.update(
-        :temporary_object,
-        @default_temporary_object_params,
-        &Map.merge(@default_temporary_object_params, &1)
-      )
+    def path_builder_params(action, params)
+        when action in [:complete_upload, :complete_multipart_upload] do
+      Map.merge(@default_permanent_object_params, params)
+    end
+
+    def path_builder_params(action, params)
+        when action in [:create_upload, :create_multipart_upload] do
+      Map.merge(@default_temporary_object_params, params)
     end
   end
 
@@ -46,21 +42,6 @@ defmodule Uppy.UploaderTest do
     test "returns expected response" do
       assert {"user_avatar_file_infos", Uppy.Support.Schemas.FileInfoAbstract} =
                Uploader.query(MockUploader)
-    end
-  end
-
-  describe "path/0" do
-    test "returns expected response" do
-      assert %{
-               permanent_object: %{
-                 resource_name: "user_avatar",
-                 partition_name: "organization"
-               },
-               temporary_object: %{
-                 partition_name: "user",
-                 basename_prefix: "temp"
-               }
-             } === Uploader.path(MockUploader)
     end
   end
 
@@ -90,10 +71,8 @@ defmodule Uppy.UploaderTest do
                Uploader.create_upload(
                  MockUploader,
                  %{
-                   temporary_object: %{
-                     partition_id: "AB",
-                     basename_prefix: "temp_prefix"
-                   }
+                   partition_id: "AB",
+                   basename_prefix: "temp_prefix"
                  },
                  %{
                    filename: "image.jpeg"
@@ -167,10 +146,8 @@ defmodule Uppy.UploaderTest do
                Uploader.create_upload(
                  MockUploader,
                  %{
-                   temporary_object: %{
-                     partition_id: "AB",
-                     basename_prefix: "temp_prefix"
-                   }
+                   partition_id: "AB",
+                   basename_prefix: "temp_prefix"
                  },
                  %{
                    filename: "image.jpeg"
@@ -265,10 +242,8 @@ defmodule Uppy.UploaderTest do
                Uploader.create_upload(
                  MockUploader,
                  %{
-                   temporary_object: %{
-                     partition_id: "AB",
-                     basename_prefix: "temp_prefix"
-                   }
+                   partition_id: "AB",
+                   basename_prefix: "temp_prefix"
                  },
                  %{
                    # ,
@@ -281,7 +256,7 @@ defmodule Uppy.UploaderTest do
       assert {:ok, payload} =
                Uploader.complete_upload(
                  MockUploader,
-                 %{permanent_object: %{partition_id: "ORG_ID"}},
+                 %{partition_id: "ORG_ID"},
                  %{id: schema_id},
                  %{unique_identifier: "test_unique_id"},
                  []

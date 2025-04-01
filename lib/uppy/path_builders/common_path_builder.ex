@@ -15,12 +15,14 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
 
   @impl true
   def build_object_path(%{filename: filename} = schema_data, unique_identifier, params) do
-    resource_name = params[:permanent_object][:resource_name] || @uploads
-    path_prefix = params[:permanent_object][:prefix] || @empty_string
-    partition_name = params[:permanent_object][:partition_name] || @organization
-    reverse_partition_id? = params[:permanent_object][:reverse_partition_id] || true
-    partition_id = params[:permanent_object][:partition_id]
-    callback_fun = params[:permanent_object][:callback]
+    IO.inspect(params, label: "YO")
+
+    resource_name = params[:resource_name] || @uploads
+    path_prefix = params[:prefix] || @empty_string
+    partition_name = params[:partition_name] || @organization
+    reverse_partition_id? = params[:reverse_partition_id] || true
+    partition_id = params[:partition_id]
+    callback_fun = params[:callback]
 
     basename = "#{unique_identifier || generate_unique_identifier(params)}-#{filename}"
 
@@ -58,15 +60,15 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
 
   @impl true
   def build_object_path(filename, params) do
-    resource_name = params[:temporary_object][:resource_name] || @empty_string
-    path_prefix = params[:temporary_object][:prefix] || @temp
-    partition_name = params[:temporary_object][:partition_name] || @user
-    reverse_partition_id? = params[:temporary_object][:reverse_partition_id] || true
-    partition_id = params[:temporary_object][:partition_id]
-    callback_fun = params[:temporary_object][:callback]
+    resource_name = params[:resource_name] || @empty_string
+    path_prefix = params[:prefix] || @temp
+    partition_name = params[:partition_name] || @user
+    reverse_partition_id? = params[:reverse_partition_id] || true
+    partition_id = params[:partition_id]
+    callback_fun = params[:callback]
 
     basename =
-      case params[:temporary_object][:basename_prefix] do
+      case params[:basename_prefix] do
         nil -> "#{:os.system_time() |> to_string() |> String.reverse()}-#{filename}"
         prefix -> "#{prefix}-#{filename}"
       end
