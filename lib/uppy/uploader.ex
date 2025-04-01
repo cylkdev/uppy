@@ -2,6 +2,27 @@ defmodule Uppy.Uploader do
   @moduledoc false
   alias Uppy.Core
 
+  @definition [
+    bucket: [
+      type: :string,
+      required: true
+    ],
+    query: [
+      type: {:or, [:atom, {:tuple, [:string, :atom]}]},
+      required: true
+    ],
+    resource_name: [
+      type: :string
+    ],
+    path: [
+      type: {:or, [:map, :keyword_list]}
+    ]
+  ]
+
+  def definition, do: @definition
+
+  def validate_definition!(opts), do: NimbleOptions.validate!(opts, @definition)
+
   def bucket(uploader), do: uploader.bucket()
 
   def query(uploader), do: uploader.query()
@@ -121,6 +142,8 @@ defmodule Uppy.Uploader do
   defmacro __using__(opts) do
     quote do
       opts = unquote(opts)
+
+      opts = Uppy.Uploader.validate_definition!(opts)
 
       alias Uppy.Uploader
 

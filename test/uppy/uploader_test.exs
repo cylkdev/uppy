@@ -73,9 +73,7 @@ defmodule Uppy.UploaderTest do
       StorageSandbox.set_head_object_responses([
         {
           "test-bucket",
-          fn ->
-            {:error, %{code: :not_found}}
-          end
+          fn -> {:error, %{code: :not_found}} end
         }
       ])
 

@@ -11,7 +11,7 @@ if Code.ensure_loaded?(Oban) do
     alias Uppy.Schedulers.ObanScheduler.WorkerAPI
 
     def perform(job) do
-      WorkerAPI.perform(job)
+      WorkerAPI.perform(job, [])
     end
   end
 end

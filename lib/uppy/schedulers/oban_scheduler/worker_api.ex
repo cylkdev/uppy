@@ -1,40 +1,51 @@
 if Code.ensure_loaded?(Oban) do
   defmodule Uppy.Schedulers.ObanScheduler.WorkerAPI do
-    @moduledoc false
+    @moduledoc """
+    ## Shared Options
+
+    The following options are shared across most functions in this module:
+
+      * `:oban_workers` - An enum where each key is a queue name
+        and the value is the Oban worker to use.
+
+        For example:
+
+        ```elixir
+        [
+          abort_expired_multipart_upload: MyApp.ObanWorkerA,
+          abort_expired_upload: MyApp.ObanWorkerB,
+          move_to_destination: MyApp.ObanWorkerC
+        ]
+        ```
+    """
 
     alias Uppy.{
       Core,
-      Schedulers.ObanScheduler.Router
+      Schedulers.ObanScheduler.Instance,
+      Schedulers.ObanScheduler.Workers
     }
 
-    # ---
-
-    @event_abort_expired_multipart_upload "uppy.abort_expired_multipart_upload"
-    @event_abort_expired_upload "uppy.abort_expired_upload"
-    @event_move_to_destination "uppy.move_to_destination"
-
-    @expired :expired
+    @abort_expired_multipart_upload "abort_expired_multipart_upload"
+    @abort_expired_upload "abort_expired_upload"
+    @move_to_destination "move_to_destination"
 
     @one_day :timer.hours(24)
 
-    # Worker API
-
-    def perform(job, opts \\ [])
+    @expired :expired
 
     def perform(
-          %{
-            attempt: attempt,
-            max_attempts: max_attempts,
-            args:
-              %{
-                "event" => @event_move_to_destination,
-                "bucket" => bucket,
-                "id" => id,
-                "destination_object" => dest_object
-              } = args
-          } = _job,
-          opts
-        ) do
+      %{
+        args: %{
+          "event" => "uppy." <> @move_to_destination,
+          "bucket" => bucket,
+          "id" => id,
+          "destination_object" => dest_object
+        } = args,
+        attempt: attempt,
+        max_attempts: max_attempts
+      },
+      opts
+    ) do
       if attempt < max_attempts do
         Core.move_to_destination(
           bucket,
@@ -55,18 +66,17 @@ if Code.ensure_loaded?(Oban) do
     end
 
     def perform(
-          %{
-            attempt: attempt,
-            max_attempts: max_attempts,
-            args:
-              %{
-                "event" => @event_abort_expired_multipart_upload,
-                "bucket" => bucket,
-                "id" => id
-              } = args
-          } = _job,
-          opts
-        ) do
+      %{
+        args: %{
+          "event" => "uppy." <> @abort_expired_multipart_upload,
+          "bucket" => bucket,
+          "id" => id
+        } = args,
+        attempt: attempt,
+        max_attempts: max_attempts
+      },
+      opts
+    ) do
       if attempt < max_attempts do
         Core.abort_multipart_upload(
           bucket,
@@ -86,18 +96,17 @@ if Code.ensure_loaded?(Oban) do
     end
 
     def perform(
-          %{
-            attempt: attempt,
-            max_attempts: max_attempts,
-            args:
-              %{
-                "event" => @event_abort_expired_upload,
-                "bucket" => bucket,
-                "id" => id
-              } = args
-          } = _job,
-          opts
-        ) do
+      %{
+        args: %{
+          "event" => "uppy." <> @abort_expired_upload,
+          "bucket" => bucket,
+          "id" => id
+        } = args,
+        attempt: attempt,
+        max_attempts: max_attempts
+      },
+      opts
+    ) do
       if attempt < max_attempts do
         Core.abort_upload(
           bucket,
@@ -116,70 +125,68 @@ if Code.ensure_loaded?(Oban) do
       end
     end
 
-    # Scheduler API
-
     def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
-      schedule = opts[:move_to_destination][:schedule]
+      params =
+        query
+        |> query_to_args()
+        |> Map.merge(%{
+          event: event_name(@move_to_destination),
+          id: id,
+          bucket: bucket,
+          destination_object: dest_object,
+        })
 
-      %{
-        event: @event_move_to_destination,
-        bucket: bucket,
-        destination_object: dest_object,
-        id: id
-      }
-      |> Map.merge(query_to_args(query))
-      |> Router.lookup_worker(:move_to_destination).new(job_opts(opts, schedule))
-      |> Router.lookup_instance(:move_to_destination).insert(opts)
+      opts = put_schedule_opts(opts, opts[:move_to_destination][:schedule])
+
+      @move_to_destination
+      |> lookup_worker(Workers.MoveToDestinationWorker, opts)
+      |> Instance.insert(params, opts)
     end
 
     def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
-      schedule = opts[:abort_expired_multipart_upload][:schedule] || @one_day
+      params =
+        query
+        |> query_to_args()
+        |> Map.merge(%{
+          event: event_name(@abort_expired_multipart_upload),
+          bucket: bucket,
+          id: id
+        })
 
-      %{
-        event: @event_abort_expired_multipart_upload,
-        bucket: bucket,
-        id: id
-      }
-      |> Map.merge(query_to_args(query))
-      |> Router.lookup_worker(:abort_expired_multipart_upload).new(job_opts(opts, schedule))
-      |> Router.lookup_instance(:abort_expired_multipart_upload).insert(opts)
+      opts = put_schedule_opts(opts, opts[:abort_expired_multipart_upload][:schedule] || @one_day)
+
+      @abort_expired_multipart_upload
+      |> lookup_worker(Workers.AbortExpiredMultipartUploadWorker, opts)
+      |> Instance.insert(params, opts)
     end
 
     def enqueue_abort_expired_upload(bucket, query, id, opts) do
-      schedule = opts[:abort_expired_upload][:schedule] || @one_day
+      params =
+        query
+        |> query_to_args()
+        |> Map.merge(%{
+          event: event_name(@abort_expired_upload),
+          bucket: bucket,
+          id: id
+        })
 
-      %{
-        event: @event_abort_expired_upload,
-        bucket: bucket,
-        id: id
-      }
-      |> Map.merge(query_to_args(query))
-      |> Router.lookup_worker(:abort_expired_upload).new(job_opts(opts, schedule))
-      |> Router.lookup_instance(:abort_expired_upload).insert(opts)
+      opts = put_schedule_opts(opts, opts[:abort_expired_upload][:schedule] || @one_day)
+
+      @abort_expired_upload
+      |> lookup_worker(Workers.AbortExpiredUploadWorker, opts)
+      |> Instance.insert(params, opts)
     end
 
-    defp job_opts(opts, schedule) do
-      opts |> Keyword.get(:job, []) |> put_schedule_opts(schedule)
-    end
+    defp event_name(name), do: "uppy.#{name}"
 
-    defp query_from_args(%{"source" => source, "query" => query}) do
-      {source, Uppy.Utils.string_to_existing_module(query)}
-    end
+    defp query_to_args({source, query}), do: %{source: source, query: to_string(query)}
+    defp query_to_args(query), do: %{query: to_string(query)}
 
-    defp query_from_args(%{"query" => query}) do
-      Uppy.Utils.string_to_existing_module(query)
-    end
+    defp query_from_args(%{"source" => source, "query" => query}), do: {source, Uppy.Utils.string_to_existing_module(query)}
+    defp query_from_args(%{"query" => query}), do: Uppy.Utils.string_to_existing_module(query)
 
-    defp query_to_args({source, query}) do
-      %{source: source, query: to_string(query)}
-    end
-
-    defp query_to_args(query) do
-      %{query: to_string(query)}
-    end
-
-    defp put_schedule_opts(opts, delay) do
-      case delay do
+    defp put_schedule_opts(opts, schedule) do
+      case schedule do
         delay when is_integer(delay) ->
           if Keyword.has_key?(opts, :schedule_in) do
             opts
@@ -187,15 +194,24 @@ if Code.ensure_loaded?(Oban) do
             Keyword.put_new(opts, :schedule_in, delay)
           end
 
-        dt when is_struct(dt, DateTime) ->
+        datetime when is_struct(datetime, DateTime) ->
           if Keyword.has_key?(opts, :schedule_at) do
             opts
           else
-            Keyword.put_new(opts, :schedule_at, dt)
+            Keyword.put_new(opts, :schedule_at, datetime)
           end
 
         _ ->
           opts
+      end
+    end
+
+    defp lookup_worker(queue, default, opts) do
+      with {_, val} <-
+        opts
+        |> Keyword.get(:oban_workers, Uppy.Config.get_app_env(:oban_workers) || [])
+        |> Enum.find(default, fn {k, _} -> to_string(k) === to_string(queue) end) do
+        val
       end
     end
   end

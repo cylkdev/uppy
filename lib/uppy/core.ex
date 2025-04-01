@@ -428,7 +428,7 @@ defmodule Uppy.Core do
   @doc """
   TODO...
   """
-  def create_upload(bucket, path_params, query, create_params, opts) do
+  def create_upload(bucket, path_params, query, create_params, opts) when is_binary(bucket) do
     {basename, key} =
       PathBuilder.build_object_path(:create_upload, create_params.filename, path_params, opts)
 

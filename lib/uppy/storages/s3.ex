@@ -66,7 +66,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
 
       s3_opts =
         opts
-        |> Keyword.get(:s3, [])
+        |> Keyword.get(:get_chunk, [])
         |> Keyword.put(:range, "bytes=#{start_byte}-#{end_byte}")
 
       with {:ok, body} <-
@@ -353,7 +353,7 @@ if Uppy.Utils.ensure_all_loaded?([ExAws, ExAws.S3]) do
     end
 
     defp default_opts do
-      Keyword.merge(@default_opts, Uppy.Config.get_app_config(__MODULE__) || [])
+      Keyword.merge(@default_opts, Uppy.Config.get_app_env(:storage) || [])
     end
 
     defp deserialize_response({:ok, %{body: %{contents: contents} = body}}) do
