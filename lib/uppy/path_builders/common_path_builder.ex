@@ -15,8 +15,6 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
 
   @impl true
   def build_object_path(%{filename: filename} = schema_data, unique_identifier, params) do
-    IO.inspect(params, label: "YO")
-
     resource_name = params[:resource_name] || @uploads
     path_prefix = params[:prefix] || @empty_string
     partition_name = params[:partition_name] || @organization

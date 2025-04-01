@@ -6,7 +6,7 @@ defmodule Uppy.Uploader do
 
   @callback query :: atom() | {binary() | atom()}
 
-  @callback path_builder_params(params :: map()) :: map()
+  @callback path_builder_params(action :: atom(), params :: map()) :: map()
 
   @callback move_to_destination(
               dest_object :: binary(),
@@ -59,7 +59,7 @@ defmodule Uppy.Uploader do
   @callback create_upload(builder_params :: any(), create_params :: map(), opts :: keyword()) ::
               {:ok, term()} | {:error, term()}
 
-  @optional_callbacks [path_builder_params: 1]
+  @optional_callbacks [path_builder_params: 2]
 
   @definition [
     bucket: [
