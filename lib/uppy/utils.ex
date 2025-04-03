@@ -1,6 +1,43 @@
 defmodule Uppy.Utils do
   @moduledoc false
 
+  def process_alive?(name) do
+    case Process.whereis(name) do
+      nil -> false
+      pid -> Process.alive?(pid)
+    end
+  end
+
+  @doc """
+  Converts a string to an atom.
+
+  ### Examples
+
+      iex> Uppy.Utils.string_to_module("Elixir.Enum")
+      Enum
+  """
+  @spec string_to_module(String.t()) :: module()
+  def string_to_module(string) do
+    string
+    |> String.split(".", trim: true)
+    |> Module.concat()
+  end
+
+  @doc """
+  Converts a string to an existing module atom.
+
+  ### Examples
+
+      iex> Uppy.Utils.string_to_existing_module("Elixir.Enum")
+      Enum
+  """
+  @spec string_to_existing_module(String.t()) :: module()
+  def string_to_existing_module(string) do
+    string
+    |> String.split(".", trim: true)
+    |> Module.safe_concat()
+  end
+
   @doc """
   Returns true if all modules are loaded
 

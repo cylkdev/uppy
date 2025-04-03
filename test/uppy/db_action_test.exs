@@ -1,4 +1,4 @@
 defmodule Uppy.DBActionTest do
-  use Uppy.DataCase, async: true
+  use Uppy.Support.DataCase, async: true
   doctest Uppy.DBAction
 end

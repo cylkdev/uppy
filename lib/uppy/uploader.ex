@@ -1,297 +1,326 @@
 defmodule Uppy.Uploader do
-  alias Uppy.{
-    Core,
-    DBAction
-  }
+  @moduledoc false
+  alias Uppy.Core
 
-  def all(adapter, params, opts \\ []) do
-    DBAction.all(adapter.query(), params, opts)
-  end
+  @callback bucket :: binary()
 
-  def create(adapter, params, opts \\ []) do
-    DBAction.create(adapter.query(), params, opts)
-  end
+  @callback query :: atom() | {binary() | atom()}
 
-  def find(adapter, params, opts \\ []) do
-    DBAction.find(adapter.query(), params, opts)
-  end
+  @callback resource_name :: binary() | nil
 
-  def update(adapter, find_params_or_struct, update_params, opts \\ []) do
-    DBAction.update(adapter.query(), find_params_or_struct, update_params, opts)
-  end
+  @callback path_builder_params(action :: atom(), params :: map()) :: map()
 
-  def delete(adapter, id_or_struct, opts \\ []) do
-    DBAction.delete(adapter.query(), id_or_struct, opts)
-  end
+  @callback move_to_destination(
+              dest_object :: binary(),
+              params_or_struct :: map() | struct(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
 
-  def move_to_destination(
-        adapter,
-        destination_object,
-        find_params_or_struct,
-        opts \\ []
-      ) do
+  @callback find_parts(params_or_struct :: map() | struct(), opts :: keyword()) ::
+              {:ok, term()} | {:error, term()}
+
+  @callback sign_part(
+              params_or_struct :: map() | struct(),
+              part_number :: non_neg_integer(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback complete_multipart_upload(
+              builder_params :: any(),
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              parts :: list({part_number :: non_neg_integer(), e_tag :: binary()}),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback abort_multipart_upload(
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback create_multipart_upload(
+              builder_params :: any(),
+              create_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback complete_upload(
+              builder_params :: any(),
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback abort_upload(
+              params_or_struct :: map() | struct(),
+              update_params :: map(),
+              opts :: keyword()
+            ) :: {:ok, term()} | {:error, term()}
+
+  @callback create_upload(builder_params :: any(), create_params :: map(), opts :: keyword()) ::
+              {:ok, term()} | {:error, term()}
+
+  @optional_callbacks [path_builder_params: 2]
+
+  @definition [
+    bucket: [
+      type: :string,
+      required: true
+    ],
+    query: [
+      type: {:or, [:atom, {:tuple, [:string, :atom]}]},
+      required: true
+    ],
+    resource_name: [
+      type: :string
+    ]
+  ]
+
+  def definition, do: @definition
+
+  def validate_definition!(opts), do: NimbleOptions.validate!(opts, @definition)
+
+  def bucket(uploader), do: uploader.bucket()
+
+  def query(uploader), do: uploader.query()
+
+  def move_to_destination(uploader, dest_object, params_or_struct, opts) do
     Core.move_to_destination(
-      adapter.bucket(),
-      destination_object,
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      uploader.query(),
+      dest_object,
+      params_or_struct,
       opts
     )
   end
 
-  def find_parts(
-        adapter,
-        find_params_or_struct,
-        opts \\ []
-      ) do
+  def find_parts(uploader, params_or_struct, opts) do
     Core.find_parts(
-      adapter.bucket(),
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      uploader.query(),
+      params_or_struct,
       opts
     )
   end
 
-  def sign_part(
-        adapter,
-        find_params_or_struct,
-        part_number,
-        opts \\ []
-      ) do
+  def sign_part(uploader, params_or_struct, part_number, opts) do
     Core.sign_part(
-      adapter.bucket(),
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      uploader.query(),
+      params_or_struct,
       part_number,
       opts
     )
   end
 
   def complete_multipart_upload(
-        adapter,
-        object_desc,
-        find_params_or_struct,
+        uploader,
+        builder_params,
+        params_or_struct,
         update_params,
         parts,
-        opts \\ []
+        opts
       ) do
     Core.complete_multipart_upload(
-      adapter.bucket(),
-      object_desc,
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      path_builder_params(uploader, :complete_multipart_upload, builder_params),
+      uploader.query(),
+      params_or_struct,
       update_params,
       parts,
       opts
     )
   end
 
-  def abort_multipart_upload(
-        adapter,
-        find_params_or_struct,
-        update_params,
-        opts \\ []
-      ) do
+  def abort_multipart_upload(uploader, params_or_struct, update_params, opts) do
     Core.abort_multipart_upload(
-      adapter.bucket(),
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      uploader.query(),
+      params_or_struct,
       update_params,
       opts
     )
   end
 
-  def create_multipart_upload(adapter, object_desc, filename, create_params, opts \\ []) do
+  def create_multipart_upload(uploader, builder_params, create_params, opts) do
     Core.create_multipart_upload(
-      adapter.bucket(),
-      object_desc,
-      adapter.query(),
-      filename,
+      uploader.bucket(),
+      path_builder_params(uploader, :create_multipart_upload, builder_params),
+      uploader.query(),
       create_params,
       opts
     )
   end
 
-  def complete_upload(adapter, object_desc, find_params_or_struct, update_params, opts \\ []) do
+  def complete_upload(uploader, builder_params, params_or_struct, update_params, opts) do
     Core.complete_upload(
-      adapter.bucket(),
-      object_desc,
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      path_builder_params(uploader, :complete_upload, builder_params),
+      uploader.query(),
+      params_or_struct,
       update_params,
       opts
     )
   end
 
-  def abort_upload(
-        adapter,
-        find_params_or_struct,
-        update_params,
-        opts \\ []
-      ) do
+  def abort_upload(uploader, find_params, update_params, opts) do
     Core.abort_upload(
-      adapter.bucket(),
-      adapter.query(),
-      find_params_or_struct,
+      uploader.bucket(),
+      uploader.query(),
+      find_params,
       update_params,
       opts
     )
   end
 
-  def create_upload(adapter, object_desc, filename, create_params, opts \\ []) do
+  def create_upload(uploader, builder_params, create_params, opts) do
     Core.create_upload(
-      adapter.bucket(),
-      object_desc,
-      adapter.query(),
-      filename,
+      uploader.bucket(),
+      path_builder_params(uploader, :create_upload, builder_params),
+      uploader.query(),
       create_params,
       opts
     )
   end
 
-  defmacro __using__(opts \\ []) do
+  defp path_builder_params(uploader, action, params) do
+    if function_exported?(uploader, :path_builder_params, 2) do
+      params =
+        case uploader.resource_name() do
+          nil -> params
+          name -> Map.put(params, :resource_name, name)
+        end
+
+      uploader.path_builder_params(action, params)
+    else
+      params
+    end
+  end
+
+  defmacro __using__(opts) do
     quote do
       opts = unquote(opts)
 
+      opts = Uppy.Uploader.validate_definition!(opts)
+
+      alias Uppy.Uploader
+
+      @behaviour Uppy.Uploader
+
       @bucket opts[:bucket]
+
       @query opts[:query]
-      @options opts[:options]
 
-      @object_desc opts[:object_description] || %{}
+      @resource_name opts[:resource_name]
 
+      @impl true
       def bucket, do: @bucket
 
+      @impl true
       def query, do: @query
 
-      def options, do: @options
+      @impl true
+      def resource_name, do: @resource_name
 
-      def object_description, do: @object_desc
-
-      def all(params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.all(__MODULE__, params, opts)
-      end
-
-      def create(params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.create(__MODULE__, params, opts)
-      end
-
-      def find(params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.find(__MODULE__, params, opts)
-      end
-
-      def update(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.update(__MODULE__, find_params_or_struct, update_params, opts)
-      end
-
-      def delete(id_or_struct, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.delete(__MODULE__, id_or_struct, opts)
-      end
-
-      def move_to_destination(destination_object, find_params_or_struct, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.move_to_destination(
+      @impl true
+      def move_to_destination(dest_object, params_or_struct, opts) do
+        Uploader.move_to_destination(
           __MODULE__,
-          destination_object,
-          find_params_or_struct,
+          dest_object,
+          params_or_struct,
           opts
         )
       end
 
+      @impl true
+      def find_parts(params_or_struct, opts) do
+        Uploader.find_parts(__MODULE__, params_or_struct, opts)
+      end
+
+      @impl true
+      def sign_part(params_or_struct, part_number, opts) do
+        Uploader.sign_part(__MODULE__, params_or_struct, part_number, opts)
+      end
+
+      @impl true
       def complete_multipart_upload(
-            object_desc,
-            find_params_or_struct,
+            builder_params,
+            params_or_struct,
             update_params,
             parts,
-            opts \\ []
+            opts
           ) do
-        opts = Keyword.merge(@options, opts)
-
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.complete_multipart_upload(
+        Uploader.complete_multipart_upload(
           __MODULE__,
-          object_desc,
-          find_params_or_struct,
+          builder_params,
+          params_or_struct,
           update_params,
           parts,
           opts
         )
       end
 
-      def abort_multipart_upload(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.abort_multipart_upload(
+      @impl true
+      def abort_multipart_upload(params_or_struct, update_params, opts) do
+        Uploader.abort_multipart_upload(
           __MODULE__,
-          find_params_or_struct,
+          params_or_struct,
           update_params,
           opts
         )
       end
 
-      def create_multipart_upload(filename, create_params, object_desc \\ %{}, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.create_multipart_upload(
+      @impl true
+      def create_multipart_upload(builder_params, create_params, opts) do
+        Uploader.create_multipart_upload(
           __MODULE__,
-          object_desc,
-          filename,
+          builder_params,
           create_params,
           opts
         )
       end
 
-      def complete_upload(object_desc, find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.complete_upload(
+      @impl true
+      def complete_upload(builder_params, params_or_struct, update_params, opts) do
+        Uploader.complete_upload(
           __MODULE__,
-          object_desc,
-          find_params_or_struct,
+          builder_params,
+          params_or_struct,
           update_params,
           opts
         )
       end
 
-      def abort_upload(find_params_or_struct, update_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        Uppy.Uploader.abort_upload(
+      @impl true
+      def abort_upload(params_or_struct, update_params, opts) do
+        Uploader.abort_upload(
           __MODULE__,
-          find_params_or_struct,
+          params_or_struct,
           update_params,
           opts
         )
       end
 
-      def create_upload(object_desc, filename, create_params, opts \\ []) do
-        opts = Keyword.merge(@options, opts)
-
-        object_desc = Map.merge(object_desc, @object_desc)
-
-        Uppy.Uploader.create_upload(
+      @impl true
+      def create_upload(builder_params, create_params, opts) do
+        Uploader.create_upload(
           __MODULE__,
-          object_desc,
-          filename,
+          builder_params,
           create_params,
           opts
         )
       end
+
+      defoverridable abort_upload: 3,
+                     create_upload: 3,
+                     complete_upload: 4,
+                     abort_multipart_upload: 3,
+                     create_multipart_upload: 3,
+                     complete_multipart_upload: 5,
+                     sign_part: 3,
+                     find_parts: 2,
+                     move_to_destination: 3
     end
   end
 end

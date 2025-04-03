@@ -1,5 +1,5 @@
-defmodule Uppy.Fixture.UserAvatarFileInfo do
-  alias Uppy.{
+defmodule Uppy.Support.Fixture.UserAvatarFileInfo do
+  alias Uppy.Support.{
     Repo,
     Schemas.FileInfoAbstract,
     Schemas.UserAvatar

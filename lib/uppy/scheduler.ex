@@ -1,57 +1,55 @@
 defmodule Uppy.Scheduler do
   @moduledoc false
 
-  @callback queue_move_to_destination(
+  @default_adapter Uppy.Schedulers.ObanScheduler
+
+  @callback enqueue_move_to_destination(
               bucket :: binary(),
               query :: term(),
               id :: integer() | binary(),
               dest_object :: binary(),
-              schedule_in_or_at :: non_neg_integer() | DateTime.t(),
               opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
 
-  @callback queue_abort_expired_multipart_upload(
+  @callback enqueue_abort_expired_multipart_upload(
               bucket :: binary(),
               query :: term(),
               id :: integer() | binary(),
-              schedule_in_or_at :: non_neg_integer() | DateTime.t(),
               opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
 
-  @callback queue_abort_expired_upload(
+  @callback enqueue_abort_expired_upload(
               bucket :: binary(),
               query :: term(),
               id :: integer() | binary(),
-              schedule_in_or_at :: non_neg_integer() | DateTime.t(),
               opts :: keyword()
             ) :: {:ok, term()} | {:error, term()}
 
-  def queue_move_to_destination(bucket, query, id, dest_object, schedule_in_or_at, opts) do
-    adapter!(opts).queue_move_to_destination(
-      bucket,
-      query,
-      id,
-      dest_object,
-      schedule_in_or_at,
-      opts
-    )
+  @doc """
+  Enqueues a job to move a file to a new location after the
+  specified amount of time.
+  """
+  def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
+    adapter(opts).enqueue_move_to_destination(bucket, query, id, dest_object, opts)
   end
 
-  def queue_abort_expired_multipart_upload(bucket, query, id, schedule_in_or_at, opts) do
-    adapter!(opts).queue_abort_expired_multipart_upload(
-      bucket,
-      query,
-      id,
-      schedule_in_or_at,
-      opts
-    )
+  @doc """
+  Enqueues a job to abort a multipart upload after the
+  specified amount of time.
+  """
+  def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
+    adapter(opts).enqueue_abort_expired_multipart_upload(bucket, query, id, opts)
   end
 
-  def queue_abort_expired_upload(bucket, query, id, schedule_in_or_at, opts) do
-    adapter!(opts).queue_abort_expired_upload(bucket, query, id, schedule_in_or_at, opts)
+  @doc """
+  Enqueues a job to abort a non-multipart upload after the
+  specified amount of time.
+  """
+  def enqueue_abort_expired_upload(bucket, query, id, opts) do
+    adapter(opts).enqueue_abort_expired_upload(bucket, query, id, opts)
   end
 
-  defp adapter!(opts) do
-    opts[:scheduler_adapter] || Uppy.Schedulers.ObanScheduler
+  defp adapter(opts) do
+    opts[:scheduler_adapter] || @default_adapter
   end
 end

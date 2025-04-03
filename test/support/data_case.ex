@@ -1,4 +1,4 @@
-defmodule Uppy.DataCase do
+defmodule Uppy.Support.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring
   access to the application's data layer.
@@ -10,7 +10,7 @@ defmodule Uppy.DataCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use Uppy.DataCase, async: true`, although
+  by setting `use Uppy.Support.DataCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -18,14 +18,14 @@ defmodule Uppy.DataCase do
 
   using do
     quote do
-      use Oban.Testing, repo: Uppy.Repo
+      use Oban.Testing, repo: Uppy.Support.Repo
 
-      alias Uppy.Repo
+      alias Uppy.Support.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import Uppy.DataCase
+      import Uppy.Support.DataCase
     end
   end
 
@@ -35,10 +35,10 @@ defmodule Uppy.DataCase do
   end
 
   def setup_sandbox(tags) do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Uppy.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Uppy.Support.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(Uppy.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Uppy.Support.Repo, {:shared, self()})
     end
   end
 

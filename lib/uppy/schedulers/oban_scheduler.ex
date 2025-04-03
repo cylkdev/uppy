@@ -1,37 +1,52 @@
-defmodule Uppy.Schedulers.ObanScheduler do
-  @moduledoc false
-  alias Uppy.Schedulers.ObanScheduler.Workers
+if Code.ensure_loaded?(Oban) do
+  defmodule Uppy.Schedulers.ObanScheduler do
+    @moduledoc """
+    ## Shared Options
 
-  @behaviour Uppy.Scheduler
+    The following options are shared across most functions in this module:
 
-  @spec queue_move_to_destination(
-          bucket :: binary(),
-          query :: term(),
-          id :: integer() | binary(),
-          dest_object :: binary(),
-          schedule_in_or_at :: non_neg_integer() | DateTime.t(),
-          opts :: keyword()
-        ) :: {:ok, Oban.Job.t()} | {:error, term()}
-  defdelegate queue_move_to_destination(bucket, query, id, dest_object, schedule_in_or_at, opts),
-    to: Workers.MoveToDestinationWorker
+      * `:oban_instances` - An enum where each key is a queue name and the
+        value is the name of the Oban instance to use.
 
-  @spec queue_abort_expired_multipart_upload(
-          bucket :: binary(),
-          query :: term(),
-          id :: integer() | binary(),
-          schedule_in_or_at :: non_neg_integer() | DateTime.t(),
-          opts :: keyword()
-        ) :: {:ok, Oban.Job.t()} | {:error, term()}
-  defdelegate queue_abort_expired_multipart_upload(bucket, query, id, schedule_in_or_at, opts),
-    to: Workers.AbortExpiredMultipartUploadWorker
+        For example:
 
-  @spec queue_abort_expired_upload(
-          bucket :: binary(),
-          query :: term(),
-          id :: integer() | binary(),
-          schedule_in_or_at :: non_neg_integer() | DateTime.t(),
-          opts :: keyword()
-        ) :: {:ok, Oban.Job.t()} | {:error, term()}
-  defdelegate queue_abort_expired_upload(bucket, query, id, schedule_in_or_at, opts),
-    to: Workers.AbortExpiredUploadWorker
+        ```elixir
+        [
+          abort_expired_multipart_upload: MyApp.ObanA,
+          abort_expired_upload: MyApp.ObanB,
+          move_to_destination: MyApp.ObanC
+        ]
+        ```
+    """
+
+    alias Uppy.Schedulers.ObanScheduler.{
+      Instance,
+      WorkerAPI
+    }
+
+    @behaviour Uppy.Scheduler
+
+    def start_link(opts \\ []) do
+      Instance.start_link(opts)
+    end
+
+    def child_spec(opts) do
+      Instance.child_spec(opts)
+    end
+
+    @impl Uppy.Scheduler
+    def enqueue_move_to_destination(bucket, query, id, dest_object, opts) do
+      WorkerAPI.enqueue_move_to_destination(bucket, query, id, dest_object, opts)
+    end
+
+    @impl Uppy.Scheduler
+    def enqueue_abort_expired_multipart_upload(bucket, query, id, opts) do
+      WorkerAPI.enqueue_abort_expired_multipart_upload(bucket, query, id, opts)
+    end
+
+    @impl Uppy.Scheduler
+    def enqueue_abort_expired_upload(bucket, query, id, opts) do
+      WorkerAPI.enqueue_abort_expired_upload(bucket, query, id, opts)
+    end
+  end
 end

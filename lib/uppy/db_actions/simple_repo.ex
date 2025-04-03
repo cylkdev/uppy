@@ -1,30 +1,27 @@
-defmodule Uppy.CommonRepoAction do
+defmodule Uppy.DBActions.SimpleRepo do
   @moduledoc false
-
-  alias Uppy.Config
 
   @behaviour Uppy.DBAction
 
-  @repo Uppy.Repo
+  @repo Uppy.Support.Repo
 
   @doc """
   ...
   """
   @impl true
-  def transaction(func, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+  def transaction(fun, opts) do
+    opts = Keyword.merge(default_opts(), opts)
 
-    opts[:repo].transaction(func, opts)
-  end
-
-  @doc """
-  ...
-  """
-  @impl true
-  def preload(struct_or_structs, preloads, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
-
-    opts[:repo].preload(struct_or_structs, preloads, opts)
+    repo(opts).transaction(
+      fn repo ->
+        case if is_function(fun, 1), do: fun.(repo), else: fun.() do
+          {:error, e} -> repo.rollback(e)
+          {:ok, _} = res -> res
+          term -> raise "Expected {:ok, term()} or {:error, term()}, got: #{inspect(term)}"
+        end
+      end,
+      opts
+    )
   end
 
   @doc """
@@ -32,23 +29,23 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def update_all(query, params, updates, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     query
     |> EctoShorts.CommonFilters.convert_params_to_filter(params)
-    |> opts[:repo].update_all(updates, opts)
+    |> repo(opts).update_all(updates, opts)
   end
 
   @doc """
   ...
   """
   @impl true
-  def aggregate(query, params \\ %{}, aggregate \\ :count, field \\ :id, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+  def aggregate(query, params \\ %{}, aggregate \\ :count, field \\ :id, opts \\ []) do
+    opts = Keyword.merge(default_opts(), opts)
 
     query
     |> EctoShorts.CommonFilters.convert_params_to_filter(params)
-    |> opts[:repo].aggregate(aggregate, field, opts)
+    |> repo(opts).aggregate(aggregate, field, opts)
   end
 
   @doc """
@@ -56,7 +53,7 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def all(query, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.all(query, opts)
   end
@@ -66,7 +63,7 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def all(query, params, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.all(query, params, opts)
   end
@@ -76,7 +73,7 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def create(query, params, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.create(query, params, opts)
   end
@@ -86,7 +83,7 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def find(query, params, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.find(query, params, opts)
   end
@@ -96,7 +93,7 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def update(query, id_or_struct, params, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.update(query, id_or_struct, params, opts)
   end
@@ -106,7 +103,7 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def delete(struct, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.delete(struct, opts)
   end
@@ -116,16 +113,16 @@ defmodule Uppy.CommonRepoAction do
   """
   @impl true
   def delete(query, id_or_params, opts) do
-    opts = Keyword.merge(default_opts(opts), opts)
+    opts = Keyword.merge(default_opts(), opts)
 
     EctoShorts.Actions.delete(query, id_or_params, opts)
   end
 
-  defp default_opts(opts) do
-    [repo: repo!(opts)]
+  defp default_opts do
+    [repo: EctoShorts.Config.repo() || @repo]
   end
 
-  defp repo!(opts) do
-    opts[:repo] || Config.repo() || @repo
+  defp repo(opts) do
+    opts[:repo] || EctoShorts.Config.repo() || @repo
   end
 end

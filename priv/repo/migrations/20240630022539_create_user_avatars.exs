@@ -1,4 +1,4 @@
-defmodule Uppy.Repo.Migrations.CreateUserAvatars do
+defmodule Uppy.Support.Repo.Migrations.CreateUserAvatars do
   use Ecto.Migration
 
   def change do

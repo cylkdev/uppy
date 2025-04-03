@@ -1,4 +1,4 @@
-defmodule Uppy.Repo.Migrations.CreateUserAvatarFileInfos do
+defmodule Uppy.Support.Repo.Migrations.CreateUserAvatarFileInfos do
   use Ecto.Migration
 
   def change do

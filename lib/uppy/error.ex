@@ -7,12 +7,7 @@ defmodule Uppy.Error do
   @type code :: atom()
   @type message :: binary()
   @type details :: map() | nil
-  @type error_message :: %{
-          optional(any()) => any(),
-          code: code(),
-          message: message(),
-          details: details()
-        }
+  @type error_message :: map()
 
   @doc """
   Executes callback functions in the configured error adapter and returns an error term.

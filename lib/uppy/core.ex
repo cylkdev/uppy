@@ -3,25 +3,22 @@ defmodule Uppy.Core do
   """
 
   alias Uppy.{
-    Config,
-    DBAction,
-    Pipeline,
     Scheduler,
+    DBAction,
+    PathBuilder,
+    Pipeline,
     Storage
   }
 
-  @aborted :aborted
   @completed :completed
+  @aborted :aborted
   @pending :pending
 
-  @uploads "uploads"
-  @user "user"
+  @scheduler_enabled true
 
-  @default_permanent_prefix ""
-  @temp_prefix "temp/"
-
-  @one_day :timer.hours(24)
-
+  @doc """
+  TODO...
+  """
   def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
     resolution =
       Uppy.Resolution.new!(%{
@@ -34,12 +31,13 @@ defmodule Uppy.Core do
       })
 
     phases =
-      case Config.pipeline_module() do
+      case opts[:pipeline] do
         nil ->
-          Uppy.Core.Pipelines.for_move_to_destination(opts)
+          Uppy.Pipelines.pipeline_for(:move_to_destination, opts)
 
-        pipeline_module ->
-          pipeline_module.move_to_destination(
+        module ->
+          module.pipeline_for(
+            :move_to_destination,
             %{
               bucket: bucket,
               destination_object: dest_object,
@@ -65,12 +63,10 @@ defmodule Uppy.Core do
     end
   end
 
-  def find_parts(
-        bucket,
-        _query,
-        %_{} = schema_data,
-        opts
-      ) do
+  @doc """
+  TODO...
+  """
+  def find_parts(bucket, _query, %_{} = schema_data, opts) do
     with {:ok, parts} <-
            Storage.list_parts(
              bucket,
@@ -97,6 +93,9 @@ defmodule Uppy.Core do
     end
   end
 
+  @doc """
+  TODO...
+  """
   def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
     with {:ok, signed_part} <-
            Storage.sign_part(
@@ -125,88 +124,85 @@ defmodule Uppy.Core do
     end
   end
 
+  @doc """
+  TODO...
+  """
   def complete_multipart_upload(
         bucket,
-        object_desc,
+        builder_params,
         query,
         %_{} = schema_data,
         update_params,
         parts,
         opts
       ) do
-    unique_identifier = Map.get(update_params, :unique_identifier, generate_unique_identifier())
+    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
 
-    basename =
-      if unique_identifier in [nil, ""] do
-        schema_data.filename
-      else
-        "#{unique_identifier}-#{schema_data.filename}"
-      end
+    {basename, dest_object} =
+      PathBuilder.build_object_path(
+        schema_data,
+        unique_identifier,
+        builder_params,
+        opts
+      )
 
-    dest_object =
-      basename
-      |> build_permanent_object_key(schema_data, object_desc, opts)
-      |> URI.encode()
-
-    update_params =
-      update_params
-      |> Map.put_new(:state, @completed)
-      |> Map.put(:unique_identifier, unique_identifier)
-
-    schedule_in_or_at = opts[:schedule][:move_to_destination] || @one_day
-
-    with {:ok, metadata} <- do_complete_mpu(bucket, schema_data, parts, opts) do
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <-
-                 DBAction.update(
-                   query,
-                   schema_data,
-                   Map.put(update_params, :e_tag, metadata.e_tag),
-                   opts
-                 ),
-               {:ok, job} <-
-                 Scheduler.queue_move_to_destination(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   dest_object,
-                   schedule_in_or_at,
-                   opts
-                 ) do
-            {:ok,
-             %{
-               metadata: metadata,
-               schema_data: schema_data,
-               destination_object: dest_object,
-               jobs: %{move_to_destination: job}
-             }}
-          end
-        end
-
-        DBAction.transaction(op, opts)
-      else
+    with {:ok, metadata} <-
+           Storage.complete_multipart_upload(
+             bucket,
+             schema_data.key,
+             schema_data.upload_id,
+             parts,
+             opts
+           ) do
+      fun = fn ->
         with {:ok, schema_data} <-
                DBAction.update(
                  query,
                  schema_data,
-                 Map.put(update_params, :e_tag, metadata.e_tag),
+                 Map.merge(update_params, %{
+                   state: @completed,
+                   unique_identifier: unique_identifier,
+                   e_tag: metadata.e_tag
+                 }),
                  opts
                ) do
-          {:ok,
-           %{
-             metadata: metadata,
-             schema_data: schema_data,
-             destination_object: dest_object
-           }}
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
+            with {:ok, job} <-
+                   Scheduler.enqueue_move_to_destination(
+                     bucket,
+                     query,
+                     schema_data.id,
+                     dest_object,
+                     opts
+                   ) do
+              {:ok,
+               %{
+                 metadata: metadata,
+                 schema_data: schema_data,
+                 basename: basename,
+                 destination_object: dest_object,
+                 jobs: %{move_to_destination: job}
+               }}
+            end
+          else
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: schema_data,
+               basename: basename,
+               destination_object: dest_object
+             }}
+          end
         end
       end
+
+      DBAction.transaction(fun, opts)
     end
   end
 
   def complete_multipart_upload(
         bucket,
-        object_desc,
+        builder_params,
         query,
         find_params,
         update_params,
@@ -221,7 +217,7 @@ defmodule Uppy.Core do
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
       complete_multipart_upload(
         bucket,
-        object_desc,
+        builder_params,
         query,
         schema_data,
         update_params,
@@ -231,20 +227,9 @@ defmodule Uppy.Core do
     end
   end
 
-  defp do_complete_mpu(bucket, schema_data, parts, opts) do
-    case Storage.complete_multipart_upload(
-           bucket,
-           schema_data.key,
-           schema_data.upload_id,
-           parts,
-           opts
-         ) do
-      {:ok, _} -> Storage.head_object(bucket, schema_data.key, opts)
-      {:error, %{code: :not_found}} -> Storage.head_object(bucket, schema_data.key, opts)
-      {:error, _} = error -> error
-    end
-  end
-
+  @doc """
+  TODO...
+  """
   def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put_new(update_params, :state, @aborted)
 
@@ -275,149 +260,145 @@ defmodule Uppy.Core do
     end
   end
 
-  def create_multipart_upload(bucket, object_desc, query, filename, create_params, opts) do
-    timestamp = opts[:timestamp] || String.reverse("#{:os.system_time()}")
+  @doc """
+  TODO...
+  """
+  def create_multipart_upload(
+        bucket,
+        builder_params,
+        query,
+        create_params,
+        opts
+      ) do
+    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
 
-    basename =
-      if timestamp in [nil, ""] do
-        filename
-      else
-        "#{timestamp}-#{filename}"
-      end
-
-    key =
-      basename
-      |> build_temporary_object_key(object_desc, opts)
-      |> URI.encode()
-
-    create_params =
-      Map.merge(create_params, %{
-        state: @pending,
-        filename: filename,
-        key: key
-      })
-
-    schedule_in_or_at = opts[:schedule][:abort_expired_multipart_upload] || @one_day
+    {basename, key} =
+      PathBuilder.build_object_path(
+        create_params.filename,
+        builder_params,
+        opts
+      )
 
     with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
-      create_params = Map.put(create_params, :upload_id, multipart_upload.upload_id)
-
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
-               {:ok, job} <-
-                 Scheduler.queue_abort_expired_multipart_upload(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   schedule_in_or_at,
-                   opts
-                 ) do
+      fun = fn ->
+        with {:ok, schema_data} <-
+               DBAction.create(
+                 query,
+                 Map.merge(create_params, %{
+                   state: @pending,
+                   unique_identifier: unique_identifier,
+                   filename: create_params.filename,
+                   key: key,
+                   upload_id: multipart_upload.upload_id
+                 }),
+                 opts
+               ) do
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
+            with {:ok, job} <-
+                   Scheduler.enqueue_abort_expired_multipart_upload(
+                     bucket,
+                     query,
+                     schema_data.id,
+                     opts
+                   ) do
+              {:ok,
+               %{
+                 basename: basename,
+                 schema_data: schema_data,
+                 multipart_upload: multipart_upload,
+                 jobs: %{abort_expired_multipart_upload: job}
+               }}
+            end
+          else
             {:ok,
              %{
-               multipart_upload: multipart_upload,
+               basename: basename,
                schema_data: schema_data,
-               jobs: %{abort_upload: job}
+               multipart_upload: multipart_upload
              }}
           end
         end
-
-        DBAction.transaction(op, opts)
-      else
-        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
-          {:ok,
-           %{
-             multipart_upload: multipart_upload,
-             schema_data: schema_data
-           }}
-        end
       end
+
+      DBAction.transaction(fun, opts)
     end
   end
 
-  def complete_upload(bucket, object_desc, query, %_{} = schema_data, update_params, opts) do
-    unique_identifier = Map.get(update_params, :unique_identifier, generate_unique_identifier())
+  @doc """
+  TODO...
+  """
+  def complete_upload(bucket, builder_params, query, %_{} = schema_data, update_params, opts) do
+    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
 
-    basename =
-      if unique_identifier in [nil, ""] do
-        schema_data.filename
-      else
-        "#{unique_identifier}-#{schema_data.filename}"
-      end
-
-    dest_object =
-      basename
-      |> build_permanent_object_key(schema_data, object_desc, opts)
-      |> URI.encode()
-
-    update_params =
-      Map.merge(update_params, %{
-        state: @completed,
-        unique_identifier: unique_identifier
-      })
-
-    schedule_in_or_at = opts[:schedule][:move_to_destination]
+    {basename, dest_object} =
+      PathBuilder.build_object_path(
+        schema_data,
+        unique_identifier,
+        builder_params,
+        opts
+      )
 
     with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <-
-                 DBAction.update(
-                   query,
-                   schema_data,
-                   Map.put(update_params, :e_tag, metadata.e_tag),
-                   opts
-                 ),
-               {:ok, job} <-
-                 Scheduler.queue_move_to_destination(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   dest_object,
-                   schedule_in_or_at,
-                   opts
-                 ) do
-            {:ok,
-             %{
-               metadata: metadata,
-               schema_data: schema_data,
-               destination_object: dest_object,
-               jobs: %{move_to_destination: job}
-             }}
-          end
-        end
-
-        DBAction.transaction(op, opts)
-      else
+      fun = fn ->
         with {:ok, schema_data} <-
                DBAction.update(
                  query,
                  schema_data,
-                 Map.put(update_params, :e_tag, metadata.e_tag),
+                 Map.merge(update_params, %{
+                   state: @completed,
+                   unique_identifier: unique_identifier,
+                   e_tag: metadata.e_tag
+                 }),
                  opts
                ) do
-          {:ok,
-           %{
-             metadata: metadata,
-             schema_data: schema_data,
-             destination_object: dest_object
-           }}
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
+            with {:ok, job} <-
+                   Scheduler.enqueue_move_to_destination(
+                     bucket,
+                     query,
+                     schema_data.id,
+                     dest_object,
+                     opts
+                   ) do
+              {:ok,
+               %{
+                 metadata: metadata,
+                 schema_data: schema_data,
+                 basename: basename,
+                 destination_object: dest_object,
+                 jobs: %{move_to_destination: job}
+               }}
+            end
+          else
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: schema_data,
+               basename: basename,
+               destination_object: dest_object
+             }}
+          end
         end
       end
+
+      DBAction.transaction(fun, opts)
     end
   end
 
-  def complete_upload(bucket, object_desc, query, find_params, update_params, opts) do
+  def complete_upload(bucket, builder_params, query, find_params, update_params, opts) do
     find_params =
       find_params
       |> Map.put_new(:state, @pending)
       |> Map.put_new(:upload_id, %{==: nil})
 
     with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, object_desc, query, schema_data, update_params, opts)
+      complete_upload(bucket, builder_params, query, schema_data, update_params, opts)
     end
   end
 
+  @doc """
+  TODO...
+  """
   def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
     update_params = Map.put_new(update_params, :state, @aborted)
 
@@ -451,138 +432,65 @@ defmodule Uppy.Core do
     end
   end
 
-  def create_upload(bucket, object_desc, query, filename, create_params, opts) do
-    timestamp = opts[:timestamp] || String.reverse("#{:os.system_time()}")
+  @doc """
+  TODO...
+  """
+  def create_upload(bucket, builder_params, query, create_params, opts) when is_binary(bucket) do
+    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
 
-    basename =
-      if timestamp in [nil, ""] do
-        filename
-      else
-        "#{timestamp}-#{filename}"
-      end
-
-    key =
-      basename
-      |> build_temporary_object_key(object_desc, opts)
-      |> URI.encode()
-
-    create_params =
-      Map.merge(create_params, %{
-        state: @pending,
-        filename: filename,
-        key: key
-      })
-
-    schedule_in_or_at = opts[:schedule][:abort_expired_upload] || @one_day
+    {basename, key} = PathBuilder.build_object_path(create_params.filename, builder_params, opts)
 
     with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
-      if Keyword.get(opts, :enable_scheduler, Config.enable_scheduler()) do
-        op = fn ->
-          with {:ok, schema_data} <- DBAction.create(query, create_params, opts),
-               {:ok, job} <-
-                 Scheduler.queue_abort_expired_upload(
-                   bucket,
-                   query,
-                   schema_data.id,
-                   schedule_in_or_at,
-                   opts
-                 ) do
+      fun = fn ->
+        with {:ok, schema_data} <-
+               DBAction.create(
+                 query,
+                 Map.merge(create_params, %{
+                   state: @pending,
+                   unique_identifier: unique_identifier,
+                   filename: create_params.filename,
+                   key: key
+                 }),
+                 opts
+               ) do
+          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
+            with {:ok, job} <-
+                   Scheduler.enqueue_abort_expired_upload(
+                     bucket,
+                     query,
+                     schema_data.id,
+                     opts
+                   ) do
+              {:ok,
+               %{
+                 basename: basename,
+                 schema_data: schema_data,
+                 signed_url: signed_url,
+                 jobs: %{abort_expired_upload: job}
+               }}
+            end
+          else
             {:ok,
              %{
-               signed_url: signed_url,
+               basename: basename,
                schema_data: schema_data,
-               jobs: %{abort_upload: job}
+               signed_url: signed_url
              }}
           end
         end
-
-        DBAction.transaction(op, opts)
-      else
-        with {:ok, schema_data} <- DBAction.create(query, create_params, opts) do
-          {:ok,
-           %{
-             signed_url: signed_url,
-             schema_data: schema_data
-           }}
-        end
       end
+
+      DBAction.transaction(fun, opts)
     end
   end
 
-  defp build_permanent_object_key(basename, %module{} = schema_data, object_desc, opts) do
-    case opts[:permanent_object_key] do
-      fun when is_function(fun, 3) ->
-        fun.(basename, schema_data, opts)
-
-      adapter when is_atom(adapter) and not is_nil(adapter) ->
-        adapter.build_permanent_object_key(basename, object_desc, opts)
-
-      _ ->
-        prefix = object_desc[:permanent_object_prefix] || @default_permanent_prefix
-
-        partition_id =
-          case object_desc[:permanent_object_partition_id] do
-            nil ->
-              nil
-
-            partition_id ->
-              if Keyword.get(opts, :reverse_partition_id?, true) do
-                partition_id |> to_string() |> String.reverse()
-              else
-                partition_id
-              end
-          end
-
-        partition_name = object_desc[:permanent_object_partition_name] || @uploads
-
-        resource_name = module |> Module.split() |> List.last() |> Macro.underscore()
-
-        Path.join([
-          prefix,
-          Enum.join([partition_id, partition_name], "-"),
-          resource_name,
-          basename
-        ])
-    end
-  end
-
-  defp build_temporary_object_key(basename, object_desc, opts) do
-    case opts[:temporary_object_key] do
-      fun when is_function(fun, 2) ->
-        fun.(basename, opts)
-
-      adapter when is_atom(adapter) and not is_nil(adapter) ->
-        adapter.build_temporary_object_key(adapter, basename, opts)
-
-      _ ->
-        prefix = object_desc[:temporary_object_prefix] || @temp_prefix
-
-        partition_id =
-          case object_desc[:temporary_object_partition_id] do
-            nil ->
-              nil
-
-            partition_id ->
-              if Keyword.get(opts, :reverse_partition_id?, true) do
-                partition_id |> to_string() |> String.reverse()
-              else
-                partition_id
-              end
-          end
-
-        partition_name = object_desc[:temporary_object_partition_name] || @user
-
-        Path.join([prefix, Enum.join([partition_id, partition_name], "-"), basename])
-    end
+  defp generate_unique_identifier() do
+    4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
   end
 
   defp http_method(opts) do
     with val when val not in [:put, :post] <- Keyword.get(opts, :http_method, :put) do
       raise "Expected the option `:http_method` to be :put or :post, got: #{inspect(val)}"
     end
-  end
-
-  defp generate_unique_identifier do
-    4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
   end
 end

@@ -1,4 +1,4 @@
-defmodule Uppy.Schemas.UserAvatar do
+defmodule Uppy.Support.Schemas.UserAvatar do
   @moduledoc false
   use Ecto.Schema
 
@@ -8,7 +8,7 @@ defmodule Uppy.Schemas.UserAvatar do
     field :name, :string
     field :description, :string
 
-    has_one :file_info, {"user_avatar_file_infos", Uppy.Schemas.FileInfoAbstract},
+    has_one :file_info, {"user_avatar_file_infos", Uppy.Support.Schemas.FileInfoAbstract},
       foreign_key: :assoc_id
 
     timestamps()

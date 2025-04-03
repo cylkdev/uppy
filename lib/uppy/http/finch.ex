@@ -1,6 +1,6 @@
 if Code.ensure_loaded?(Finch) do
   defmodule Uppy.HTTP.Finch do
-    @default_name :uppy_http_finch
+    @default_name __MODULE__
     @default_pool_config [size: 1]
     @default_opts [
       name: @default_name,
@@ -66,6 +66,59 @@ if Code.ensure_loaded?(Finch) do
 
     ### Shared Options
     #{NimbleOptions.docs(@definition)}
+
+    ## Retries
+
+    This module provides a built-in mechanism for retrying failed
+    HTTP requests using exponential backoff.
+
+    ### Exponential Backoff Calculation
+
+    An exponential backoff equation is used to determine the time
+    between retry attempts:
+
+    `t𝑛 = t0 * 2ⁿ * (1 + rand())`
+
+    where:
+
+      * `t𝑛` - The time (in milliseconds) to wait **before** making
+        the `n`-th retry attempt.
+
+      * `t0` - The initial delay (in milliseconds).
+
+      * `n` - The number of retries attempted so far.
+
+      * `rand()` - A random number between 0 and 1, used to introduce
+        jitter and prevent synchronized retries.
+
+    ### Configuration Options
+
+    The behavior of exponential backoff can be configured using the
+    following options:
+
+      * `:exponential_backoff_function` - (optional) A `2-arity` function that takes the
+        `attempt` count and `opts` as arguments. This function must return a positive
+        integer representing the sleep time in milliseconds. If provided, this function
+        **completely replaces** the default exponential backoff calculation, meaning
+        `:max`, `:delay`, and `:jitter` options will be ignored.
+
+      * `:exponential_backoff_max` - The maximum backoff time (in milliseconds).
+        The retry delay will never exceed this value.
+
+      * `:exponential_backoff_delay` - The initial delay `t0` (in milliseconds) before
+        the first retry.
+
+      * `:exponential_backoff_jitter` - A random number between 0 and 1 used to modify
+        the computed backoff time. By default, jitter is **multiplicative** (`t𝑛 * (1 + rand())`),
+        preventing synchronized retries.
+
+    ### Example
+
+    Assuming `t0 = 100ms`, `n = 2` (third attempt), and `rand() = 0.5`, the delay would be:
+
+    ```elixir
+    t𝑛 = 100 * 2² * (1 + 0.5) = 100 * 4 * 1.5 = 600ms
+    ```
     """
 
     alias Uppy.{
@@ -221,45 +274,50 @@ if Code.ensure_loaded?(Finch) do
       else
         max_retries = opts[:max_retries] || @default_max_retries
 
-        retry_disabled? = max_retries in [0, false]
+        retry_enabled? = max_retries not in [0, false]
 
-        if retry_disabled? do
+        if retry_enabled? do
+          Uppy.Utils.Logger.debug(@logger_prefix, "stream_or_request | INFO | retry enabled")
+
+          retryable_request(request, 0, max_retries, opts)
+        else
           Uppy.Utils.Logger.debug(@logger_prefix, "stream_or_request | INFO | retry disabled")
 
           make_request(request, opts)
-        else
-          Uppy.Utils.Logger.debug(@logger_prefix, "stream_or_request | INFO | retry enabled")
-
-          make_request_and_retry(request, 0, max_retries, opts)
         end
       end
     end
 
-    defp make_request_and_retry(request, attempt, max_retries, opts) do
-      Uppy.Utils.Logger.debug(@logger_prefix, "make_request BEGIN | executing HTTP request")
-
+    defp retryable_request(request, attempt, max_retries, opts) do
       with {:error, _} = error <- make_request(request, opts) do
-        Uppy.Utils.Logger.warning(
-          @logger_prefix,
-          "make_request | ERROR | HTTP request failed ( #{attempt + 1} / #{max_retries} )" <>
-            "\n\nerror:\n\n#{inspect(error, pretty: true)}"
-        )
-
         if attempt < max_retries do
-          backoff = exponential_backoff(attempt, opts)
+          delay = exponential_backoff(attempt, opts)
 
-          Uppy.Utils.Logger.warning(@logger_prefix, "retrying in #{inspect(backoff)}ms")
-
-          :timer.sleep(backoff)
-
-          Uppy.Utils.Logger.debug(
+          Uppy.Utils.Logger.warning(
             @logger_prefix,
-            "make_request | ERROR | retrying HTTP request ( #{attempt + 1} / #{max_retries} )"
+            """
+            HTTP request failed on attempt #{attempt} of #{max_retries}. Retrying in #{delay}ms...
+
+            error:
+
+            #{inspect(error)}
+            """
           )
 
-          make_request_and_retry(request, attempt + 1, max_retries, opts)
+          :timer.sleep(delay)
+
+          retryable_request(request, attempt + 1, max_retries, opts)
         else
-          Uppy.Utils.Logger.debug(@logger_prefix, "make_request | ERROR | reached max retries")
+          Uppy.Utils.Logger.warning(
+            @logger_prefix,
+            """
+            HTTP request failed after #{max_retries} attempts.
+
+            error:
+
+            #{inspect(error)}
+            """
+          )
 
           error
         end

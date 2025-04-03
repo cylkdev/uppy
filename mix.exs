@@ -8,7 +8,7 @@ defmodule Uppy.MixProject do
     [
       app: :uppy,
       version: @version,
-      elixir: "~> 1.0",
+      elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() === :prod,
       deps: deps(),
@@ -37,8 +37,7 @@ defmodule Uppy.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {Uppy.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
@@ -47,29 +46,23 @@ defmodule Uppy.MixProject do
     [
       {:ex_doc, "~> 0.1", only: :dev, runtime: false},
       {:excoveralls, "~> 0.1", only: :test, runtime: false},
-      {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:sandbox_registry, "~> 0.1", only: :test, optional: true},
-
+      {:credo, "~> 1.0", only: :test, runtime: false},
+      {:dialyxir, "~> 1.0", only: :test, runtime: false},
+      {:sandbox_registry, "~> 0.1", only: :test},
+      {:faker, "~> 0.1", only: :test},
+      {:factory_ex, github: "theblitzapp/factory_ex", only: :test},
       {:error_message, "~> 0.3", optional: true},
-
+      {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
       {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.0", optional: true},
       {:postgrex, ">= 0.0.0", optional: true},
       {:oban, "~> 2.0", optional: true},
-
-      {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
-
-      {:faker, "~> 0.1", only: :test, optional: true},
       {:finch, "~> 0.1", optional: true},
-
       {:proper_case, "~> 1.0", optional: true},
-      {:tzdata, "~> 1.0"},
-
       {:ex_aws, "~> 2.0", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
-      {:sweet_xml, "~> 0.1", optional: true}
+      {:sweet_xml, "~> 0.1", optional: true},
+      {:nimble_options, "~> 1.0"}
     ]
   end
 

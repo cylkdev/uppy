@@ -16,7 +16,7 @@ defmodule Uppy.JSONEncoder do
   """
   @spec decode_json(term(), keyword()) :: {:ok, map()} | {:error, term()}
   def decode_json(term, opts) do
-    json_adapter!(opts).decode(term)
+    json_adapter(opts).decode(term)
   end
 
   @doc ~S"""
@@ -29,7 +29,7 @@ defmodule Uppy.JSONEncoder do
   """
   @spec decode_json!(term(), keyword()) :: binary()
   def decode_json!(term, opts) do
-    json_adapter!(opts).decode!(term)
+    json_adapter(opts).decode!(term)
   end
 
   @doc ~S"""
@@ -42,7 +42,7 @@ defmodule Uppy.JSONEncoder do
   """
   @spec encode_json(term(), keyword()) :: {:ok, binary()} | {:error, term()}
   def encode_json(term, opts) do
-    json_adapter!(opts).encode(term)
+    json_adapter(opts).encode(term)
   end
 
   @doc ~S"""
@@ -55,10 +55,10 @@ defmodule Uppy.JSONEncoder do
   """
   @spec encode_json!(term(), keyword()) :: binary()
   def encode_json!(term, opts) do
-    json_adapter!(opts).encode!(term)
+    json_adapter(opts).encode!(term)
   end
 
-  defp json_adapter!(opts) do
+  defp json_adapter(opts) do
     Keyword.get(opts, :json_adapter, Config.json_adapter()) || @default_json_adapter
   end
 end
