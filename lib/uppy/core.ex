@@ -136,7 +136,7 @@ defmodule Uppy.Core do
         parts,
         opts
       ) do
-    unique_identifier = update_params[:unique_identifier]
+    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
 
     {basename, dest_object} =
       PathBuilder.build_object_path(
@@ -270,6 +270,8 @@ defmodule Uppy.Core do
         create_params,
         opts
       ) do
+    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
+
     {basename, key} =
       PathBuilder.build_object_path(
         create_params.filename,
@@ -284,6 +286,7 @@ defmodule Uppy.Core do
                  query,
                  Map.merge(create_params, %{
                    state: @pending,
+                   unique_identifier: unique_identifier,
                    filename: create_params.filename,
                    key: key,
                    upload_id: multipart_upload.upload_id
@@ -325,7 +328,7 @@ defmodule Uppy.Core do
   TODO...
   """
   def complete_upload(bucket, builder_params, query, %_{} = schema_data, update_params, opts) do
-    unique_identifier = update_params[:unique_identifier]
+    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
 
     {basename, dest_object} =
       PathBuilder.build_object_path(
@@ -433,6 +436,8 @@ defmodule Uppy.Core do
   TODO...
   """
   def create_upload(bucket, builder_params, query, create_params, opts) when is_binary(bucket) do
+    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
+
     {basename, key} = PathBuilder.build_object_path(create_params.filename, builder_params, opts)
 
     with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
@@ -442,6 +447,7 @@ defmodule Uppy.Core do
                  query,
                  Map.merge(create_params, %{
                    state: @pending,
+                   unique_identifier: unique_identifier,
                    filename: create_params.filename,
                    key: key
                  }),
@@ -476,6 +482,10 @@ defmodule Uppy.Core do
 
       DBAction.transaction(fun, opts)
     end
+  end
+
+  defp generate_unique_identifier() do
+    4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
   end
 
   defp http_method(opts) do

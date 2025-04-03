@@ -3,10 +3,6 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
 
   @behaviour Uppy.PathBuilder
 
-  @default_encoding :encode32
-  @encodings ~w(encode16 encode32 encode64)a
-  @default_hash_size 4
-
   @uploads "uploads"
   @organization "organization"
   @user "user"
@@ -22,7 +18,7 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
     partition_id = params[:partition_id]
     callback_fun = params[:callback]
 
-    basename = "#{unique_identifier || generate_unique_identifier(params)}-#{filename}"
+    basename = "#{unique_identifier}-#{filename}"
 
     if is_function(callback_fun, 2) do
       case callback_fun.(schema_data, basename) do
@@ -58,7 +54,6 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
 
   @impl true
   def build_object_path(filename, params) do
-    resource_name = params[:resource_name] || @empty_string
     path_prefix = params[:prefix] || @temp
     partition_name = params[:partition_name] || @user
     reverse_partition_id? = params[:reverse_partition_id] || true
@@ -95,36 +90,10 @@ defmodule Uppy.PathBuilders.CommonPathBuilder do
         Path.join([
           path_prefix,
           partition,
-          resource_name,
           basename
         ])
 
       {URI.encode(basename), URI.encode(path)}
-    end
-  end
-
-  defp generate_unique_identifier(params) do
-    encoding = params[:encoding] || @default_encoding
-    hash_size = params[:encode][:hash_size] || @default_hash_size
-    padding = params[:encode][:padding] || false
-
-    bytes = :crypto.strong_rand_bytes(hash_size)
-
-    case encoding do
-      :encode16 ->
-        Base.encode16(bytes, padding: padding)
-
-      :encode32 ->
-        Base.encode32(bytes, padding: padding)
-
-      :encode64 ->
-        Base.encode64(bytes, padding: padding)
-
-      fun when is_function(fun) ->
-        fun.()
-
-      term ->
-        raise "Expected one of #{inspect(@encodings)}, or a 0-arity function, got: #{inspect(term)}"
     end
   end
 end

@@ -6,6 +6,8 @@ defmodule Uppy.Uploader do
 
   @callback query :: atom() | {binary() | atom()}
 
+  @callback resource_name :: binary() | nil
+
   @callback path_builder_params(action :: atom(), params :: map()) :: map()
 
   @callback move_to_destination(
@@ -69,6 +71,9 @@ defmodule Uppy.Uploader do
     query: [
       type: {:or, [:atom, {:tuple, [:string, :atom]}]},
       required: true
+    ],
+    resource_name: [
+      type: :string
     ]
   ]
 
@@ -181,6 +186,12 @@ defmodule Uppy.Uploader do
 
   defp path_builder_params(uploader, action, params) do
     if function_exported?(uploader, :path_builder_params, 2) do
+      params =
+        case uploader.resource_name() do
+          nil -> params
+          name -> Map.put(params, :resource_name, name)
+        end
+
       uploader.path_builder_params(action, params)
     else
       params
@@ -201,11 +212,16 @@ defmodule Uppy.Uploader do
 
       @query opts[:query]
 
+      @resource_name opts[:resource_name]
+
       @impl true
       def bucket, do: @bucket
 
       @impl true
       def query, do: @query
+
+      @impl true
+      def resource_name, do: @resource_name
 
       @impl true
       def move_to_destination(dest_object, params_or_struct, opts) do

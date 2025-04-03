@@ -9,10 +9,10 @@ defmodule Uppy.UploaderTest do
   defmodule MockUploader do
     use Uppy.Uploader,
       bucket: "test-bucket",
+      resource_name: "user_avatar",
       query: {"user_avatar_file_infos", Uppy.Support.Schemas.FileInfoAbstract}
 
     @default_permanent_object_params %{
-      resource_name: "user_avatar",
       partition_name: "organization"
     }
 
