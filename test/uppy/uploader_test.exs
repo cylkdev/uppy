@@ -1,10 +1,7 @@
 defmodule Uppy.UploaderTest do
   use Uppy.Support.DataCase, async: true
 
-  alias Uppy.{
-    Support.StorageSandbox,
-    Uploader
-  }
+  alias Uppy.{StorageSandbox, Uploader}
 
   defmodule MockUploader do
     use Uppy.Uploader,

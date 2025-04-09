@@ -1,4 +1,4 @@
-defmodule Uppy.Support.StorageSandbox do
+defmodule Uppy.StorageSandbox do
   @moduledoc false
 
   @sleep 10
@@ -429,7 +429,7 @@ defmodule Uppy.Support.StorageSandbox do
 
   ### Examples
 
-      iex> Uppy.Support.StorageSandbox.put_object_copy_response("destination_bucket", "example_copy.txt", "source_bucket", "example.txt", [])
+      iex> Uppy.StorageSandbox.put_object_copy_response("destination_bucket", "example_copy.txt", "source_bucket", "example.txt", [])
   """
   @spec put_object_copy_response(bucket(), object(), bucket(), object(), options()) :: any()
   def put_object_copy_response(
@@ -479,7 +479,7 @@ defmodule Uppy.Support.StorageSandbox do
 
   ### Examples
 
-      iex> Uppy.Support.StorageSandbox.put_object_response("your_bucket", "example.txt", "Hello world!", [])
+      iex> Uppy.StorageSandbox.put_object_response("your_bucket", "example.txt", "Hello world!", [])
   """
   @spec put_object_response(bucket, object, body, options) :: any
   def put_object_response(bucket, object, body, options) do
@@ -519,7 +519,7 @@ defmodule Uppy.Support.StorageSandbox do
 
   ### Examples
 
-      iex> Uppy.Support.StorageSandbox.delete_object_response("your_bucket", "example.txt", [])
+      iex> Uppy.StorageSandbox.delete_object_response("your_bucket", "example.txt", [])
   """
   @spec delete_object_response(bucket(), object(), options()) :: any()
   def delete_object_response(bucket, object, options) do
@@ -769,7 +769,7 @@ defmodule Uppy.Support.StorageSandbox do
   @doc """
   Sets current pid to use actual caches rather than sandboxed
 
-  import Uppy.Support.StorageSandbox, only: [disable_storage_sandbox: 1]
+  import Uppy.StorageSandbox, only: [disable_storage_sandbox: 1]
 
   setup :disable_storage_sandbox
   """
@@ -872,7 +872,7 @@ defmodule Uppy.Support.StorageSandbox do
 
   defp format_example(action, bucket) do
     """
-    alias Uppy.Support.StorageSandbox
+    alias Uppy.StorageSandbox
 
     setup do
       StorageSandbox.set_#{action}_responses([

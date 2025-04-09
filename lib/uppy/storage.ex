@@ -55,7 +55,7 @@ defmodule Uppy.Storage do
 
   ```elixir
   # test_helper.exs
-  Uppy.Support.StorageSandbox.start_link()
+  Uppy.StorageSandbox.start_link()
   ```
   """
 
@@ -1053,31 +1053,31 @@ defmodule Uppy.Storage do
 
   if Mix.env() === :test do
     defdelegate sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :object_chunk_stream_response
 
     defdelegate sandbox_get_chunk_response(bucket, object, start_byte, end_byte, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :get_chunk_response
 
     defdelegate sandbox_list_objects_response(bucket, prefix, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :list_objects_response
 
     defdelegate sandbox_get_object_response(bucket, object, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :get_object_response
 
     defdelegate sandbox_head_object_response(bucket, object, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :head_object_response
 
     defdelegate sandbox_delete_object_response(bucket, object, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :delete_object_response
 
     defdelegate sandbox_put_object_response(bucket, object, body, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :put_object_response
 
     defdelegate sandbox_put_object_copy_response(
@@ -1087,23 +1087,23 @@ defmodule Uppy.Storage do
                   source_object,
                   opts
                 ),
-                to: Uppy.Support.StorageSandbox,
+                to: Uppy.StorageSandbox,
                 as: :put_object_copy_response
 
     defdelegate sandbox_sign_part_response(bucket, object, upload_id, part_number, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :sign_part_response
 
     defdelegate sandbox_pre_sign_response(bucket, method, object, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :pre_sign_response
 
     defdelegate sandbox_list_multipart_uploads_response(bucket, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :list_multipart_uploads_response
 
     defdelegate sandbox_create_multipart_upload_response(bucket, object, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :create_multipart_upload_response
 
     defdelegate sandbox_list_parts_response(
@@ -1112,11 +1112,11 @@ defmodule Uppy.Storage do
                   upload_id,
                   opts
                 ),
-                to: Uppy.Support.StorageSandbox,
+                to: Uppy.StorageSandbox,
                 as: :list_parts_response
 
     defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts),
-      to: Uppy.Support.StorageSandbox,
+      to: Uppy.StorageSandbox,
       as: :abort_multipart_upload_response
 
     defdelegate sandbox_complete_multipart_upload_response(
@@ -1126,10 +1126,10 @@ defmodule Uppy.Storage do
                   parts,
                   opts
                 ),
-                to: Uppy.Support.StorageSandbox,
+                to: Uppy.StorageSandbox,
                 as: :complete_multipart_upload_response
 
-    defdelegate sandbox_disabled?, to: Uppy.Support.StorageSandbox
+    defdelegate sandbox_disabled?, to: Uppy.StorageSandbox
   else
     defp sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts) do
       raise """

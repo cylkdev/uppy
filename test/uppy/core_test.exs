@@ -3,10 +3,11 @@ defmodule Uppy.CoreTest do
 
   alias Uppy.Core
 
+  alias Uppy.StorageSandbox
+
   alias Uppy.Support.{
     Fixture,
-    Schemas.FileInfoAbstract,
-    StorageSandbox
+    Schemas.FileInfoAbstract
   }
 
   @bucket "uppy-test"
@@ -364,7 +365,7 @@ defmodule Uppy.CoreTest do
       assert {:ok, payload} =
                Core.create_multipart_upload(
                  @bucket,
-                 %{temporary_object: %{basename_prefix: "timestamp"}},
+                 %{basename_prefix: "timestamp"},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{filename: "image.jpeg"},
                  []
@@ -512,7 +513,7 @@ defmodule Uppy.CoreTest do
       assert {:ok, payload} =
                Core.create_upload(
                  @bucket,
-                 %{temporary_object: %{basename_prefix: "timestamp"}},
+                 %{basename_prefix: "timestamp"},
                  {"user_avatar_file_infos", FileInfoAbstract},
                  %{filename: "image.jpeg"},
                  []
