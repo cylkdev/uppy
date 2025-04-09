@@ -58,6 +58,7 @@ defmodule Uppy.Storage do
   Uppy.Testing.StorageSandbox.start_link()
   ```
   """
+  alias Uppy.Testing.StorageSandbox
 
   @type error_message :: ErrorMessage.t() | term()
 
@@ -531,8 +532,8 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts)
+    if sandbox? && !StorageSandbox.sandbox_disabled?() do
+      StorageSandbox.object_chunk_stream_response(bucket, object, chunk_size, opts)
     else
       bucket
       |> adapter(opts).object_chunk_stream(object, chunk_size, opts)
@@ -545,8 +546,8 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_get_chunk_response(bucket, object, start_byte, end_byte, opts)
+    if sandbox? && !StorageSandbox.sandbox_disabled?() do
+      StorageSandbox.get_chunk_response(bucket, object, start_byte, end_byte, opts)
     else
       bucket
       |> adapter(opts).get_chunk(object, start_byte, end_byte, opts)
@@ -576,8 +577,8 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_list_objects_response(bucket, prefix, opts)
+    if sandbox? && !StorageSandbox.sandbox_disabled?() do
+      StorageSandbox.list_objects_response(bucket, prefix, opts)
     else
       bucket
       |> adapter(opts).list_objects(prefix, opts)
@@ -610,8 +611,8 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_get_object_response(bucket, object, opts)
+    if sandbox? && !StorageSandbox.sandbox_disabled?() do
+      StorageSandbox.get_object_response(bucket, object, opts)
     else
       bucket
       |> adapter(opts).get_object(object, opts)
@@ -644,8 +645,8 @@ defmodule Uppy.Storage do
 
     sandbox? = opts[:storage][:sandbox]
 
-    if sandbox? && !sandbox_disabled?() do
-      sandbox_head_object_response(bucket, object, opts)
+    if sandbox? && !StorageSandbox.sandbox_disabled?() do
+      StorageSandbox.head_object_response(bucket, object, opts)
     else
       bucket
       |> adapter(opts).head_object(object, opts)
@@ -681,8 +682,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_put_object_response(bucket, object, body, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.put_object_response(bucket, object, body, opts)
       else
         adapter(opts).put_object(bucket, object, body, opts)
       end
@@ -726,8 +727,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_put_object_copy_response(
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.put_object_copy_response(
           destination_bucket,
           destination_object,
           source_bucket,
@@ -761,8 +762,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_delete_object_response(bucket, object, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.delete_object_response(bucket, object, opts)
       else
         adapter(opts).delete_object(bucket, object, opts)
       end
@@ -806,8 +807,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_sign_part_response(bucket, object, upload_id, part_number, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.sign_part_response(bucket, object, upload_id, part_number, opts)
       else
         adapter(opts).sign_part(bucket, object, upload_id, part_number, opts)
       end
@@ -843,8 +844,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_pre_sign_response(bucket, http_method, object, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.pre_sign_response(bucket, http_method, object, opts)
       else
         adapter(opts).pre_sign(bucket, http_method, object, opts)
       end
@@ -873,8 +874,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_list_multipart_uploads_response(bucket, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.list_multipart_uploads_response(bucket, opts)
       else
         adapter(opts).list_multipart_uploads(bucket, opts)
       end
@@ -908,8 +909,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_create_multipart_upload_response(bucket, object, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.create_multipart_upload_response(bucket, object, opts)
       else
         adapter(opts).create_multipart_upload(bucket, object, opts)
       end
@@ -945,8 +946,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_list_parts_response(bucket, object, upload_id, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.list_parts_response(bucket, object, upload_id, opts)
       else
         adapter(opts).list_parts(bucket, object, upload_id, opts)
       end
@@ -982,8 +983,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.abort_multipart_upload_response(bucket, object, upload_id, opts)
       else
         adapter(opts).abort_multipart_upload(bucket, object, upload_id, opts)
       end
@@ -1021,8 +1022,8 @@ defmodule Uppy.Storage do
     sandbox? = opts[:storage][:sandbox]
 
     response =
-      if sandbox? && !sandbox_disabled?() do
-        sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts)
+      if sandbox? && !StorageSandbox.sandbox_disabled?() do
+        StorageSandbox.complete_multipart_upload_response(bucket, object, upload_id, parts, opts)
       else
         adapter(opts).complete_multipart_upload(bucket, object, upload_id, parts, opts)
       end
@@ -1053,256 +1054,5 @@ defmodule Uppy.Storage do
 
     #{inspect(term, pretty: true)}
     """
-  end
-
-  if Mix.env() === :test do
-    defdelegate sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :object_chunk_stream_response
-
-    defdelegate sandbox_get_chunk_response(bucket, object, start_byte, end_byte, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :get_chunk_response
-
-    defdelegate sandbox_list_objects_response(bucket, prefix, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :list_objects_response
-
-    defdelegate sandbox_get_object_response(bucket, object, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :get_object_response
-
-    defdelegate sandbox_head_object_response(bucket, object, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :head_object_response
-
-    defdelegate sandbox_delete_object_response(bucket, object, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :delete_object_response
-
-    defdelegate sandbox_put_object_response(bucket, object, body, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :put_object_response
-
-    defdelegate sandbox_put_object_copy_response(
-                  destination_bucket,
-                  destination_object,
-                  source_bucket,
-                  source_object,
-                  opts
-                ),
-                to: Uppy.Testing.StorageSandbox,
-                as: :put_object_copy_response
-
-    defdelegate sandbox_sign_part_response(bucket, object, upload_id, part_number, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :sign_part_response
-
-    defdelegate sandbox_pre_sign_response(bucket, method, object, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :pre_sign_response
-
-    defdelegate sandbox_list_multipart_uploads_response(bucket, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :list_multipart_uploads_response
-
-    defdelegate sandbox_create_multipart_upload_response(bucket, object, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :create_multipart_upload_response
-
-    defdelegate sandbox_list_parts_response(
-                  bucket,
-                  object,
-                  upload_id,
-                  opts
-                ),
-                to: Uppy.Testing.StorageSandbox,
-                as: :list_parts_response
-
-    defdelegate sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts),
-      to: Uppy.Testing.StorageSandbox,
-      as: :abort_multipart_upload_response
-
-    defdelegate sandbox_complete_multipart_upload_response(
-                  bucket,
-                  object,
-                  upload_id,
-                  parts,
-                  opts
-                ),
-                to: Uppy.Testing.StorageSandbox,
-                as: :complete_multipart_upload_response
-
-    defdelegate sandbox_disabled?, to: Uppy.Testing.StorageSandbox
-  else
-    defp sandbox_object_chunk_stream_response(bucket, object, chunk_size, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      chunk_size: #{inspect(chunk_size)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_get_chunk_response(bucket, object, start_byte, end_byte, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      start_byte: #{inspect(start_byte)}
-      end_byte: #{inspect(end_byte)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_list_objects_response(bucket, prefix, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      prefix: #{prefix}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_get_object_response(bucket, object, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_head_object_response(bucket, object, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_delete_object_response(bucket, object, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_put_object_response(bucket, object, body, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      body: #{inspect(body)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_put_object_copy_response(
-           destination_bucket,
-           destination_object,
-           source_bucket,
-           source_object,
-           opts
-         ) do
-      raise """
-      Cannot use sandbox outside of test
-
-      destination_bucket: #{inspect(destination_bucket)}
-      destination_object: #{inspect(destination_object)}
-      source_bucket: #{inspect(source_bucket)}
-      source_object: #{inspect(source_object)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_sign_part_response(bucket, object, upload_id, part_number, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      upload_id: #{inspect(upload_id)}
-      part_number: #{inspect(part_number)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_pre_sign_response(bucket, method, object, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      method: #{inspect(method)}
-      object: #{inspect(object)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_list_multipart_uploads_response(bucket, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_create_multipart_upload_response(bucket, object, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_list_parts_response(bucket, object, upload_id, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      upload_id: #{inspect(upload_id)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_abort_multipart_upload_response(bucket, object, upload_id, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      upload_id: #{inspect(upload_id)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_complete_multipart_upload_response(bucket, object, upload_id, parts, opts) do
-      raise """
-      Cannot use sandbox outside of test
-
-      bucket: #{inspect(bucket)}
-      object: #{inspect(object)}
-      upload_id: #{inspect(upload_id)}
-      parts: #{inspect(parts, pretty: true)}
-      options: #{inspect(opts, pretty: true)}
-      """
-    end
-
-    defp sandbox_disabled?, do: true
   end
 end

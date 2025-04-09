@@ -6,8 +6,7 @@ config :uppy,
   db_action_adapter: Uppy.DBActions.SimpleRepo,
   http_adapter: Uppy.HTTP.Finch,
   scheduler_adapter: Uppy.Schedulers.ObanScheduler,
-  storage_adapter: Uppy.Storages.S3,
-  storage: [sandbox: Mix.env() === :test]
+  storage_adapter: Uppy.Storages.S3
 
 if Mix.env() === :test do
   config :uppy,
