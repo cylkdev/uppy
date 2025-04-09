@@ -48,7 +48,6 @@ defmodule Uppy.MixProject do
       {:excoveralls, "~> 0.1", only: :test, runtime: false},
       {:credo, "~> 1.0", only: :test, runtime: false},
       {:dialyxir, "~> 1.0", only: :test, runtime: false},
-      {:sandbox_registry, "~> 0.1", only: :test},
       {:faker, "~> 0.1", only: :test},
       {:factory_ex, github: "theblitzapp/factory_ex", only: :test},
       {:error_message, "~> 0.3", optional: true},
@@ -62,7 +61,8 @@ defmodule Uppy.MixProject do
       {:ex_aws, "~> 2.0", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
       {:sweet_xml, "~> 0.1", optional: true},
-      {:nimble_options, "~> 1.0"}
+      {:nimble_options, "~> 1.0"},
+      {:sandbox_registry, "~> 0.1"}
     ]
   end
 
