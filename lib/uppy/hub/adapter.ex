@@ -74,9 +74,11 @@ defmodule Uppy.Hub.Adapter do
 
   def path_builder_module(hub), do: hub.path_builder_module()
 
-  def build_object_path(hub, action, struct, unique_identifier, params),
-    do: hub.build_object_path(action, struct, unique_identifier, params)
+  def build_object_path(hub, action, struct, unique_identifier, params) do
+    hub.build_object_path(action, struct, unique_identifier, params)
+  end
 
-  def before_build_object_path(hub, action, params),
-    do: hub.before_build_object_path(action, params)
+  def before_build_object_path(hub, action, params) do
+    hub.before_build_object_path(action, params)
+  end
 end
