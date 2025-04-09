@@ -6,7 +6,8 @@ config :uppy,
   db_action_adapter: Uppy.DBActions.SimpleRepo,
   http_adapter: Uppy.HTTP.Finch,
   scheduler_adapter: Uppy.Schedulers.ObanScheduler,
-  storage_adapter: Uppy.Storages.S3
+  storage_adapter: Uppy.Storages.S3,
+  storage: [sandbox: Mix.env() === :test]
 
 if Mix.env() === :test do
   config :uppy,
@@ -16,11 +17,6 @@ if Mix.env() === :test do
       repo: Uppy.Support.Repo,
       queues: false,
       testing: :manual
-    ],
-    storage: [
-      scheme: "http://",
-      host: "s3.localhost.localstack.cloud",
-      port: 4566
     ]
 else
   config :uppy,
@@ -33,12 +29,6 @@ else
         abort_expired_multipart_upload: 5,
         abort_expired_upload: 5
       ]
-    ],
-    storage: [
-      bucket: "<uppy-bucket>",
-      region: "us-west-1",
-      access_key_id: ["<UPPY_S3_ACCESS_KEY_ID>"],
-      secret_access_key: ["<UPPY_S3_SECRET_ACCESS_KEY>"]
     ]
 end
 

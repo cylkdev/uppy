@@ -6,4 +6,4 @@ ExUnit.start()
 
 Uppy.Support.Repo.start_link()
 Uppy.start_link()
-Uppy.StorageSandbox.start_link()
+Uppy.Testing.StorageSandbox.start_link()

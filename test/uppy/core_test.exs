@@ -2,13 +2,9 @@ defmodule Uppy.CoreTest do
   use Uppy.Support.DataCase, async: true
 
   alias Uppy.Core
-
-  alias Uppy.StorageSandbox
-
-  alias Uppy.Support.{
-    Fixture,
-    Schemas.FileInfoAbstract
-  }
+  alias Uppy.Support.Fixture
+  alias Uppy.Support.Schemas.FileInfoAbstract
+  alias Uppy.Testing.StorageSandbox
 
   @bucket "uppy-test"
 

@@ -29,6 +29,11 @@ defmodule Uppy.Config do
     Application.get_env(@app, :storage_adapter) || Uppy.Storages.S3
   end
 
+  @spec storage :: keyword() | nil
+  def storage do
+    Application.get_env(@app, :storage)
+  end
+
   @spec scheduler_adapter :: module()
   def scheduler_adapter do
     Application.get_env(@app, :scheduler_adapter) || Uppy.Schedulers.ObanScheduler
