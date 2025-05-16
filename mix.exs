@@ -51,7 +51,7 @@ defmodule Uppy.MixProject do
       {:faker, "~> 0.1", only: :test},
       {:factory_ex, github: "theblitzapp/factory_ex", only: :test},
       {:error_message, "~> 0.3", optional: true},
-      {:ecto_shorts, git: "https://github.com/MikaAK/ecto_shorts.git", branch: "main"},
+      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "cylkdev-ecto-shorts-2.5.0"},
       {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.0", optional: true},
       {:postgrex, ">= 0.0.0", optional: true},
