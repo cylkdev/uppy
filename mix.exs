@@ -1,7 +1,7 @@
 defmodule Uppy.MixProject do
   use Mix.Project
 
-  @source_url "https://github.com/RequisDev/uppy"
+  @source_url "https://github.com/cylkdev/uppy"
   @version "0.1.0"
 
   def project do
@@ -48,21 +48,19 @@ defmodule Uppy.MixProject do
       {:excoveralls, "~> 0.1", only: :test, runtime: false},
       {:credo, "~> 1.0", only: :test, runtime: false},
       {:dialyxir, "~> 1.0", only: :test, runtime: false},
-      {:faker, "~> 0.1", only: :test},
-      {:factory_ex, github: "theblitzapp/factory_ex", only: :test},
-      {:error_message, "~> 0.3", optional: true},
-      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "cylkdev-ecto-shorts-2.5.0"},
-      {:ecto, "~> 3.0"},
-      {:ecto_sql, "~> 3.0", optional: true},
-      {:postgrex, ">= 0.0.0", optional: true},
-      {:oban, "~> 2.0", optional: true},
-      {:finch, "~> 0.1", optional: true},
-      {:proper_case, "~> 1.0", optional: true},
+
+      {:cloud_cache, git: "https://github.com/cylkdev/cloud_cache.git"},
       {:ex_aws, "~> 2.0", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
-      {:sweet_xml, "~> 0.1", optional: true},
-      {:nimble_options, "~> 1.0"},
-      {:sandbox_registry, "~> 0.1"}
+      {:jason, "~> 1.0", optional: true},
+      {:sweet_xml, ">= 0.0.0", optional: true},
+      {:timex, "~> 3.0", optional: true},
+      {:req, "~> 0.5", optional: true},
+      {:ecto, "~> 3.0", optional: true},
+      {:ecto_sql, "~> 3.0", optional: true},
+      {:postgrex, ">= 0.0.0", optional: true},
+      {:error_message, ">= 0.0.0", optional: true},
+      {:sandbox_registry, ">= 0.0.0", only: :test, runtime: false}
     ]
   end
 

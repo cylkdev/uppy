@@ -1,9 +1,7 @@
 ExUnit.start()
 
-{:ok, _} = Application.ensure_all_started(:postgrex)
-{:ok, _} = Application.ensure_all_started(:ecto)
-{:ok, _} = Application.ensure_all_started(:oban)
+for app <- [:postgrex, :ecto, :oban] do
+  {:ok, _} = Application.ensure_all_started(app)
+end
 
 Uppy.Support.Repo.start_link()
-Uppy.start_link()
-Uppy.Testing.StorageSandbox.start_link()

@@ -1,496 +1,365 @@
 defmodule Uppy.Core do
-  @moduledoc """
-  """
-
-  alias Uppy.{
-    Scheduler,
-    DBAction,
-    PathBuilder,
-    Pipeline,
-    Storage
-  }
-
-  @completed :completed
-  @aborted :aborted
+  @uid_hash_size 4
   @pending :pending
+  @aborted :aborted
+  @completed :completed
 
-  @scheduler_enabled true
+  defstruct [
+    :database,
+    :destination_bucket,
+    :destination_query,
+    :source_bucket,
+    :source_query,
+    :scheduler,
+    :storage
+  ]
 
-  @doc """
-  TODO...
-  """
-  def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
-    resolution =
-      Uppy.Resolution.new!(%{
-        bucket: bucket,
-        query: query,
-        value: schema_data,
-        arguments: %{
-          destination_object: dest_object
-        }
-      })
+  def new(opts) do
+    %__MODULE__{
+      database: opts[:database],
+      destination_bucket: opts[:destination_bucket] || opts[:source_bucket],
+      destination_query: opts[:destination_query] || opts[:source_query],
+      source_bucket: opts[:source_bucket],
+      source_query: opts[:source_query],
+      scheduler: opts[:scheduler],
+      storage: opts[:storage]
+    }
+  end
 
-    phases =
-      case opts[:pipeline] do
-        nil ->
-          Uppy.Pipelines.pipeline_for(:move_to_destination, opts)
+  def save_upload(%__MODULE__{} = core, %_{} = src_schema_data, create_params, opts) do
+    dest_object = create_params.key
 
-        module ->
-          module.pipeline_for(
-            :move_to_destination,
-            %{
-              bucket: bucket,
-              destination_object: dest_object,
-              query: query,
-              schema_data: schema_data
-            },
-            opts
-          )
+    with {:ok, metadata} <-
+           core.storage.describe_object(core.source_bucket, src_schema_data.key, opts),
+         {:ok, copy_object_response} <-
+           core.storage.copy_object(
+             core.destination_bucket || core.source_bucket,
+             dest_object,
+             core.source_bucket,
+             src_schema_data.key,
+             opts
+           ),
+         {:ok, dest_schema_data} <-
+           core.database.create(
+             core.destination_query,
+             Map.merge(create_params, %{
+               unique_identifier: create_params[:unique_identifier] || generate_uid(),
+               key: dest_object,
+               content_length: metadata.content_length,
+               content_type: metadata.content_type,
+               last_modified: metadata.last_modified,
+               etag: metadata.etag,
+               pending_upload_id: src_schema_data.id
+             }),
+             opts
+           ) do
+      {:ok,
+       %{
+         metadata: metadata,
+         source_schema_data: src_schema_data,
+         destination_schema_data: dest_schema_data,
+         copy_object: copy_object_response
+       }}
+    end
+  end
+
+  def save_upload(%__MODULE__{} = core, find_params, create_params, opts) do
+    with {:ok, schema_data} <- core.database.find(core.source_query, find_params, opts) do
+      save_upload(core, schema_data, create_params, opts)
+    end
+  end
+
+  def complete_upload(%__MODULE__{} = core, %_{} = schema_data, update_params, opts) do
+    with {:ok, metadata} <-
+           core.storage.describe_object(core.source_bucket, schema_data.key, opts) do
+      update_params =
+        Map.merge(update_params, %{
+          state: @completed,
+          content_length: metadata.content_length,
+          content_type: metadata.content_type,
+          last_modified: metadata.last_modified,
+          etag: metadata.etag
+        })
+
+      fun =
+        fn ->
+          with {:ok, updated_schema_data} <-
+                 core.database.update(core.source_query, schema_data, update_params, opts),
+               {:ok, job} <-
+                 core.scheduler.enqueue_save_upload(
+                   core.source_query,
+                   updated_schema_data.id,
+                   opts
+                 ) do
+            {:ok,
+             %{
+               metadata: metadata,
+               schema_data: updated_schema_data,
+               job: job
+             }}
+          end
+        end
+
+      core.database.transaction(fun, opts)
+    end
+  end
+
+  def complete_upload(%__MODULE__{} = core, find_params, update_params, opts) do
+    with {:ok, schema_data} <- core.database.find(core.source_query, find_params, opts) do
+      complete_upload(core, schema_data, update_params, opts)
+    end
+  end
+
+  def abort_upload(%__MODULE__{} = core, %_{} = schema_data, update_params, opts) do
+    fun =
+      fn ->
+        with {:ok, updated_schema_data} <-
+               core.database.update(
+                 core.source_query,
+                 schema_data,
+                 Map.put(update_params, :state, @aborted),
+                 opts
+               ),
+             {:ok, job} <-
+               core.scheduler.enqueue_handle_aborted_upload(
+                 core.source_query,
+                 updated_schema_data.id,
+                 opts
+               ) do
+          {:ok,
+           %{
+             schema_data: updated_schema_data,
+             job: job
+           }}
+        end
       end
 
-    with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
-      {:ok,
-       %{
-         resolution: %{resolution | state: :resolved},
-         done: done
-       }}
+    core.database.transaction(fun, opts)
+  end
+
+  def abort_upload(%__MODULE__{} = core, find_params, update_params, opts) do
+    with {:ok, schema_data} <- core.database.find(core.source_query, find_params, opts) do
+      abort_upload(core, schema_data, update_params, opts)
     end
   end
 
-  def move_to_destination(bucket, query, find_params, dest_object, opts) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      move_to_destination(bucket, query, schema_data, dest_object, opts)
+  def start_upload(%__MODULE__{} = core, params, opts) do
+    with {:ok, pre_signed_url} <- core.storage.pre_sign(core.source_bucket, params.key, opts) do
+      create_params =
+        Map.merge(params, %{
+          state: @pending,
+          key: params.key,
+          unique_identifier: params[:unique_identifier] || generate_uid()
+        })
+
+      fun =
+        fn ->
+          with {:ok, schema_data} <- core.database.create(core.source_query, create_params, opts),
+               {:ok, job} <-
+                 core.scheduler.enqueue_handle_expired_upload(
+                   core.source_query,
+                   schema_data.id,
+                   opts
+                 ) do
+            {:ok,
+             %{
+               pre_signed_url: pre_signed_url,
+               data: schema_data,
+               job: job
+             }}
+          end
+        end
+
+      core.database.transaction(fun, opts)
     end
   end
 
-  @doc """
-  TODO...
-  """
-  def find_parts(bucket, _query, %_{} = schema_data, opts) do
+  def find_parts(%__MODULE__{} = core, %_{} = schema_data, opts) do
     with {:ok, parts} <-
-           Storage.list_parts(
-             bucket,
+           core.storage.list_parts(
+             core.source_bucket,
              schema_data.key,
              schema_data.upload_id,
              opts
            ) do
       {:ok,
        %{
-         parts: parts,
-         schema_data: schema_data
+         schema_data: schema_data,
+         parts: parts
        }}
     end
   end
 
-  def find_parts(bucket, query, find_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      find_parts(bucket, query, schema_data, opts)
+  def find_parts(%__MODULE__{} = core, params, opts) do
+    with {:ok, schema_data} <- core.database.find(core.source_query, params, opts) do
+      find_parts(core, schema_data, opts)
     end
   end
 
-  @doc """
-  TODO...
-  """
-  def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
-    with {:ok, signed_part} <-
-           Storage.sign_part(
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             part_number,
-             opts
-           ) do
-      {:ok,
-       %{
-         signed_part: signed_part,
-         schema_data: schema_data
-       }}
-    end
-  end
-
-  def sign_part(bucket, query, find_params, part_number, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      sign_part(bucket, query, schema_data, part_number, opts)
-    end
-  end
-
-  @doc """
-  TODO...
-  """
   def complete_multipart_upload(
-        bucket,
-        builder_params,
-        query,
+        %__MODULE__{} = core,
         %_{} = schema_data,
         update_params,
         parts,
         opts
       ) do
-    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
-
-    {basename, dest_object} =
-      PathBuilder.build_object_path(
-        schema_data,
-        unique_identifier,
-        builder_params,
-        opts
-      )
-
     with {:ok, metadata} <-
-           Storage.complete_multipart_upload(
-             bucket,
+           storage_complete_multipart(
+             core.storage,
+             core.source_bucket,
              schema_data.key,
              schema_data.upload_id,
              parts,
              opts
            ) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.update(
-                 query,
-                 schema_data,
-                 Map.merge(update_params, %{
-                   state: @completed,
-                   unique_identifier: unique_identifier,
-                   e_tag: metadata.e_tag
-                 }),
-                 opts
-               ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_move_to_destination(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     dest_object,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 metadata: metadata,
-                 schema_data: schema_data,
-                 basename: basename,
-                 destination_object: dest_object,
-                 jobs: %{move_to_destination: job}
-               }}
-            end
-          else
+      fun =
+        fn ->
+          with {:ok, updated_schema_data} <-
+                 core.database.update(
+                   core.source_query,
+                   schema_data,
+                   Map.merge(update_params, %{
+                     state: @completed,
+                     content_length: metadata.content_length,
+                     content_type: metadata.content_type,
+                     last_modified: metadata.last_modified,
+                     etag: metadata.etag
+                   }),
+                   opts
+                 ),
+               {:ok, job} <-
+                 core.scheduler.enqueue_save_upload(
+                   core.source_query,
+                   updated_schema_data.id,
+                   opts
+                 ) do
             {:ok,
              %{
                metadata: metadata,
-               schema_data: schema_data,
-               basename: basename,
-               destination_object: dest_object
+               schema_data: updated_schema_data,
+               job: job
              }}
           end
         end
-      end
 
-      DBAction.transaction(fun, opts)
+      core.database.transaction(fun, opts)
     end
   end
 
-  def complete_multipart_upload(
-        bucket,
-        builder_params,
-        query,
-        find_params,
-        update_params,
-        parts,
-        opts
-      ) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_multipart_upload(
-        bucket,
-        builder_params,
-        query,
-        schema_data,
-        update_params,
-        parts,
-        opts
-      )
+  def complete_multipart_upload(%__MODULE__{} = core, find_params, update_params, parts, opts) do
+    with {:ok, schema_data} <- core.database.find(core.source_query, find_params, opts) do
+      complete_multipart_upload(core, schema_data, update_params, parts, opts)
     end
   end
 
-  @doc """
-  TODO...
-  """
-  def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put_new(update_params, :state, @aborted)
-
-    with {:ok, metadata} <-
-           Storage.abort_multipart_upload(
-             bucket,
+  def abort_multipart_upload(%__MODULE__{} = core, %_{} = schema_data, update_params, opts) do
+    with {:ok, abort_mpu_result} <-
+           storage_abort_multipart(
+             core.storage,
+             core.source_bucket,
              schema_data.key,
              schema_data.upload_id,
              opts
-           ),
-         {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-      {:ok,
-       %{
-         metadata: metadata,
-         schema_data: schema_data
-       }}
-    end
-  end
-
-  def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_multipart_upload(bucket, query, schema_data, update_params, opts)
-    end
-  end
-
-  @doc """
-  TODO...
-  """
-  def create_multipart_upload(
-        bucket,
-        builder_params,
-        query,
-        create_params,
-        opts
-      ) do
-    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
-
-    {basename, key} =
-      PathBuilder.build_object_path(
-        create_params.filename,
-        builder_params,
-        opts
-      )
-
-    with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.create(
-                 query,
-                 Map.merge(create_params, %{
-                   state: @pending,
-                   unique_identifier: unique_identifier,
-                   filename: create_params.filename,
-                   key: key,
-                   upload_id: multipart_upload.upload_id
-                 }),
-                 opts
-               ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_abort_expired_multipart_upload(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 basename: basename,
-                 schema_data: schema_data,
-                 multipart_upload: multipart_upload,
-                 jobs: %{abort_expired_multipart_upload: job}
-               }}
-            end
-          else
+           ) do
+      fun =
+        fn ->
+          with {:ok, updated_schema_data} <-
+                 core.database.update(
+                   core.source_query,
+                   schema_data,
+                   Map.put(update_params, :state, @aborted),
+                   opts
+                 ),
+               {:ok, job} <-
+                 core.scheduler.enqueue_handle_aborted_multipart_upload(
+                   core.source_query,
+                   updated_schema_data.id,
+                   opts
+                 ) do
             {:ok,
              %{
-               basename: basename,
-               schema_data: schema_data,
-               multipart_upload: multipart_upload
+               abort_multipart_upload: abort_mpu_result,
+               data: updated_schema_data,
+               job: job
              }}
           end
         end
-      end
 
-      DBAction.transaction(fun, opts)
+      core.database.transaction(fun, opts)
     end
   end
 
-  @doc """
-  TODO...
-  """
-  def complete_upload(bucket, builder_params, query, %_{} = schema_data, update_params, opts) do
-    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
+  def abort_multipart_upload(%__MODULE__{} = core, find_params, update_params, opts) do
+    with {:ok, schema_data} <- core.database.find(core.source_query, find_params, opts) do
+      abort_multipart_upload(core, schema_data, update_params, opts)
+    end
+  end
 
-    {basename, dest_object} =
-      PathBuilder.build_object_path(
-        schema_data,
-        unique_identifier,
-        builder_params,
-        opts
-      )
-
-    with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.update(
-                 query,
-                 schema_data,
-                 Map.merge(update_params, %{
-                   state: @completed,
-                   unique_identifier: unique_identifier,
-                   e_tag: metadata.e_tag
-                 }),
-                 opts
-               ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_move_to_destination(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     dest_object,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 metadata: metadata,
-                 schema_data: schema_data,
-                 basename: basename,
-                 destination_object: dest_object,
-                 jobs: %{move_to_destination: job}
-               }}
-            end
-          else
+  def start_multipart_upload(%__MODULE__{} = core, params, opts) do
+    with {:ok, create_mpu_result} <-
+           core.storage.create_multipart_upload(core.source_bucket, params.key, opts) do
+      fun =
+        fn ->
+          with {:ok, schema_data} <-
+                 core.database.create(
+                   core.source_query,
+                   Map.merge(params, %{
+                     state: @pending,
+                     key: params.key,
+                     upload_id: create_mpu_result.upload_id,
+                     unique_identifier: params[:unique_identifier] || generate_uid()
+                   }),
+                   opts
+                 ),
+               {:ok, job} <-
+                 core.scheduler.enqueue_handle_expired_multipart_upload(
+                   core.source_query,
+                   schema_data.id,
+                   opts
+                 ) do
             {:ok,
              %{
-               metadata: metadata,
+               create_multipart_upload: create_mpu_result,
                schema_data: schema_data,
-               basename: basename,
-               destination_object: dest_object
+               job: job
              }}
           end
         end
-      end
 
-      DBAction.transaction(fun, opts)
+      core.database.transaction(fun, opts)
     end
   end
 
-  def complete_upload(bucket, builder_params, query, find_params, update_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{==: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, builder_params, query, schema_data, update_params, opts)
+  defp storage_complete_multipart(storage, bucket, key, upload_id, parts, opts) do
+    case storage.complete_multipart_upload(bucket, key, upload_id, parts, opts) do
+      {:ok, _} -> storage.describe_object(bucket, key, opts)
+      {:error, %{code: :not_found}} -> storage.describe_object(bucket, key, opts)
+      {:error, _} = error -> error
     end
   end
 
-  @doc """
-  TODO...
-  """
-  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put_new(update_params, :state, @aborted)
+  defp storage_abort_multipart(storage, bucket, key, upload_id, opts) do
+    case storage.describe_object(bucket, key, opts) do
+      {:error, %{code: :not_found}} ->
+        storage.abort_multipart_upload(
+          bucket,
+          key,
+          upload_id,
+          opts
+        )
 
-    case Storage.head_object(bucket, schema_data.key, opts) do
       {:ok, metadata} ->
         {:error,
-         ErrorMessage.forbidden("object exists", %{
+         ErrorMessage.bad_request("multipart upload completed.", %{
+           metadata: metadata,
            bucket: bucket,
-           key: schema_data.key,
-           metadata: metadata
+           key: key,
+           upload_id: upload_id
          })}
-
-      {:error, %{code: :not_found}} ->
-        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-          {:ok, %{schema_data: schema_data}}
-        end
-
-      e ->
-        e
     end
   end
 
-  def abort_upload(bucket, query, find_params, update_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{==: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_upload(bucket, query, schema_data, update_params, opts)
-    end
-  end
-
-  @doc """
-  TODO...
-  """
-  def create_upload(bucket, builder_params, query, create_params, opts) when is_binary(bucket) do
-    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
-
-    {basename, key} = PathBuilder.build_object_path(create_params.filename, builder_params, opts)
-
-    with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.create(
-                 query,
-                 Map.merge(create_params, %{
-                   state: @pending,
-                   unique_identifier: unique_identifier,
-                   filename: create_params.filename,
-                   key: key
-                 }),
-                 opts
-               ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_abort_expired_upload(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 basename: basename,
-                 schema_data: schema_data,
-                 signed_url: signed_url,
-                 jobs: %{abort_expired_upload: job}
-               }}
-            end
-          else
-            {:ok,
-             %{
-               basename: basename,
-               schema_data: schema_data,
-               signed_url: signed_url
-             }}
-          end
-        end
-      end
-
-      DBAction.transaction(fun, opts)
-    end
-  end
-
-  defp generate_unique_identifier() do
-    4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
-  end
-
-  defp http_method(opts) do
-    with val when val not in [:put, :post] <- Keyword.get(opts, :http_method, :put) do
-      raise "Expected the option `:http_method` to be :put or :post, got: #{inspect(val)}"
-    end
+  defp generate_uid do
+    @uid_hash_size |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
   end
 end
