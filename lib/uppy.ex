@@ -1,3 +1,2 @@
 defmodule Uppy do
-
 end

@@ -1,8 +1,8 @@
 defmodule Uppy.Core do
   @uid_hash_size 4
-  @pending :pending
-  @aborted :aborted
-  @completed :completed
+  @pending "pending"
+  @aborted "aborted"
+  @completed "completed"
 
   defstruct [
     :database,

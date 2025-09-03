@@ -48,7 +48,6 @@ defmodule Uppy.MixProject do
       {:excoveralls, "~> 0.1", only: :test, runtime: false},
       {:credo, "~> 1.0", only: :test, runtime: false},
       {:dialyxir, "~> 1.0", only: :test, runtime: false},
-
       {:cloud_cache, git: "https://github.com/cylkdev/cloud_cache.git"},
       {:ex_aws, "~> 2.0", optional: true},
       {:ex_aws_s3, "~> 2.0", optional: true},
