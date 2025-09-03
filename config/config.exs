@@ -23,3 +23,7 @@ else
     log: :debug,
     pool_size: 10
 end
+
+config :ecto_shorts,
+  repo: Uppy.Support.Repo,
+  error_module: EctoShorts.Actions.Error

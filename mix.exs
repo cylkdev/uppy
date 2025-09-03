@@ -59,7 +59,12 @@ defmodule Uppy.MixProject do
       {:ecto_sql, "~> 3.0", optional: true},
       {:postgrex, ">= 0.0.0", optional: true},
       {:error_message, ">= 0.0.0", optional: true},
-      {:sandbox_registry, ">= 0.0.0", only: :test, runtime: false}
+      {:sandbox_registry, ">= 0.0.0", only: :test, runtime: false},
+      {:ecto_shorts,
+       git: "https://github.com/cylkdev/ecto_shorts.git",
+       branch: "cylkdev-ecto-shorts-2.5.0",
+       override: true},
+      {:oban, "~> 2.20"}
     ]
   end
 
