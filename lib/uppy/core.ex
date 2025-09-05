@@ -75,10 +75,10 @@ defmodule Uppy.Core do
       update_params =
         Map.merge(update_params, %{
           state: @completed,
-          content_length: metadata.content_length,
-          content_type: metadata.content_type,
-          last_modified: metadata.last_modified,
-          etag: metadata.etag
+          content_length: metadata.headers.content_length,
+          content_type: metadata.headers.content_type,
+          last_modified: metadata.headers.last_modified,
+          etag: metadata.headers.etag
         })
 
       fun =

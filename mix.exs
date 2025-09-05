@@ -64,7 +64,8 @@ defmodule Uppy.MixProject do
        git: "https://github.com/cylkdev/ecto_shorts.git",
        branch: "cylkdev-ecto-shorts-2.5.0",
        override: true},
-      {:oban, "~> 2.20"}
+      {:oban, "~> 2.20"},
+      {:proper_case, "~> 1.0", optional: true}
     ]
   end
 
