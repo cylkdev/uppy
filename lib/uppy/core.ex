@@ -45,10 +45,10 @@ defmodule Uppy.Core do
              Map.merge(create_params, %{
                unique_identifier: create_params[:unique_identifier] || generate_uid(),
                key: dest_object,
-               content_length: metadata.content_length,
-               content_type: metadata.content_type,
-               last_modified: metadata.last_modified,
-               etag: metadata.etag,
+               content_length: metadata.headers.content_length,
+               content_type: metadata.headers.content_type,
+               last_modified: metadata.headers.last_modified,
+               etag: metadata.headers.etag,
                pending_upload_id: src_schema_data.id
              }),
              opts
@@ -220,10 +220,10 @@ defmodule Uppy.Core do
                    schema_data,
                    Map.merge(update_params, %{
                      state: @completed,
-                     content_length: metadata.content_length,
-                     content_type: metadata.content_type,
-                     last_modified: metadata.last_modified,
-                     etag: metadata.etag
+                     content_length: metadata.headers.content_length,
+                     content_type: metadata.headers.content_type,
+                     last_modified: metadata.headers.last_modified,
+                     etag: metadata.headers.etag
                    }),
                    opts
                  ),
@@ -306,7 +306,7 @@ defmodule Uppy.Core do
                    Map.merge(params, %{
                      state: @pending,
                      key: params.key,
-                     upload_id: create_mpu_result.upload_id,
+                     upload_id: create_mpu_result.body.upload_id,
                      unique_identifier: params[:unique_identifier] || generate_uid()
                    }),
                    opts

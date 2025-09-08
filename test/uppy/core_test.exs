@@ -65,7 +65,11 @@ defmodule Uppy.CoreTest do
   describe "abort_upload/4" do
     test "can abort an upload", ctx do
       assert {:ok, %{data: pending_upload}} =
-        Uppy.Core.start_upload(ctx.state, %{key: "test-object", unique_identifier: "PPXQFVY"}, [])
+               Uppy.Core.start_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
 
       assert {:ok,
               %{
@@ -97,7 +101,7 @@ defmodule Uppy.CoreTest do
   describe "complete_upload/4" do
     test "can complete an upload", ctx do
       {:ok, %{data: pending_upload}} =
-      Uppy.Core.start_upload(ctx.state, %{key: "test-object", unique_identifier: "PPXQFVY"}, [])
+        Uppy.Core.start_upload(ctx.state, %{key: "test-object", unique_identifier: "PPXQFVY"}, [])
 
       assert {:ok, _} = LocalStack.put_object(@bucket, "test-object", "content", [])
 
@@ -106,7 +110,12 @@ defmodule Uppy.CoreTest do
                 schema_data: schema_data,
                 job: :none
               }} =
-               Uppy.Core.complete_upload(ctx.state, %{key: "test-object", unique_identifier: "PPXQFVY"}, %{}, [])
+               Uppy.Core.complete_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 %{},
+                 []
+               )
 
       assert %Uppy.SchemasPG.PendingUpload{
                id: id,
@@ -123,53 +132,225 @@ defmodule Uppy.CoreTest do
     end
   end
 
-  # describe "find_parts/2" do
-  #   test "can find parts", ctx do
-  #     %{pending_upload: pending_upload} = upload_context(ctx)
+  describe "save_upload/4" do
+    test "can save an upload", ctx do
+      assert {:ok,
+              %{
+                data: _,
+                job: :none,
+                pre_signed_url: _
+              }} =
+               Uppy.Core.start_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
 
-  #     assert {:ok,
-  #             %{
-  #               schema_data: schema_data,
-  #               parts: parts
-  #             }} =
-  #              Uppy.Core.find_parts(ctx.state, %{key: "test-object"}, [])
+      assert {:ok, _} = LocalStack.put_object(@bucket, "test-object", "content", [])
 
-  #     assert %Uppy.SchemasPG.PendingUpload{
-  #              id: id,
-  #              state: "pending",
-  #              unique_identifier: "PPXQFVY",
-  #              key: "test-object",
-  #              upload_id: nil,
-  #              content_length: nil,
-  #              content_type: nil,
-  #              etag: nil
-  #            } = schema_data
+      assert {:ok, _} = LocalStack.head_or_create_bucket(@region, "test-bucket-2", [])
 
-  #     assert [] = parts
-  #     assert id === pending_upload.id
-  #   end
-  # end
+      assert {:ok,
+              %{
+                copy_object: _,
+                metadata: _,
+                source_schema_data: source_schema_data,
+                destination_schema_data: destination_schema_data
+              }} =
+               Uppy.Core.save_upload(
+                 %{ctx.state | destination_bucket: "test-bucket-2"},
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
 
-  # describe "start_multipart_upload/3" do
-  #   test "can start a multipart upload", ctx do
-  #     assert {:ok,
-  #             %{
-  #               create_multipart_upload: create_mpu_result,
-  #               schema_data: schema_data,
-  #               job: :none
-  #             }} =
-  #              Uppy.Core.start_multipart_upload(ctx.state, %{key: "test-object", unique_identifier: "PPXQFVY"}, [])
+      assert %Uppy.SchemasPG.PendingUpload{
+               id: _,
+               state: "pending",
+               unique_identifier: "PPXQFVY",
+               key: "test-object",
+               upload_id: nil,
+               content_length: _,
+               content_type: _,
+               etag: _
+             } = source_schema_data
 
-  #     assert %Uppy.SchemasPG.PendingUpload{
-  #              id: _,
-  #              state: "pending",
-  #              unique_identifier: "PPXQFVY",
-  #              key: "test-object",
-  #              upload_id: nil,
-  #              content_length: nil,
-  #              content_type: nil,
-  #              etag: nil
-  #            } = schema_data
-  #   end
-  # end
+      assert %Uppy.SchemasPG.Upload{
+               id: _,
+               unique_identifier: "PPXQFVY",
+               key: "test-object",
+               content_length: _,
+               content_type: _,
+               etag: _
+             } = destination_schema_data
+    end
+  end
+
+  describe "find_parts/2" do
+    test "can find parts", ctx do
+      assert {:ok,
+              %{
+                create_multipart_upload: _,
+                schema_data: %Uppy.SchemasPG.PendingUpload{upload_id: upload_id},
+                job: :none
+              }} =
+               Uppy.Core.start_multipart_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
+
+      content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
+
+      assert {:ok, _} = LocalStack.upload_part(@bucket, "test-object", upload_id, 1, content, [])
+
+      assert {:ok,
+              %{
+                schema_data: schema_data,
+                parts: parts
+              }} =
+               Uppy.Core.find_parts(ctx.state, %{key: "test-object"}, [])
+
+      assert %Uppy.SchemasPG.PendingUpload{
+               id: _,
+               state: "pending",
+               unique_identifier: "PPXQFVY",
+               key: "test-object",
+               upload_id: ^upload_id,
+               content_length: nil,
+               content_type: nil,
+               etag: nil
+             } = schema_data
+
+      assert %{
+        body: %{parts: [%{size: _, etag: _, part_number: 1}]}
+      } = parts
+    end
+  end
+
+  describe "start_multipart_upload/3" do
+    test "can start a multipart upload", ctx do
+      assert {:ok,
+              %{
+                create_multipart_upload: create_mpu_result,
+                schema_data: schema_data,
+                job: :none
+              }} =
+               Uppy.Core.start_multipart_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
+
+      assert %Uppy.SchemasPG.PendingUpload{
+               id: _,
+               state: "pending",
+               unique_identifier: "PPXQFVY",
+               key: "test-object",
+               upload_id: _,
+               content_length: nil,
+               content_type: nil,
+               etag: nil
+             } = schema_data
+
+      assert %{
+               body: %{
+                 key: "test-object",
+                 bucket: "test-bucket",
+                 upload_id: _
+               }
+             } = create_mpu_result
+    end
+  end
+
+  describe "abort_multipart_upload/4" do
+    test "can abort a multipart upload", ctx do
+      assert {:ok,
+              %{
+                create_multipart_upload: create_mpu_result,
+                schema_data: pending_upload,
+                job: :none
+              }} =
+               Uppy.Core.start_multipart_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
+
+      assert {:ok,
+              %{
+                schema_data: schema_data,
+                job: :none
+              }} =
+               Uppy.Core.abort_multipart_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 %{},
+                 []
+               )
+
+      assert %Uppy.SchemasPG.PendingUpload{
+               id: id,
+               state: "aborted",
+               unique_identifier: "PPXQFVY",
+               key: "test-object",
+               upload_id: nil,
+               content_length: nil,
+               content_type: nil,
+               etag: nil
+             } = schema_data
+
+      assert id === pending_upload.id
+    end
+  end
+
+  describe "complete_multipart_upload/5" do
+    test "can complete a multipart upload", ctx do
+      assert {:ok,
+              %{
+                create_multipart_upload: _,
+                schema_data: %{upload_id: upload_id},
+                job: :none
+              }} =
+               Uppy.Core.start_multipart_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 []
+               )
+
+      content = (1_024 * 5) |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
+
+      assert {:ok, _} = LocalStack.upload_part(@bucket, "test-object", upload_id, 1, content, [])
+
+      assert {:ok,
+              %{
+                schema_data: _,
+                parts: %{body: %{parts: [%{etag: etag, part_number: 1}]}}
+              }} =
+               Uppy.Core.find_parts(ctx.state, %{key: "test-object"}, [])
+
+      assert {:ok,
+              %{
+                metadata: _,
+                schema_data: schema_data,
+                job: :none
+              }} =
+               Uppy.Core.complete_multipart_upload(
+                 ctx.state,
+                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 %{},
+                 [{1, etag}],
+                 []
+               )
+
+      assert %Uppy.SchemasPG.PendingUpload{
+               id: _,
+               state: "completed",
+               unique_identifier: "PPXQFVY",
+               key: "test-object",
+               upload_id: _,
+               etag: _
+             } = schema_data
+    end
+  end
 end
