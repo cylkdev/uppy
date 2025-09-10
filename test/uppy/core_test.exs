@@ -30,7 +30,7 @@ defmodule Uppy.CoreTest do
     test "can start an upload", ctx do
       assert {:ok,
               %{
-                data: data,
+                schema_data: data,
                 job: :none,
                 pre_signed_url: pre_signed_url
               }} =
@@ -64,7 +64,7 @@ defmodule Uppy.CoreTest do
 
   describe "abort_upload/4" do
     test "can abort an upload", ctx do
-      assert {:ok, %{data: pending_upload}} =
+      assert {:ok, %{schema_data: pending_upload}} =
                Uppy.Core.start_upload(
                  ctx.state,
                  %{key: "test-object", unique_identifier: "PPXQFVY"},
@@ -100,7 +100,7 @@ defmodule Uppy.CoreTest do
 
   describe "complete_upload/4" do
     test "can complete an upload", ctx do
-      {:ok, %{data: pending_upload}} =
+      {:ok, %{schema_data: pending_upload}} =
         Uppy.Core.start_upload(ctx.state, %{key: "test-object", unique_identifier: "PPXQFVY"}, [])
 
       assert {:ok, _} = LocalStack.put_object(@bucket, "test-object", "content", [])
@@ -136,7 +136,7 @@ defmodule Uppy.CoreTest do
     test "can save an upload", ctx do
       assert {:ok,
               %{
-                data: _,
+                schema_data: _,
                 job: :none,
                 pre_signed_url: _
               }} =
@@ -257,50 +257,43 @@ defmodule Uppy.CoreTest do
                body: %{
                  key: "test-object",
                  bucket: "test-bucket",
-                 upload_id: _
+                 upload_id: multipart_upload_id
                }
              } = create_mpu_result
+
+      assert multipart_upload_id === schema_data.upload_id
     end
   end
 
   describe "abort_multipart_upload/4" do
     test "can abort a multipart upload", ctx do
-      assert {:ok,
-              %{
-                create_multipart_upload: create_mpu_result,
-                schema_data: pending_upload,
-                job: :none
-              }} =
+      assert {:ok, start_mpu} =
                Uppy.Core.start_multipart_upload(
                  ctx.state,
-                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 %{key: "test-object-2", unique_identifier: "PPXQFVY"},
                  []
                )
 
       assert {:ok,
               %{
-                schema_data: schema_data,
+                schema_data: aborted_schema_data,
                 job: :none
               }} =
                Uppy.Core.abort_multipart_upload(
                  ctx.state,
-                 %{key: "test-object", unique_identifier: "PPXQFVY"},
+                 %{key: "test-object-2", unique_identifier: "PPXQFVY"},
                  %{},
                  []
                )
 
       assert %Uppy.SchemasPG.PendingUpload{
-               id: id,
                state: "aborted",
                unique_identifier: "PPXQFVY",
-               key: "test-object",
-               upload_id: nil,
-               content_length: nil,
-               content_type: nil,
-               etag: nil
-             } = schema_data
+               key: "test-object-2"
+             } = aborted_schema_data
 
-      assert id === pending_upload.id
+      assert aborted_schema_data.id === start_mpu.schema_data.id
+      assert aborted_schema_data.upload_id === start_mpu.schema_data.upload_id
     end
   end
 
@@ -332,7 +325,7 @@ defmodule Uppy.CoreTest do
       assert {:ok,
               %{
                 metadata: _,
-                schema_data: schema_data,
+                schema_data: completed_schema_data,
                 job: :none
               }} =
                Uppy.Core.complete_multipart_upload(
@@ -344,13 +337,15 @@ defmodule Uppy.CoreTest do
                )
 
       assert %Uppy.SchemasPG.PendingUpload{
-               id: _,
                state: "completed",
                unique_identifier: "PPXQFVY",
-               key: "test-object",
-               upload_id: _,
-               etag: _
-             } = schema_data
+               key: "test-object"
+             } = completed_schema_data
+
+      assert completed_schema_data.content_length
+      assert completed_schema_data.content_type
+      assert completed_schema_data.etag
+      assert completed_schema_data.last_modified
     end
   end
 end

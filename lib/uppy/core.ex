@@ -164,7 +164,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                pre_signed_url: pre_signed_url,
-               data: schema_data,
+               schema_data: schema_data,
                job: job
              }}
           end
@@ -279,7 +279,7 @@ defmodule Uppy.Core do
             {:ok,
              %{
                abort_multipart_upload: abort_mpu_result,
-               data: updated_schema_data,
+               schema_data: updated_schema_data,
                job: job
              }}
           end
@@ -349,13 +349,13 @@ defmodule Uppy.Core do
         )
 
       {:ok, metadata} ->
-        {:error,
-         ErrorMessage.bad_request("multipart upload completed.", %{
-           metadata: metadata,
-           bucket: bucket,
-           key: key,
-           upload_id: upload_id
-         })}
+          {:error,
+           ErrorMessage.bad_request("multipart upload completed.", %{
+             metadata: metadata,
+             bucket: bucket,
+             key: key,
+             upload_id: upload_id
+           })}
     end
   end
 
