@@ -17,9 +17,9 @@ defmodule Uppy.CoreTest do
         Uppy.Core.new(
           database: EctoShorts.Actions,
           destination_bucket: @bucket,
-          destination_query: Uppy.SchemasPG.Upload,
+          destination_query: Uppy.Schemas.Upload,
           source_bucket: @bucket,
-          source_query: Uppy.SchemasPG.PendingUpload,
+          source_query: Uppy.Schemas.PendingUpload,
           scheduler: Uppy.Core.Scheduler.None,
           storage: CloudCache.Adapters.S3
         )
@@ -40,7 +40,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                id: _,
                state: "pending",
                unique_identifier: "PPXQFVY",
@@ -83,7 +83,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                id: id,
                state: "aborted",
                unique_identifier: "PPXQFVY",
@@ -117,7 +117,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                id: id,
                state: "completed",
                unique_identifier: "PPXQFVY",
@@ -164,7 +164,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                id: _,
                state: "pending",
                unique_identifier: "PPXQFVY",
@@ -175,7 +175,7 @@ defmodule Uppy.CoreTest do
                etag: _
              } = source_schema_data
 
-      assert %Uppy.SchemasPG.Upload{
+      assert %Uppy.Schemas.Upload{
                id: _,
                unique_identifier: "PPXQFVY",
                key: "test-object",
@@ -191,7 +191,7 @@ defmodule Uppy.CoreTest do
       assert {:ok,
               %{
                 create_multipart_upload: _,
-                schema_data: %Uppy.SchemasPG.PendingUpload{upload_id: upload_id},
+                schema_data: %Uppy.Schemas.PendingUpload{upload_id: upload_id},
                 job: :none
               }} =
                Uppy.Core.start_multipart_upload(
@@ -211,7 +211,7 @@ defmodule Uppy.CoreTest do
               }} =
                Uppy.Core.find_parts(ctx.state, %{key: "test-object"}, [])
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                id: _,
                state: "pending",
                unique_identifier: "PPXQFVY",
@@ -223,8 +223,8 @@ defmodule Uppy.CoreTest do
              } = schema_data
 
       assert %{
-        body: %{parts: [%{size: _, etag: _, part_number: 1}]}
-      } = parts
+               body: %{parts: [%{size: _, etag: _, part_number: 1}]}
+             } = parts
     end
   end
 
@@ -242,7 +242,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                id: _,
                state: "pending",
                unique_identifier: "PPXQFVY",
@@ -286,7 +286,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                state: "aborted",
                unique_identifier: "PPXQFVY",
                key: "test-object-2"
@@ -336,7 +336,7 @@ defmodule Uppy.CoreTest do
                  []
                )
 
-      assert %Uppy.SchemasPG.PendingUpload{
+      assert %Uppy.Schemas.PendingUpload{
                state: "completed",
                unique_identifier: "PPXQFVY",
                key: "test-object"
