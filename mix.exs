@@ -1,18 +1,19 @@
 defmodule Uppy.MixProject do
   use Mix.Project
 
-  @source_url "https://github.com/RequisDev/uppy"
+  @source_url "https://github.com/cylkdev/uppy"
   @version "0.1.0"
 
   def project do
     [
       app: :uppy,
       version: @version,
-      elixir: "~> 1.14",
+      description: "Declarative comparisons and changes",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() === :prod,
+      aliases: aliases(),
       deps: deps(),
-      description: "Declarative comparisons and changes",
       docs: docs(),
       package: package(),
       test_coverage: [tool: ExCoveralls],
@@ -44,25 +45,36 @@ defmodule Uppy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      # linting/documentation dependencies
       {:ex_doc, "~> 0.1", only: :dev, runtime: false},
       {:excoveralls, "~> 0.1", only: :test, runtime: false},
       {:credo, "~> 1.0", only: :test, runtime: false},
       {:dialyxir, "~> 1.0", only: :test, runtime: false},
-      {:faker, "~> 0.1", only: :test},
-      {:factory_ex, github: "theblitzapp/factory_ex", only: :test},
-      {:error_message, "~> 0.3", optional: true},
-      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "cylkdev-ecto-shorts-2.5.0"},
+
+      # ex_aws dependencies
+      {:ex_aws, "~> 2.0"},
+      {:ex_aws_s3, "~> 2.0"},
+      {:jason, "~> 1.0"},
+      {:sweet_xml, ">= 0.0.0"},
+      {:configparser_ex, "~> 5.0"},
+
+      # ecto dependencies
       {:ecto, "~> 3.0"},
-      {:ecto_sql, "~> 3.0", optional: true},
-      {:postgrex, ">= 0.0.0", optional: true},
-      {:oban, "~> 2.0", optional: true},
-      {:finch, "~> 0.1", optional: true},
-      {:proper_case, "~> 1.0", optional: true},
-      {:ex_aws, "~> 2.0", optional: true},
-      {:ex_aws_s3, "~> 2.0", optional: true},
-      {:sweet_xml, "~> 0.1", optional: true},
-      {:nimble_options, "~> 1.0"},
-      {:sandbox_registry, "~> 0.1"}
+      {:ecto_sql, "~> 3.0"},
+      {:postgrex, ">= 0.0.0"},
+
+      # testing
+      {:sandbox_registry, ">= 0.0.0"},
+
+      # app dependencies
+      {:proper_case, "~> 1.0"},
+      {:timex, "~> 3.0"},
+      {:req, "~> 0.5"},
+      {:error_message, ">= 0.0.0"},
+      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "cylkdev-ecto-shorts-2.5.0"},
+      {:cloud_cache, git: "https://github.com/cylkdev/cloud_cache.git", branch: "main"},
+      {:oban, "~> 2.15"},
+      {:cue, git: "https://github.com/cylkdev/cue.git", branch: "main"}
     ]
   end
 
@@ -92,6 +104,15 @@ defmodule Uppy.MixProject do
       source_ref: @version,
       api_reference: false,
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
+    ]
+  end
+
+  defp aliases do
+    [
+      setup: ["deps.get", "ecto.setup"],
+      "ecto.setup": ["ecto.create", "ecto.migrate", "ecto.seed"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"],
+      "ecto.seed": ["run priv/repo/seeds.exs"]
     ]
   end
 end

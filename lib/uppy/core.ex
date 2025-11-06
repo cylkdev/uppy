@@ -1,496 +1,633 @@
 defmodule Uppy.Core do
-  @moduledoc """
-  """
+  @moduledoc false
 
-  alias Uppy.{
-    Scheduler,
-    DBAction,
-    PathBuilder,
-    Pipeline,
-    Storage
-  }
-
+  @primary_keys [:id, :key, :unique_identifier]
+  @pending :pending
   @completed :completed
   @aborted :aborted
-  @pending :pending
 
-  @scheduler_enabled true
+  def delete_upload(bucket, %schema_module{} = schema_struct, _params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
 
+    with {:ok, _} <- storage.delete_object(bucket, schema_struct.key, opts),
+         {:ok, schema_struct} <-
+           schema_struct
+           |> schema_module.changeset(%{})
+           |> database.delete(opts) do
+      {:ok, schema_struct}
+    else
+      {:error, %{code: :not_found}} ->
+        schema_struct
+        |> schema_module.changeset(%{})
+        |> database.delete(opts)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def delete_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      delete_upload(bucket, schema_struct, Map.drop(params, @primary_keys), opts)
+    end
+  end
+
+  @doc group: "Upload API"
   @doc """
-  TODO...
+  Promote a upload.
+
+  ### Examples
+
+      iex> Uppy.Core.promote_upload("uppy-sandbox", "dest/5mb.txt", Uppy.Schemas.Upload, %{key: "temp/5mb.txt"}, %{}, [])
+
+      iex> Uppy.Core.promote_upload("uppy-sandbox", "dest/m/5mb.txt", Uppy.Schemas.Upload, %{key: "temp/m/5mb.txt"}, %{}, [])
   """
-  def move_to_destination(bucket, query, %_{} = schema_data, dest_object, opts) do
-    resolution =
-      Uppy.Resolution.new!(%{
-        bucket: bucket,
-        query: query,
-        value: schema_data,
-        arguments: %{
-          destination_object: dest_object
-        }
-      })
+  def promote_upload(bucket, destination, %src_schema_module{} = parent, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
 
-    phases =
-      case opts[:pipeline] do
-        nil ->
-          Uppy.Pipelines.pipeline_for(:move_to_destination, opts)
+    dest_bucket = opts[:destination][:bucket] || bucket
+    dest_schema_module = opts[:destination][:schema_module] || src_schema_module
+    unique_identifier = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
-        module ->
-          module.pipeline_for(
-            :move_to_destination,
-            %{
-              bucket: bucket,
-              destination_object: dest_object,
-              query: query,
-              schema_data: schema_data
-            },
-            opts
-          )
+    label =
+      params[:label] ||
+        Map.get(parent, :label) ||
+        to_string(dest_schema_module)
+
+    dest_key =
+      case destination do
+        dest_key when is_binary(dest_key) -> dest_key
+        fun when is_function(fun) -> fun.(parent, params)
       end
 
-    with {:ok, resolution, done} <- Pipeline.run(resolution, phases) do
-      {:ok,
-       %{
-         resolution: %{resolution | state: :resolved},
-         done: done
-       }}
-    end
-  end
-
-  def move_to_destination(bucket, query, find_params, dest_object, opts) do
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      move_to_destination(bucket, query, schema_data, dest_object, opts)
-    end
-  end
-
-  @doc """
-  TODO...
-  """
-  def find_parts(bucket, _query, %_{} = schema_data, opts) do
-    with {:ok, parts} <-
-           Storage.list_parts(
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
+    with {:ok, _} <- storage.copy_object(dest_bucket, dest_key, bucket, parent.key, opts),
+         {:ok, metadata} <- storage.head_object(dest_bucket, dest_key, opts),
+         {:ok, dest_schema_struct} <-
+           database.create(
+             dest_schema_module,
+             Map.merge(params, %{
+               state: @completed,
+               bucket: dest_bucket,
+               label: label,
+               promoted: true,
+               filename: params[:filename] || parent.filename,
+               unique_identifier: params[:unique_identifier] || unique_identifier,
+               key: dest_key,
+               content_length: metadata.content_length,
+               content_type: metadata.content_type,
+               last_modified: metadata.last_modified,
+               etag: metadata.etag,
+               parent_id: parent.id
+             }),
              opts
            ) do
       {:ok,
        %{
-         parts: parts,
-         schema_data: schema_data
+         source: parent,
+         destination: dest_schema_struct
        }}
     end
   end
 
-  def find_parts(bucket, query, find_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
+  def promote_upload(bucket, dest_key, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      find_parts(bucket, query, schema_data, opts)
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      promote_upload(bucket, dest_key, schema_struct, Map.drop(params, @primary_keys), opts)
     end
   end
 
+  @doc group: "Upload API"
   @doc """
-  TODO...
+  Complete a upload.
+
+  ### Examples
+
+      iex> Uppy.Core.complete_upload("uppy-sandbox", "temp/5mb.txt", Uppy.Schemas.Upload, %{}, [])
   """
-  def sign_part(bucket, _query, %_{} = schema_data, part_number, opts) do
-    with {:ok, signed_part} <-
-           Storage.sign_part(
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             part_number,
-             opts
-           ) do
-      {:ok,
-       %{
-         signed_part: signed_part,
-         schema_data: schema_data
-       }}
-    end
-  end
+  def complete_upload(bucket, %schema_module{} = schema_struct, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
 
-  def sign_part(bucket, query, find_params, part_number, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
+    label =
+      params[:label] ||
+        Map.get(schema_struct, :label) ||
+        module_to_name(schema_module)
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      sign_part(bucket, query, schema_data, part_number, opts)
-    end
-  end
+    cond do
+      not is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.bad_request("malformed request", %{data: schema_struct})}
 
-  @doc """
-  TODO...
-  """
-  def complete_multipart_upload(
-        bucket,
-        builder_params,
-        query,
-        %_{} = schema_data,
-        update_params,
-        parts,
-        opts
-      ) do
-    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
 
-    {basename, dest_object} =
-      PathBuilder.build_object_path(
-        schema_data,
-        unique_identifier,
-        builder_params,
-        opts
-      )
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
 
-    with {:ok, metadata} <-
-           Storage.complete_multipart_upload(
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             parts,
-             opts
-           ) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.update(
-                 query,
-                 schema_data,
-                 Map.merge(update_params, %{
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        with {:ok, metadata} <- storage.head_object(bucket, schema_struct.key, opts),
+             {:ok, schema_struct} <-
+               database.update(
+                 schema_module,
+                 schema_struct,
+                 Map.merge(params, %{
                    state: @completed,
-                   unique_identifier: unique_identifier,
-                   e_tag: metadata.e_tag
+                   bucket: params[:bucket] || schema_struct.bucket,
+                   label: params[:label] || label,
+                   content_length: metadata.content_length,
+                   content_type: metadata.content_type,
+                   last_modified: metadata.last_modified,
+                   etag: metadata.etag
                  }),
                  opts
                ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_move_to_destination(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     dest_object,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 metadata: metadata,
-                 schema_data: schema_data,
-                 basename: basename,
-                 destination_object: dest_object,
-                 jobs: %{move_to_destination: job}
-               }}
-            end
-          else
-            {:ok,
-             %{
-               metadata: metadata,
-               schema_data: schema_data,
-               basename: basename,
-               destination_object: dest_object
-             }}
-          end
+          {:ok, schema_struct}
         end
-      end
-
-      DBAction.transaction(fun, opts)
     end
   end
 
+  def complete_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      complete_upload(bucket, schema_struct, params, opts)
+    end
+  end
+
+  @doc group: "Upload API"
+  @doc """
+  Abort a upload.
+  """
+  def abort_upload(bucket, %schema_module{} = schema_struct, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
+
+    cond do
+      not is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.bad_request("malformed request", %{data: schema_struct})}
+
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        case storage.head_object(bucket, schema_struct.key, opts) do
+          {:ok, metadata} ->
+            {:error,
+             ErrorMessage.bad_request("upload complete", %{
+               data: schema_struct,
+               metadata: metadata
+             })}
+
+          {:error, _} ->
+            with {:ok, schema_struct} <-
+                   database.update(
+                     schema_module,
+                     schema_struct,
+                     Map.put(params, :state, @aborted),
+                     opts
+                   ) do
+              {:ok, schema_struct}
+            end
+        end
+    end
+  end
+
+  def abort_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      abort_upload(bucket, schema_struct, Map.drop(params, @primary_keys), opts)
+    end
+  end
+
+  @doc group: "Upload API"
+  @doc """
+  Pre-sign a upload.
+
+  ### Examples
+
+  ```elixir
+  Uppy.Core.pre_sign_upload("uppy-sandbox", "temp/5mb.txt", Uppy.Schemas.Upload, %{}, [])
+
+  content = :crypto.strong_rand_bytes(5 * 1024 * 1024) |> Base.encode64() |> binary_part(0, 5 * 1024 * 1024)
+  File.write!("5mb.txt", content)
+
+  curl -X PUT -T "5mb.txt" "http://s3.localhost.localstack.cloud:4566/uppy-sandbox/temp/5mb.txt?X-Amz-Algorithm=AWS4-HMAC-SSHA256&X-Amz-Credential=test%2F20251106%2Fus-west-1%2Fs3%2Faws4_request&X-Amz-Date=20251106T071902Z&X-Amz-Expires=60&X-Amz-SignedHeaders=host&X-Amz-Signature=7e6b7f65a8773244b4955d14405944e48651cc36c0804e865366f3b1f36dfebd"
+  ```
+  """
+  def pre_sign_upload(bucket, %_{} = schema_struct, _params, opts) do
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
+
+    cond do
+      not is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.bad_request("malformed request", %{data: schema_struct})}
+
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        with {:ok, pre_signed_upload} <- storage.pre_sign(bucket, schema_struct.key, opts) do
+          {:ok,
+           %{
+             pre_signed_url: pre_signed_upload,
+             data: schema_struct
+           }}
+        end
+    end
+  end
+
+  def pre_sign_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      pre_sign_upload(bucket, schema_struct, Map.drop(params, @primary_keys), opts)
+    end
+  end
+
+  @doc group: "Upload API"
+  @doc """
+  Create a upload.
+
+  ### Examples
+
+
+  Uppy.Repo.start_link()
+  Uppy.Core.create_upload("uppy-sandbox", "temp/5mb.txt", Uppy.Schemas.Upload, %{}, [])
+  """
+  def create_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <-
+           database.create(
+             schema_module,
+             Map.merge(params, %{
+               state: @pending,
+               label: params[:label] || module_to_name(schema_module),
+               bucket: bucket,
+               key: params.key,
+               filename: params[:filename] || Path.basename(params.key)
+             }),
+             opts
+           ) do
+      {:ok, schema_struct}
+    end
+  end
+
+  @doc group: "Multipart Upload API"
+  @doc """
+  Complete a multipart upload.
+
+  ### Examples
+
+      iex> Uppy.Core.complete_multipart_upload("uppy-sandbox", [%{etag: "6a94c63c450686db4da43803c1eaf4cf", part_number: 1}], Uppy.Schemas.Upload, %{key: "temp/m/5mb.txt"}, [])
+  """
   def complete_multipart_upload(
         bucket,
-        builder_params,
-        query,
-        find_params,
-        update_params,
         parts,
+        %schema_module{} = schema_struct,
+        params,
         opts
       ) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
+    label =
+      params[:label] ||
+        Map.get(schema_struct, :label) ||
+        module_to_name(schema_module)
+
+    parts =
+      Enum.map(parts, fn
+        {part_number, etag} -> {part_number, etag}
+        item -> {item.part_number, item.etag}
+      end)
+
+    cond do
+      is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.not_found("upload not found", %{data: schema_struct})}
+
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        with {:ok, _} <-
+               storage.complete_multipart_upload(
+                 bucket,
+                 schema_struct.key,
+                 schema_struct.upload_id,
+                 parts,
+                 opts
+               ),
+             {:ok, metadata} <- storage.head_object(bucket, schema_struct.key, opts),
+             {:ok, schema_struct} <-
+               database.update(
+                 schema_module,
+                 schema_struct,
+                 Map.merge(params, %{
+                   state: @completed,
+                   bucket: params[:bucket] || schema_struct.bucket,
+                   label: params[:label] || label,
+                   content_length: metadata.content_length,
+                   content_type: metadata.content_type,
+                   last_modified: metadata.last_modified,
+                   etag: metadata.etag
+                 }),
+                 opts
+               ) do
+          {:ok, schema_struct}
+        else
+          {:error, %{code: :not_found}} ->
+            with {:ok, metadata} <- storage.head_object(bucket, schema_struct.key, opts),
+                 {:ok, schema_struct} <-
+                   database.update(
+                     schema_module,
+                     schema_struct,
+                     Map.merge(params, %{
+                       state: @completed,
+                       bucket: params[:bucket] || schema_struct.bucket,
+                       label: params[:label] || label,
+                       content_length: metadata.content_length,
+                       content_type: metadata.content_type,
+                       last_modified: metadata.last_modified,
+                       etag: metadata.etag
+                     }),
+                     opts
+                   ) do
+              {:ok, schema_struct}
+            end
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
+  end
+
+  def complete_multipart_upload(bucket, parts, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
       complete_multipart_upload(
         bucket,
-        builder_params,
-        query,
-        schema_data,
-        update_params,
         parts,
+        schema_struct,
+        Map.drop(params, @primary_keys),
         opts
       )
     end
   end
 
+  @doc group: "Multipart Upload API"
   @doc """
-  TODO...
-  """
-  def abort_multipart_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put_new(update_params, :state, @aborted)
+  Find parts of a multipart upload.
 
-    with {:ok, metadata} <-
-           Storage.abort_multipart_upload(
-             bucket,
-             schema_data.key,
-             schema_data.upload_id,
-             opts
-           ),
-         {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-      {:ok,
-       %{
-         metadata: metadata,
-         schema_data: schema_data
-       }}
+  ### Examples
+
+      iex> Uppy.Core.find_parts("uppy-sandbox", Uppy.Schemas.Upload, %{key: "temp/m/5mb.txt"}, [])
+  """
+  def find_parts(bucket, %_{} = schema_struct, _params, opts) do
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
+
+    cond do
+      is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.bad_request("upload_id not found", %{data: schema_struct})}
+
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload not in progress", %{data: schema_struct})}
+
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        with {:ok, parts} <-
+               storage.list_parts(bucket, schema_struct.key, schema_struct.upload_id, opts) do
+          {:ok,
+           %{
+             data: schema_struct,
+             parts: parts
+           }}
+        end
     end
   end
 
-  def abort_multipart_upload(bucket, query, find_params, update_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{!=: nil})
+  def find_parts(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
 
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_multipart_upload(bucket, query, schema_data, update_params, opts)
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      find_parts(bucket, schema_struct, params, opts)
     end
   end
 
+  @doc group: "Multipart Upload API"
   @doc """
-  TODO...
+  Sign a part of a multipart upload.
+
+  ### Examples
+
+  ```elixir
+  Uppy.Core.pre_sign_upload_part("uppy-sandbox", 1, Uppy.Schemas.Upload, %{key: "temp/m/5mb.txt"}, [])
+
+  content = :crypto.strong_rand_bytes(5 * 1024 * 1024) |> Base.encode64() |> binary_part(0, 5 * 1024 * 1024)
+  File.write!("5mb.txt", content)
+
+  curl -X PUT -T "5mb.txt" "http://s3.localhost.localstack.cloud:4566/uppy-sandbox/temp/m/5mb.txt?partNumber=1&uploadId=Obsu-Z1yFuWweBEDM7_wYwuX4xycJOCIV8idb92kfuznX8ZtFMNSsu23qQiIZowcOK4WIfkcVQlaB2po0RR8sUGT8BypBG1VcUx9k1esewq8QqlknCObiOdkpU5pxTIr&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test%2F20251106%2Fus-west-1%2Fs3%2Faws4_request&X-Amz-Date=20251106T162138Z&X-Amz-Expires=60&X-Amz-SignedHeaders=host&X-Amz-Signature=a9f2e449d19480652c3b31da8362740dc6bb0cfbfa148b26ecbf4a6a34cd2568"
+  ```
   """
-  def create_multipart_upload(
+  def pre_sign_upload_part(bucket, part_number, %_{} = schema_struct, _params, opts) do
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
+
+    cond do
+      is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.bad_request("upload_id not found", %{data: schema_struct})}
+
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        with {:ok, pre_signed_part} <-
+               storage.pre_sign_part(
+                 bucket,
+                 schema_struct.key,
+                 schema_struct.upload_id,
+                 part_number,
+                 opts
+               ) do
+          {:ok,
+           %{
+             pre_signed_url: pre_signed_part,
+             data: schema_struct
+           }}
+        end
+    end
+  end
+
+  def pre_sign_upload_part(bucket, part_number, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      pre_sign_upload_part(
         bucket,
-        builder_params,
-        query,
-        create_params,
-        opts
-      ) do
-    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
-
-    {basename, key} =
-      PathBuilder.build_object_path(
-        create_params.filename,
-        builder_params,
+        part_number,
+        schema_struct,
+        Map.drop(params, @primary_keys),
         opts
       )
+    end
+  end
 
-    with {:ok, multipart_upload} <- Storage.create_multipart_upload(bucket, key, opts) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.create(
-                 query,
-                 Map.merge(create_params, %{
-                   state: @pending,
-                   unique_identifier: unique_identifier,
-                   filename: create_params.filename,
-                   key: key,
-                   upload_id: multipart_upload.upload_id
-                 }),
+  @doc group: "Multipart Upload API"
+  @doc """
+  Abort a multipart upload.
+
+  ### Examples
+
+      iex> Uppy.Core.abort_multipart_upload("uppy-sandbox", Uppy.Schemas.Upload, %{key: "temp/m/5mb.txt"}, [])
+  """
+  def abort_multipart_upload(bucket, %schema_module{} = schema_struct, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
+    force? = Keyword.get(opts, :force, false)
+
+    cond do
+      is_nil(schema_struct.upload_id) ->
+        {:error, ErrorMessage.bad_request("malformed request", %{data: schema_struct})}
+
+      not force? and not is_nil(schema_struct.etag) ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      not force? and schema_struct.promoted ->
+        {:error, ErrorMessage.bad_request("upload completed", %{data: schema_struct})}
+
+      schema_struct.state === @aborted ->
+        {:error, ErrorMessage.bad_request("upload aborted", %{data: schema_struct})}
+
+      true ->
+        with {:ok, _} <-
+               storage.abort_multipart_upload(
+                 bucket,
+                 schema_struct.key,
+                 schema_struct.upload_id,
+                 opts
+               ),
+             {:ok, schema_struct} <-
+               database.update(
+                 schema_module,
+                 schema_struct,
+                 Map.put(params, :aborted, true),
                  opts
                ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_abort_expired_multipart_upload(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 basename: basename,
-                 schema_data: schema_data,
-                 multipart_upload: multipart_upload,
-                 jobs: %{abort_expired_multipart_upload: job}
-               }}
+          {:ok, schema_struct}
+        else
+          {:error, %{code: :not_found}} ->
+            case storage.head_object(bucket, schema_struct.key, opts) do
+              {:ok, metadata} ->
+                {:error,
+                 ErrorMessage.bad_request("upload completed", %{
+                   data: schema_struct,
+                   metadata: metadata
+                 })}
+
+              {:error, _} ->
+                with {:ok, schema_struct} <-
+                       database.update(
+                         schema_module,
+                         schema_struct,
+                         Map.put(params, :aborted, true),
+                         opts
+                       ) do
+                  {:ok, schema_struct}
+                end
             end
-          else
-            {:ok,
-             %{
-               basename: basename,
-               schema_data: schema_data,
-               multipart_upload: multipart_upload
-             }}
-          end
-        end
-      end
 
-      DBAction.transaction(fun, opts)
+          {:error, reason} ->
+            {:error, reason}
+        end
     end
   end
 
+  def abort_multipart_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+
+    with {:ok, schema_struct} <- database.find(schema_module, params, opts) do
+      abort_multipart_upload(bucket, schema_struct, Map.drop(params, @primary_keys), opts)
+    end
+  end
+
+  @doc group: "Multipart Upload API"
   @doc """
-  TODO...
+  Create a multipart upload.
+
+  ### Examples
+
+  Uppy.Repo.start_link()
+  Oban.start_link([name: Uppy.Endpoint.Schedulers.Oban, repo: Uppy.Repo, queues: [uploads: 5]])
+  Uppy.Core.create_multipart_upload("uppy-sandbox", Uppy.Schemas.Upload, %{key: "temp/m/5mb.txt"}, [])
   """
-  def complete_upload(bucket, builder_params, query, %_{} = schema_data, update_params, opts) do
-    unique_identifier = update_params[:unique_identifier] || generate_unique_identifier()
+  def create_multipart_upload(bucket, schema_module, params, opts) do
+    database = opts[:database_adapter] || EctoShorts.Actions
+    storage = opts[:storage_adapter] || CloudCache.Adapters.S3
 
-    {basename, dest_object} =
-      PathBuilder.build_object_path(
-        schema_data,
-        unique_identifier,
-        builder_params,
-        opts
-      )
-
-    with {:ok, metadata} <- Storage.head_object(bucket, schema_data.key, opts) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.update(
-                 query,
-                 schema_data,
-                 Map.merge(update_params, %{
-                   state: @completed,
-                   unique_identifier: unique_identifier,
-                   e_tag: metadata.e_tag
-                 }),
-                 opts
-               ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_move_to_destination(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     dest_object,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 metadata: metadata,
-                 schema_data: schema_data,
-                 basename: basename,
-                 destination_object: dest_object,
-                 jobs: %{move_to_destination: job}
-               }}
-            end
-          else
-            {:ok,
-             %{
-               metadata: metadata,
-               schema_data: schema_data,
-               basename: basename,
-               destination_object: dest_object
-             }}
-          end
-        end
-      end
-
-      DBAction.transaction(fun, opts)
+    with {:ok, mpu} <- storage.create_multipart_upload(bucket, params.key, opts),
+         {:ok, schema_struct} <-
+           database.create(
+             schema_module,
+             Map.merge(params, %{
+               state: @pending,
+               label: params[:label] || module_to_name(schema_module),
+               bucket: bucket,
+               key: params.key,
+               upload_id: mpu.upload_id,
+               filename: params[:filename] || Path.basename(params.key)
+             }),
+             opts
+           ) do
+      {:ok, schema_struct}
     end
   end
 
-  def complete_upload(bucket, builder_params, query, find_params, update_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{==: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      complete_upload(bucket, builder_params, query, schema_data, update_params, opts)
+  defp module_to_name(module) do
+      module
+      |> Module.split()
+      |> List.last()
+      |> Macro.underscore()
     end
-  end
-
-  @doc """
-  TODO...
-  """
-  def abort_upload(bucket, query, %_{} = schema_data, update_params, opts) do
-    update_params = Map.put_new(update_params, :state, @aborted)
-
-    case Storage.head_object(bucket, schema_data.key, opts) do
-      {:ok, metadata} ->
-        {:error,
-         ErrorMessage.forbidden("object exists", %{
-           bucket: bucket,
-           key: schema_data.key,
-           metadata: metadata
-         })}
-
-      {:error, %{code: :not_found}} ->
-        with {:ok, schema_data} <- DBAction.update(query, schema_data, update_params, opts) do
-          {:ok, %{schema_data: schema_data}}
-        end
-
-      e ->
-        e
-    end
-  end
-
-  def abort_upload(bucket, query, find_params, update_params, opts) do
-    find_params =
-      find_params
-      |> Map.put_new(:state, @pending)
-      |> Map.put_new(:upload_id, %{==: nil})
-
-    with {:ok, schema_data} <- DBAction.find(query, find_params, opts) do
-      abort_upload(bucket, query, schema_data, update_params, opts)
-    end
-  end
-
-  @doc """
-  TODO...
-  """
-  def create_upload(bucket, builder_params, query, create_params, opts) when is_binary(bucket) do
-    unique_identifier = create_params[:unique_identifier] || generate_unique_identifier()
-
-    {basename, key} = PathBuilder.build_object_path(create_params.filename, builder_params, opts)
-
-    with {:ok, signed_url} <- Storage.pre_sign(bucket, http_method(opts), key, opts) do
-      fun = fn ->
-        with {:ok, schema_data} <-
-               DBAction.create(
-                 query,
-                 Map.merge(create_params, %{
-                   state: @pending,
-                   unique_identifier: unique_identifier,
-                   filename: create_params.filename,
-                   key: key
-                 }),
-                 opts
-               ) do
-          if Keyword.get(opts, :scheduler_enabled, @scheduler_enabled) do
-            with {:ok, job} <-
-                   Scheduler.enqueue_abort_expired_upload(
-                     bucket,
-                     query,
-                     schema_data.id,
-                     opts
-                   ) do
-              {:ok,
-               %{
-                 basename: basename,
-                 schema_data: schema_data,
-                 signed_url: signed_url,
-                 jobs: %{abort_expired_upload: job}
-               }}
-            end
-          else
-            {:ok,
-             %{
-               basename: basename,
-               schema_data: schema_data,
-               signed_url: signed_url
-             }}
-          end
-        end
-      end
-
-      DBAction.transaction(fun, opts)
-    end
-  end
-
-  defp generate_unique_identifier() do
-    4 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
-  end
-
-  defp http_method(opts) do
-    with val when val not in [:put, :post] <- Keyword.get(opts, :http_method, :put) do
-      raise "Expected the option `:http_method` to be :put or :post, got: #{inspect(val)}"
-    end
-  end
 end
