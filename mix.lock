@@ -1,7 +1,7 @@
 %{
   "bunt": {:hex, :bunt, "1.0.0", "081c2c665f086849e6d57900292b3a161727ab40431219529f13c4ddcf3e7a44", [:mix], [], "hexpm", "dc5f86aa08a5f6fa6b8096f0735c4e76d54ae5c9fa2c143e5a1fc7c1cd9bb6b5"},
   "certifi": {:hex, :certifi, "2.15.0", "0e6e882fcdaaa0a5a9f2b3db55b1394dba07e8d6d9bcad08318fb604c6839712", [:rebar3], [], "hexpm", "b147ed22ce71d72eafdad94f055165c1c182f61a2ff49df28bcc71d1d5b94a60"},
-  "cloud_cache": {:git, "https://github.com/cylkdev/cloud_cache.git", "bec01ceb4676979c61fb726f1ca06753c1e6ecd1", [branch: "main"]},
+  "cloud_cache": {:git, "https://github.com/cylkdev/cloud_cache.git", "62d1f6f319c036f85b49ffb88a6826b0608189a5", [branch: "main"]},
   "combine": {:hex, :combine, "0.10.0", "eff8224eeb56498a2af13011d142c5e7997a80c8f5b97c499f84c841032e429f", [:mix], [], "hexpm", "1b1dbc1790073076580d0d1d64e42eae2366583e7aecd455d1215b0d16f2451b"},
   "configparser_ex": {:hex, :configparser_ex, "5.0.0", "2b37c5022500fc0a47245dad7c2a8df8d2b41441ed348c162de422965a787d0c", [:mix], [], "hexpm", "404319c6181d38e7cf2f6c4b8ce6d6cdaebbde5538a047ec29937cf7198b6b29"},
   "credo": {:hex, :credo, "1.7.13", "126a0697df6b7b71cd18c81bc92335297839a806b6f62b61d417500d1070ff4e", [:mix], [{:bunt, "~> 0.2.1 or ~> 1.0", [hex: :bunt, repo: "hexpm", optional: false]}, {:file_system, "~> 0.2 or ~> 1.0", [hex: :file_system, repo: "hexpm", optional: false]}, {:jason, "~> 1.0", [hex: :jason, repo: "hexpm", optional: false]}], "hexpm", "47641e6d2bbff1e241e87695b29f617f1a8f912adea34296fb10ecc3d7e9e84f"},
