@@ -12,13 +12,13 @@ defmodule Uppy.Endpoint do
       options: []
 
     @impl true
-    def temporary_object(queryable, params) when is_atom(queryable) do
-      "temp/#{module_to_name(queryable)}/#{params.filename}"
+    def temporary_object(schema, params) when is_atom(schema) do
+      "temp/#{module_to_name(schema)}/#{params.filename}"
     end
 
     @impl true
-    def permanent_object(%schema_module{} = schema_data, params) do
-      "store/#{module_to_name(schema_module)}/#{schema_data.id}/#{params[:filename] || schema_data.filename}"
+    def permanent_object(%schema{} = schema_data, params) do
+      "store/#{module_to_name(schema)}/#{schema_data.id}/#{params[:filename] || schema_data.filename}"
     end
 
     defp module_to_name(module) do
@@ -65,8 +65,8 @@ defmodule Uppy.Endpoint do
   @callback bucket() :: String.t()
   @callback scheduler_adapter() :: module()
   @callback options() :: Keyword.t()
-  @callback temporary_object(queryable :: module(), params :: map()) :: String.t()
-  @callback permanent_object(queryable_or_struct :: module() | struct(), params :: map()) ::
+  @callback temporary_object(schema :: module(), params :: map()) :: String.t()
+  @callback permanent_object(schema_or_struct :: module() | struct(), params :: map()) ::
               String.t()
 
   def bucket(adapter), do: adapter.bucket()
@@ -75,42 +75,42 @@ defmodule Uppy.Endpoint do
 
   def options(adapter), do: adapter.options()
 
-  def temporary_object(adapter, queryable, params) do
-    adapter.temporary_object(queryable, params)
+  def temporary_object(adapter, schema, params) do
+    adapter.temporary_object(schema, params)
   end
 
   def schedule_job(adapter, job, delay_sec_or_datetime) do
     scheduler_adapter(adapter).schedule_job(job, delay_sec_or_datetime, options(adapter))
   end
 
-  def delete_upload(adapter, queryable_or_struct, params \\ %{}) do
+  def delete_upload(adapter, schema_or_struct, params \\ %{}) do
     adapter
     |> bucket()
-    |> Core.delete_upload(queryable_or_struct, params, options(adapter))
+    |> Core.delete_upload(schema_or_struct, params, options(adapter))
   end
 
-  def promote_upload(adapter, queryable_or_struct, params \\ %{}) do
+  def promote_upload(adapter, schema_or_struct, params \\ %{}) do
     callback = &adapter.permanent_object/2
 
     adapter
     |> bucket()
-    |> Core.promote_upload(callback, queryable_or_struct, params, options(adapter))
+    |> Core.promote_upload(callback, schema_or_struct, params, options(adapter))
   end
 
-  def complete_upload(adapter, queryable_or_struct, params \\ %{}) do
+  def complete_upload(adapter, schema_or_struct, params \\ %{}) do
     opts = options(adapter)
     scheduler = scheduler_adapter(adapter)
 
-    with {:ok, %schema_module{} = schema_struct} <-
+    with {:ok, %schema{} = schema_struct} <-
            adapter
            |> bucket()
-           |> Core.complete_upload(queryable_or_struct, params, opts),
+           |> Core.complete_upload(schema_or_struct, params, opts),
          {:ok, job} <-
            scheduler.add_job(
              %{
                event: "uppy.endpoint.promote_upload",
                endpoint: adapter,
-               query: schema_module,
+               query: schema,
                id: schema_struct.id
              },
              opts
@@ -125,42 +125,42 @@ defmodule Uppy.Endpoint do
     end
   end
 
-  def abort_upload(adapter, queryable_or_struct, params \\ %{}) do
+  def abort_upload(adapter, schema_or_struct, params \\ %{}) do
     adapter
     |> bucket()
-    |> Core.abort_upload(queryable_or_struct, params, options(adapter))
+    |> Core.abort_upload(schema_or_struct, params, options(adapter))
   end
 
-  def pre_sign_upload(adapter, queryable_or_struct, params \\ %{}) do
+  def pre_sign_upload(adapter, schema_or_struct, params \\ %{}) do
     adapter
     |> bucket()
-    |> Core.pre_sign_upload(queryable_or_struct, params, options(adapter))
+    |> Core.pre_sign_upload(schema_or_struct, params, options(adapter))
   end
 
-  def create_upload(adapter, queryable, params \\ %{}) do
+  def create_upload(adapter, schema, params \\ %{}) do
     filename = params.filename
     create_params = params |> Map.delete(:key) |> Map.put(:filename, filename)
-    temp_key = temporary_object(adapter, queryable, create_params)
+    temp_key = temporary_object(adapter, schema, create_params)
 
     adapter
     |> bucket()
-    |> Core.create_upload(queryable, Map.put(create_params, :key, temp_key), options(adapter))
+    |> Core.create_upload(schema, Map.put(create_params, :key, temp_key), options(adapter))
   end
 
-  def complete_multipart_upload(adapter, parts, queryable_or_struct, params \\ %{}) do
+  def complete_multipart_upload(adapter, parts, schema_or_struct, params \\ %{}) do
     opts = options(adapter)
     scheduler = scheduler_adapter(adapter)
 
-    with {:ok, %schema_module{} = schema_struct} <-
+    with {:ok, %schema{} = schema_struct} <-
            adapter
            |> bucket()
-           |> Core.complete_multipart_upload(parts, queryable_or_struct, params, opts),
+           |> Core.complete_multipart_upload(parts, schema_or_struct, params, opts),
          {:ok, job} <-
            scheduler.add_job(
              %{
                event: "uppy.endpoint.promote_upload",
                endpoint: adapter,
-               query: schema_module,
+               query: schema,
                id: schema_struct.id
              },
              opts
@@ -175,33 +175,33 @@ defmodule Uppy.Endpoint do
     end
   end
 
-  def abort_multipart_upload(adapter, queryable_or_struct, params \\ %{}) do
+  def abort_multipart_upload(adapter, schema_or_struct, params \\ %{}) do
     adapter
     |> bucket()
-    |> Core.abort_multipart_upload(queryable_or_struct, params, options(adapter))
+    |> Core.abort_multipart_upload(schema_or_struct, params, options(adapter))
   end
 
-  def find_parts(adapter, queryable_or_struct, params \\ %{}) do
+  def find_parts(adapter, schema_or_struct, params \\ %{}) do
     adapter
     |> bucket()
-    |> Core.find_parts(queryable_or_struct, params, options(adapter))
+    |> Core.find_parts(schema_or_struct, params, options(adapter))
   end
 
-  def pre_sign_upload_part(adapter, part_number, queryable_or_struct, params \\ %{}) do
+  def pre_sign_upload_part(adapter, part_number, schema_or_struct, params \\ %{}) do
     adapter
     |> bucket()
-    |> Core.pre_sign_upload_part(part_number, queryable_or_struct, params, options(adapter))
+    |> Core.pre_sign_upload_part(part_number, schema_or_struct, params, options(adapter))
   end
 
-  def create_multipart_upload(adapter, queryable, params \\ %{}) do
+  def create_multipart_upload(adapter, schema, params \\ %{}) do
     filename = params.filename
     create_params = params |> Map.delete(:key) |> Map.put(:filename, filename)
-    temp_key = temporary_object(adapter, queryable, create_params)
+    temp_key = temporary_object(adapter, schema, create_params)
 
     adapter
     |> bucket()
     |> Core.create_multipart_upload(
-      queryable,
+      schema,
       Map.put(create_params, :key, temp_key),
       options(adapter)
     )
@@ -228,53 +228,53 @@ defmodule Uppy.Endpoint do
       @impl true
       def options, do: @options
 
-      def promote_upload(queryable_or_struct, params \\ %{}) do
-        Endpoint.promote_upload(__MODULE__, queryable_or_struct, params)
+      def promote_upload(schema_or_struct, params \\ %{}) do
+        Endpoint.promote_upload(__MODULE__, schema_or_struct, params)
       end
 
-      def delete_upload(queryable_or_struct, params \\ %{}) do
-        Endpoint.delete_upload(__MODULE__, queryable_or_struct, params)
+      def delete_upload(schema_or_struct, params \\ %{}) do
+        Endpoint.delete_upload(__MODULE__, schema_or_struct, params)
       end
 
-      def complete_upload(queryable_or_struct, params \\ %{}) do
-        Endpoint.complete_upload(__MODULE__, queryable_or_struct, params)
+      def complete_upload(schema_or_struct, params \\ %{}) do
+        Endpoint.complete_upload(__MODULE__, schema_or_struct, params)
       end
 
-      def abort_upload(queryable_or_struct, params \\ %{}) do
-        Endpoint.abort_upload(__MODULE__, queryable_or_struct, params)
+      def abort_upload(schema_or_struct, params \\ %{}) do
+        Endpoint.abort_upload(__MODULE__, schema_or_struct, params)
       end
 
-      def pre_sign_upload(queryable, params) do
-        Endpoint.pre_sign_upload(__MODULE__, queryable, params)
+      def pre_sign_upload(schema, params) do
+        Endpoint.pre_sign_upload(__MODULE__, schema, params)
       end
 
-      def create_upload(queryable, params \\ %{}) do
-        Endpoint.create_upload(__MODULE__, queryable, params)
+      def create_upload(schema, params \\ %{}) do
+        Endpoint.create_upload(__MODULE__, schema, params)
       end
 
       def complete_multipart_upload(
             parts,
-            queryable_or_struct,
+            schema_or_struct,
             params \\ %{},
             opts \\ []
           ) do
-        Endpoint.complete_multipart_upload(__MODULE__, parts, queryable_or_struct, params)
+        Endpoint.complete_multipart_upload(__MODULE__, parts, schema_or_struct, params)
       end
 
-      def abort_multipart_upload(queryable_or_struct, params \\ %{}) do
-        Endpoint.abort_multipart_upload(__MODULE__, queryable_or_struct, params)
+      def abort_multipart_upload(schema_or_struct, params \\ %{}) do
+        Endpoint.abort_multipart_upload(__MODULE__, schema_or_struct, params)
       end
 
-      def find_parts(queryable_or_struct, params \\ %{}) do
-        Endpoint.find_parts(__MODULE__, queryable_or_struct, params)
+      def find_parts(schema_or_struct, params \\ %{}) do
+        Endpoint.find_parts(__MODULE__, schema_or_struct, params)
       end
 
-      def pre_sign_upload_part(part_number, queryable_or_struct, params \\ %{}) do
-        Endpoint.pre_sign_upload_part(__MODULE__, part_number, queryable_or_struct, params)
+      def pre_sign_upload_part(part_number, schema_or_struct, params \\ %{}) do
+        Endpoint.pre_sign_upload_part(__MODULE__, part_number, schema_or_struct, params)
       end
 
-      def create_multipart_upload(queryable, params \\ %{}) do
-        Endpoint.create_multipart_upload(__MODULE__, queryable, params)
+      def create_multipart_upload(schema, params \\ %{}) do
+        Endpoint.create_multipart_upload(__MODULE__, schema, params)
       end
     end
   end

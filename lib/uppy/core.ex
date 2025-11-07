@@ -51,7 +51,6 @@ defmodule Uppy.Core do
 
     dest_bucket = opts[:destination][:bucket] || bucket
     dest_schema_module = opts[:destination][:schema_module] || src_schema_module
-    unique_identifier = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 
     label =
       params[:label] ||
@@ -75,7 +74,7 @@ defmodule Uppy.Core do
                label: label,
                promoted: true,
                filename: params[:filename] || parent.filename,
-               unique_identifier: params[:unique_identifier] || unique_identifier,
+               unique_identifier: params[:unique_identifier] || gen_promoted_id(),
                key: dest_key,
                content_length: metadata.content_length,
                content_type: metadata.content_type,
@@ -287,6 +286,7 @@ defmodule Uppy.Core do
                label: params[:label] || module_to_name(schema_module),
                bucket: bucket,
                key: params.key,
+               unique_identifier: params[:unique_identifer] || gen_temp_id(),
                filename: params[:filename] || Path.basename(params.key)
              }),
              opts
@@ -616,6 +616,7 @@ defmodule Uppy.Core do
                bucket: bucket,
                key: params.key,
                upload_id: mpu.upload_id,
+               unique_identifier: params[:unique_identifer] || gen_temp_id(),
                filename: params[:filename] || Path.basename(params.key)
              }),
              opts
@@ -624,10 +625,20 @@ defmodule Uppy.Core do
     end
   end
 
+  defp gen_temp_id do
+    uid = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+    "T:" <> uid
+  end
+
+  defp gen_promoted_id do
+    uid = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+    "P:" <> uid
+  end
+
   defp module_to_name(module) do
-      module
-      |> Module.split()
-      |> List.last()
-      |> Macro.underscore()
-    end
+    module
+    |> Module.split()
+    |> List.last()
+    |> Macro.underscore()
+  end
 end

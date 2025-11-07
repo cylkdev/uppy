@@ -71,7 +71,8 @@ defmodule Uppy.MixProject do
       {:timex, "~> 3.0"},
       {:req, "~> 0.5"},
       {:error_message, ">= 0.0.0"},
-      {:ecto_shorts, git: "https://github.com/cylkdev/ecto_shorts.git", branch: "cylkdev-ecto-shorts-2.5.0"},
+      {:ecto_shorts,
+       git: "https://github.com/cylkdev/ecto_shorts.git", branch: "cylkdev-ecto-shorts-2.5.0"},
       {:cloud_cache, git: "https://github.com/cylkdev/cloud_cache.git", branch: "main"},
       {:oban, "~> 2.15"},
       {:cue, git: "https://github.com/cylkdev/cue.git", branch: "main"}
