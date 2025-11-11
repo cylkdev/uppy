@@ -1,5 +1,7 @@
 import Config
 
+config :uppy, :repo, Uppy.Repo
+
 config :ex_aws,
   region: "us-west-1",
   access_key_id: ["<REQUIS_AWS_ACCESS_KEY_ID>"],
