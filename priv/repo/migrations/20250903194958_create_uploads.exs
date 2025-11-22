@@ -3,20 +3,21 @@ defmodule Uppy.Repo.Migrations.CreateUploads do
 
   def change do
     create table(:uploads) do
-      add :unique_identifier, :string
-      add :key, :string
-
-      add :content_length, :integer
+      add :state, :string, null: false
+      add :request_key, :string, null: false
+      add :stored_key, :string, null: false
+      add :upload_id, :string
+      add :filename, :string
+      add :content_length, :bigint
       add :content_type, :string
       add :last_modified, :naive_datetime
       add :etag, :string
 
-      add :pending_upload_id, references(:pending_uploads, on_delete: :nilify_all)
-
       timestamps()
     end
 
-    create index(:uploads, [:pending_upload_id])
-    create unique_index(:uploads, [:unique_identifier])
+    create unique_index(:uploads, :request_key)
+    create unique_index(:uploads, :stored_key)
+    create unique_index(:uploads, :upload_id)
   end
 end
